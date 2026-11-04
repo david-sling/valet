@@ -10,7 +10,7 @@ type Screen = 'home' | 'join' | 'review' | 'live' | 'past'
 
 const EXTEND_MS = 15 * 60_000
 const MAX_SESSION_MS = 3 * 60 * 60_000
-const ENDED_BY = { client: 'you', agent: 'vendor', time: 'time' } as const
+const ENDED_BY = { client: 'you', agent: 'vendor', time: 'time', closed: 'closed' } as const
 
 const minsLeft = (endsAt: number | null, now: number) => Math.max(0, Math.ceil(((endsAt ?? now) - now) / 60_000))
 const canExtend = (s: Session) => !!s.startedAt && !!s.endsAt && s.endsAt + EXTEND_MS <= s.startedAt + MAX_SESSION_MS

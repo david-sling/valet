@@ -13,6 +13,7 @@ use crate::needs::{normalise_scope, plan, tilde, Plan, Request};
 use crate::policy::{decide, grants_from, scopes_for, Scope};
 use crate::relay::{InboxAction, Relay, RelayError};
 use crate::sandbox::{self, Ran};
+use crate::store::Store;
 use crate::tools::{self, Failure};
 use crate::types::{now_ms, Grant, Need, Risk, Source};
 
@@ -20,7 +21,7 @@ const ARMING: Duration = Duration::from_millis(600);
 const FEED_OUTPUT: usize = 64 * 1024;
 const MAX_GRANTS: usize = 200;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Phase {
     Joined,
@@ -29,7 +30,7 @@ pub enum Phase {
     Declined,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum FeedItem {
     #[serde(rename = "event")]
@@ -115,6 +116,8 @@ struct Session {
     handling: HashSet<String>,
     stop: CancellationToken,
     tmp: PathBuf,
+    saved_feed: usize,
+    saved: bool,
 }
 
 #[derive(Default)]
@@ -145,6 +148,7 @@ pub struct Manager {
     relay: Relay,
     state: Arc<Mutex<State>>,
     emit: Emit,
+    store: Option<Arc<Store>>,
 }
 
 struct Done {
@@ -201,8 +205,25 @@ fn session_tmp(id: &str) -> std::io::Result<PathBuf> {
 }
 
 impl Manager {
-    pub fn new(relay: Relay, emit: Emit) -> Self {
-        Self { relay, state: Arc::new(Mutex::new(State::default())), emit }
+    pub fn new(relay: Relay, emit: Emit, store: Option<Arc<Store>>) -> Self {
+        let mut state = State::default();
+        for view in store.as_ref().and_then(|s| s.load().ok()).unwrap_or_default() {
+            state.order.push(view.id.clone());
+            state.sessions.insert(
+                view.id.clone(),
+                Session {
+                    saved_feed: view.feed.len(),
+                    view,
+                    token: String::new(),
+                    prompts: vec![],
+                    handling: HashSet::new(),
+                    stop: CancellationToken::new(),
+                    tmp: PathBuf::new(),
+                    saved: true,
+                },
+            );
+        }
+        Self { relay, state: Arc::new(Mutex::new(state)), emit, store }
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, State> {
@@ -223,7 +244,30 @@ impl Manager {
     }
 
     fn changed(&self) {
+        self.persist();
         (self.emit)(self.snapshot());
+    }
+
+    fn persist(&self) {
+        let Some(store) = &self.store else { return };
+        let writes: Vec<(SessionView, Vec<FeedItem>)> = {
+            let mut st = self.lock();
+            st.sessions
+                .values_mut()
+                .filter(|s| !s.saved)
+                .map(|s| {
+                    let fresh = s.view.feed[s.saved_feed..].to_vec();
+                    s.saved_feed = s.view.feed.len();
+                    s.saved = s.view.phase == Phase::Ended;
+                    let mut v = s.view.clone();
+                    v.feed.clear();
+                    (v, fresh)
+                })
+                .collect()
+        };
+        for (view, fresh) in writes {
+            let _ = store.save(&view, &fresh);
+        }
     }
 
     fn token(&self, id: &str) -> Result<String, String> {
@@ -269,6 +313,8 @@ impl Manager {
                     handling: HashSet::new(),
                     stop: CancellationToken::new(),
                     tmp,
+                    saved_feed: 0,
+                    saved: false,
                 },
             );
         }
@@ -411,6 +457,9 @@ impl Manager {
             if phase == Phase::Declined {
                 st.order.retain(|o| o != id);
                 st.sessions.remove(id);
+                if let Some(store) = &self.store {
+                    let _ = store.forget(id);
+                }
             }
             tmp
         };
@@ -799,7 +848,8 @@ mod tests {
             token: created["agent_token"].as_str().unwrap().into(),
         };
 
-        let m = Manager::new(Relay::new(&base), Arc::new(|_| {}));
+        let store = Arc::new(Store::memory());
+        let m = Manager::new(Relay::new(&base), Arc::new(|_| {}), Some(store.clone()));
         let joined = m.join(created["code"].as_str().unwrap()).await.unwrap();
         assert_eq!(joined.sender_name, "Test vendor");
         let choices: Vec<GrantChoice> = serde_json::from_value(template.as_array().unwrap().iter().map(|n| {
@@ -858,6 +908,10 @@ mod tests {
         let s = &m.snapshot()[0];
         assert_eq!((s.phase, s.ended_by.as_deref()), (Phase::Ended, Some("agent")));
         assert!(s.grants.iter().all(|g| !g.on));
+
+        let reopened = Manager::new(Relay::new(&base), Arc::new(|_| {}), Some(store)).snapshot();
+        assert_eq!((reopened.len(), reopened[0].feed.len()), (1, s.feed.len()), "the record should outlive the app");
+        assert!(reopened[0].feed.iter().all(|f| !matches!(f, FeedItem::Action { output: Some(_), .. })));
         let _ = std::fs::remove_dir_all(dir);
     }
 }

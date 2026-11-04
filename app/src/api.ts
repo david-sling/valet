@@ -47,7 +47,7 @@ export type Session = {
   startedAt: number | null
   endsAt: number | null
   endedAt: number | null
-  endedBy: 'client' | 'agent' | 'time' | null
+  endedBy: 'client' | 'agent' | 'time' | 'closed' | null
   grants: Grant[]
   feed: FeedItem[]
   prompts: Prompt[]

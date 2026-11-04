@@ -10,7 +10,7 @@ export type PastSession = {
   vendor: string
   startedAt: number
   endedAt: number
-  endedBy: 'you' | 'vendor' | 'time'
+  endedBy: 'you' | 'vendor' | 'time' | 'closed'
   feed: FeedItem[]
 }
 
@@ -104,7 +104,7 @@ export function Sidebar({
             </button>
           ))
         ) : (
-          <p className="side-empty">Sessions you've had since opening Valet show up here.</p>
+          <p className="side-empty">Sessions you've had show up here. They're kept on this Mac only.</p>
         )}
       </div>
 
@@ -530,7 +530,12 @@ function FeedRow({ item, initial }: { item: Extract<FeedItem, { type: 'action' }
   )
 }
 
-const ENDED_BY = { you: 'Ended by you', vendor: 'Ended by the vendor', time: 'Reached its time limit' }
+const ENDED_BY = {
+  you: 'Ended by you',
+  vendor: 'Ended by the vendor',
+  time: 'Reached its time limit',
+  closed: 'Valet closed before it ended',
+}
 
 export function SessionRecord({ s }: { s: PastSession }) {
   const acts = s.feed.filter((f): f is Extract<FeedItem, { type: 'action' }> => f.type === 'action')
@@ -556,9 +561,11 @@ export function SessionRecord({ s }: { s: PastSession }) {
             </div>
           ))}
         </dl>
-        <p className="seal">
-          <Check /> All permissions were revoked and its programs stopped when it ended
-        </p>
+        {s.endedBy !== 'closed' && (
+          <p className="seal">
+            <Check /> All permissions were revoked and its programs stopped when it ended
+          </p>
+        )}
       </section>
       <section className="page-sec">
         <h2 className="m-label">Activity</h2>

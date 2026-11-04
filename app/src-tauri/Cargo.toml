@@ -22,6 +22,7 @@ sha2 = "0.10"
 hex = "0.4"
 similar = "2"
 libc = "0.2"
+rusqlite = { version = "0.32", features = ["bundled"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

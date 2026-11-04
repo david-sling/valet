@@ -4,6 +4,7 @@ mod policy;
 mod relay;
 mod sandbox;
 mod session;
+mod store;
 mod tools;
 mod types;
 
@@ -67,7 +68,8 @@ pub fn run() {
             let emit = Arc::new(move |views: Vec<SessionView>| {
                 let _ = handle.emit("sessions", views);
             });
-            app.manage(Manager::new(Relay::new(&base), emit));
+            let store = app.path().app_data_dir().ok().and_then(|dir| store::Store::open(&dir.join("valet.db")).ok()).map(Arc::new);
+            app.manage(Manager::new(Relay::new(&base), emit, store));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, set_grant, extend, end])

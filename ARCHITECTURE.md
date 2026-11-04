@@ -336,6 +336,10 @@ Triggered by the person, the time limit, the agent's end event, or the relay rep
 
 When the app quits it ends every open session first. Tokens are never written to disk, so after a crash the app cannot reach those sessions again: the agent sees `client_connected: false` after 90 s, and the relay ends each session at its time limit.
 
+### 9.5 Local history
+
+Past sessions are kept in a SQLite database in the app's data folder (`~/Library/Application Support/in.davidsling.valet/valet.db`, folder `0700`, file `0600`), so the Past list survives restarts. It holds each session's sender, purpose, times, how it ended, its grants and its activity: every action's tool, literal, outcome, how it was confirmed, and any error. It never holds tokens, command output or file contents (diffs included). A session that was live when the app stopped loads as "Valet closed before it ended". Declined sessions are deleted. Nothing is synced or uploaded.
+
 ## 10. Limits
 
 | Limit | Value (initial) |
