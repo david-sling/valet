@@ -571,3 +571,8 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .btn { transition: none; }
 }
+
+.join-link { max-width: 40rem; margin: 0 auto; padding: 64px 16px 96px; display: grid; gap: 24px; justify-items: start; }
+.join-link .brand { margin-bottom: 32px; }
+.join-code { margin: 0; font: 500 clamp(36px, 8vw, 56px)/1 var(--mono); letter-spacing: 0.08em; }
+.join-note { margin: 0; font-size: 14px; color: var(--ink-3); max-width: 46ch; }

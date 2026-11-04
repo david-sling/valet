@@ -8,6 +8,7 @@
     "app": "pnpm --filter @valet/app tauri dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "fake-client": "node tools/fake-client.ts"
   }
 }

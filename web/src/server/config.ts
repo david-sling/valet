@@ -82,3 +82,9 @@ export function readConfig(env: Env): Config {
 let cached: Config | undefined
 export const getConfig = () => (cached ??= readConfig(process.env))
 export const resetConfig = () => void (cached = undefined)
+
+export function publicOrigin(env: Env = process.env) {
+  const problems: string[] = []
+  const host = readHost(env.HOST ?? vercelHost(env), problems)
+  return problems.length ? 'http://localhost:3000' : host
+}
