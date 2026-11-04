@@ -1,0 +1,69 @@
+name: Release app
+
+on:
+  push:
+    tags: ['app-v*']
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check the tag matches the app version
+        run: |
+          version=$(jq -r .version app/src-tauri/tauri.conf.json)
+          [ "$GITHUB_REF_NAME" = "app-v$version" ] || { echo "Tag $GITHUB_REF_NAME doesn't match version $version"; exit 1; }
+
+      - name: Write the App Store Connect key
+        env:
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          umask 077
+          printf '%s\n' "$APPLE_API_PRIVATE_KEY" > "$RUNNER_TEMP/AuthKey.p8"
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: app
+          tauriScript: pnpm tauri
+          args: --target universal-apple-darwin
+          tagName: app-v__VERSION__
+          releaseName: Valet __VERSION__
+          releaseBody: Signed and notarised for macOS 13 or later, on Apple silicon and Intel.
+          releaseDraft: true
+
+      - name: Attach the disk image under a fixed name
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg "$RUNNER_TEMP/Valet.dmg"
+          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/Valet.dmg" --clobber
+
+      - name: Remove the App Store Connect key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8"

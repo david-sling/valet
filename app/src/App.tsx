@@ -46,13 +46,14 @@ export function App() {
   const [joinError, setJoinError] = useState('')
   const [error, setError] = useState('')
   const [dark, setDark] = useState(storedDark)
+  const [update, setUpdate] = useState<string | null>(null)
   const now = useNow(1000)
 
   useEffect(() => {
     api.snapshot().then(setSessions, () => undefined)
-    const off = api.onSessions(setSessions)
+    const off = [api.onSessions(setSessions), api.onUpdate(setUpdate)]
     return () => {
-      off.then((f) => f())
+      off.forEach((o) => o.then((f) => f()))
     }
   }, [])
 
@@ -141,7 +142,18 @@ export function App() {
 
   return (
     <div className="app">
-      {bar ? <SessionBar {...bar} /> : <span />}
+      <div>
+        {update && (
+          <div className="update-bar" role="status">
+            <span>Valet {update} is installed.</span>
+            <span className="m-meta">{live.length ? 'Restarting ends your live sessions.' : 'Restart to use it.'}</span>
+            <button className="mbtn mbtn-ghost mbtn-sm" onClick={() => attempt(api.restart()).catch(() => undefined)}>
+              Restart
+            </button>
+          </div>
+        )}
+        {bar && <SessionBar {...bar} />}
+      </div>
       <div className="win-main">
         <Sidebar
           joining={screen === 'home' || screen === 'join' || screen === 'review'}

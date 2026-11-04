@@ -65,6 +65,8 @@ export const api = {
   extend: (id: string) => invoke<void>('extend', { id }),
   end: (id: string) => invoke<void>('end', { id }),
   onSessions: (f: (s: Session[]) => void) => listen<Session[]>('sessions', (e) => f(e.payload)),
+  onUpdate: (f: (version: string) => void) => listen<string>('update-ready', (e) => f(e.payload)),
+  restart: () => invoke<void>('restart'),
 }
 
 export const message = (e: unknown) => (typeof e === 'string' ? e : e instanceof Error ? e.message : 'Something went wrong.')

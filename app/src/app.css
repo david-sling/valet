@@ -347,3 +347,5 @@ button:disabled { cursor: not-allowed; }
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 .app-error { margin: 12px 28px 0; padding: 10px 14px; border-radius: 12px; background: var(--peach-soft); }
+.update-bar { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px 0 16px; background: var(--sky-soft); color: var(--sky-ink); font-size: 13px; }
+.update-bar .mbtn { height: 32px; margin-left: auto; }

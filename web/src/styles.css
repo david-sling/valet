@@ -606,3 +606,4 @@ a { color: inherit; }
 .jt-bad { margin: 4px 0 0; font-size: 15px; line-height: 1.5; color: #5c4520; max-width: 30ch; }
 .join-copy { display: grid; gap: 16px; width: min(380px, 100%); text-align: center; justify-items: center; }
 .join-note { margin: 0; font-size: 14px; color: var(--ink-3); max-width: 42ch; }
+.join-note a { color: var(--ink); text-underline-offset: 2px; }

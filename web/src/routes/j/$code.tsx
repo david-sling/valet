@@ -7,6 +7,7 @@ export const Route = createFileRoute('/j/$code')({
   component: JoinLink,
 })
 
+const DOWNLOAD = 'https://github.com/david-sling/valet/releases/latest/download/Valet.dmg'
 const VALID = new RegExp(`^[${CODE_CHARS}]{6}$`)
 
 function JoinLink() {
@@ -84,6 +85,9 @@ function JoinLink() {
             </p>
             <p className="join-note">
               The code works once and expires 10 minutes after it was made. If you didn't ask anyone for help, ignore it.
+            </p>
+            <p className="join-note">
+              Don't have Valet yet? <a href={DOWNLOAD}>Download it for Mac</a> (macOS 13 or later).
             </p>
           </div>
         )}

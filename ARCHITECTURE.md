@@ -377,6 +377,14 @@ Past sessions are kept in a SQLite database in the app's data folder (`~/Library
 - **Logging:** request logs carry route, status and duration only, never bodies, tokens, commands or output.
 - **Client builds:** signed and notarised with an Apple Developer ID. Tauri's updater uses signed update manifests. The deep link scheme `valet://` is registered by the app.
 
+### 12.1 Client releases
+
+- Pushing a tag `app-vX.Y.Z` that matches `version` in `app/src-tauri/tauri.conf.json` runs `.github/workflows/release-app.yml` on a macOS runner.
+- It builds one universal binary (Apple silicon and Intel), signs it with the personal Developer ID Application certificate, notarises it with an App Store Connect API key, and staples the ticket.
+- It creates a **draft** GitHub release with the `.dmg`, the updater archive and `latest.json`, plus `Valet.dmg` under a fixed name for the join page's download link. A person publishes the draft after checking it.
+- The app checks `releases/latest/download/latest.json` at launch and every 6 hours, installs a newer version signed with the updater key, and offers a restart. Restarting ends live sessions first.
+- Secrets live only in the repository's GitHub Actions secrets: `APPLE_CERTIFICATE` (base64 `.p12`), `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_API_ISSUER`, `APPLE_API_KEY`, `APPLE_API_PRIVATE_KEY` (the `.p8` text), `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Losing the updater key means installed copies can't update.
+
 ## 13. Open decisions
 
 | # | Question | Proposed | Alternative |

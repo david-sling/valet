@@ -12,6 +12,7 @@
     "allow-answer",
     "allow-set-grant",
     "allow-extend",
-    "allow-end"
+    "allow-end",
+    "allow-restart"
   ]
 }
