@@ -55,13 +55,32 @@ export function TearHero() {
       const stopScroll = startSmoothScroll()
       const frame = q('.scene-wrap')[0] as HTMLElement
       const hold = q('.ticket-hold')[0] as HTMLElement
-      const W = () => frame.offsetWidth
-      // the stage's height: the screen with the address bar showing, which holds still as the bar hides and shows
-      const SH = () => (q('.stage')[0] as HTMLElement).offsetHeight
-      // the strip the phone's gesture bar covers at the bottom, if the page runs on under it
-      const BAR = () => parseFloat(getComputedStyle(q('.stage')[0]).paddingBottom) || 0
-      const H = () => frame.offsetHeight // the scene's frame, which the shreds fly out to
-      const tw = () => hold.offsetWidth
+      const stage = q('.stage')[0] as HTMLElement
+      const handover = q('.handover')[0] as HTMLElement
+      // Sizes are measured once per layout and reused: reading them every frame, straight after the scene has moved,
+      // would make the browser lay the page out again each time. They are measured afresh on every refresh.
+      const measure = () => ({
+        W: frame.offsetWidth,
+        // the stage's height: the screen with the address bar showing, which holds still as the bar hides and shows
+        SH: stage.offsetHeight,
+        // the strip the phone's gesture bar covers at the bottom, if the page runs on under it
+        BAR: parseFloat(getComputedStyle(stage).paddingBottom) || 0,
+        H: frame.offsetHeight, // the scene's frame, which the shreds fly out to
+        tw: hold.offsetWidth,
+        lineW: handover.offsetWidth,
+        lineH: handover.offsetHeight,
+      })
+      let sizes: ReturnType<typeof measure> | null = null
+      const size = () => (sizes ??= measure())
+      const forget = () => {
+        sizes = null
+      }
+      ScrollTrigger.addEventListener('refreshInit', forget)
+      const W = () => size().W
+      const SH = () => size().SH
+      const BAR = () => size().BAR
+      const H = () => size().H
+      const tw = () => size().tw
       // On a narrow screen the ticket stands upright, turned a quarter clockwise: the red body on top, the stub below.
       const vertical = () => upright
       // The big card first settles into the middle, whole and in view, and only then does it tear
@@ -100,9 +119,8 @@ export function TearHero() {
       // Then it tears, and the red body moves straight away from the stub, which stays: up when it stands upright,
       // left when it lies flat. The line appears in the gap. Then the stub falls away to the bottom right, before
       // the next section comes up.
-      const handover = q('.handover')[0] as HTMLElement
       // the gap: room for the line, with air around it, and upright around the corner of the swung stub
-      const gap = () => (vertical() ? handover.offsetHeight + 104 : handover.offsetWidth + 64)
+      const gap = () => (vertical() ? size().lineH + 104 : size().lineW + 64)
       // the perforation's place on screen, against the ticket's centre: 0.19 of its length towards the stub
       const perf = () => tw() * 0.19 * scale()
       const fall = { p: 0 }
@@ -136,20 +154,20 @@ export function TearHero() {
         const away = pull * (1 - part) + shift()
         if (vertical()) {
           const corner = 44 * t // the swung stub's corner rises into the gap
-          const shown = Math.min(handover.offsetHeight, Math.max(0, away - AIR * 2 - corner))
+          const shown = Math.min(size().lineH, Math.max(0, away - AIR * 2 - corner))
           gsap.set(handover, {
             opacity: shown > 0 ? 1 : 0,
             x: 0,
-            y: settleY() + perf() - away + AIR + handover.offsetHeight / 2,
-            clipPath: `inset(-20% -10% ${handover.offsetHeight - shown}px -10%)`,
+            y: settleY() + perf() - away + AIR + size().lineH / 2,
+            clipPath: `inset(-20% -10% ${size().lineH - shown}px -10%)`,
           })
         } else {
-          const shown = Math.min(handover.offsetWidth, Math.max(0, away - AIR * 2))
+          const shown = Math.min(size().lineW, Math.max(0, away - AIR * 2))
           gsap.set(handover, {
             opacity: shown > 0 ? 1 : 0,
-            x: perf() - away + AIR + handover.offsetWidth / 2,
+            x: perf() - away + AIR + size().lineW / 2,
             y: settleY(),
-            clipPath: `inset(-20% ${handover.offsetWidth - shown}px -20% -10%)`,
+            clipPath: `inset(-20% ${size().lineW - shown}px -20% -10%)`,
           })
         }
       }
@@ -220,6 +238,7 @@ export function TearHero() {
       return () => {
         watchCopy.disconnect()
         ScrollTrigger.removeEventListener('refresh', draw)
+        ScrollTrigger.removeEventListener('refreshInit', forget)
         stopScroll()
         fall.p = 0
         tear(0, 0, { body: { x: 0, y: 0 }, stub: { x: 0, y: 0 } })

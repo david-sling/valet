@@ -1,32 +1,33 @@
-import { forwardRef, useId } from 'react'
+import { forwardRef } from 'react'
 import { TICKET as T } from './tear'
 
 // The valet ticket, drawn flat: Valet's red-and-cream mark as a session ticket.
-// The perforation mask is in each half's own coordinates, so the holes travel with the halves when it tears.
-export const Ticket = forwardRef<SVGSVGElement>(function Ticket(_, ref) {
-  const mask = `perf-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
-  const holes = T.bridges.slice(0, -1).map((b) => b.y1 + T.hole / 2)
+// Each half's outline is cut to shape: the notches at both ends of the perforation, a semicircular bite for each
+// half of a hole along it, and, on the red half, the logo's slot. Cut into the outlines rather than masked, so a
+// phone has nothing extra to redraw as the halves move.
+const R = 12 // the ticket's corner radius
+const n = T.notch
+const r = T.hole / 2
+const holes = T.bridges.slice(0, -1).map((b) => b.y1 + r)
+// the red half: round the corners, then down the perforation, biting into the red side for each hole
+const BODY =
+  `M${R} 0 H${T.x - n} A${n} ${n} 0 0 0 ${T.x} ${n} ` +
+  holes.map((cy) => `V${cy - r} A${r} ${r} 0 0 0 ${T.x} ${cy + r} `).join('') +
+  `V${T.h - n} A${n} ${n} 0 0 0 ${T.x - n} ${T.h} H${R} A${R} ${R} 0 0 1 0 ${T.h - R} V${R} A${R} ${R} 0 0 1 ${R} 0Z ` +
+  // the logo's slot, near the red end: a rounded bar across the ticket, at the logo's proportions
+  'M18 42.1 A6.5 6.5 0 0 1 31 42.1 V53.9 A6.5 6.5 0 0 1 18 53.9Z'
+// the stub: round its corners, then back up the perforation, biting into the cream side for each hole
+const STUB =
+  `M${T.x + n} 0 H${T.w - R} A${R} ${R} 0 0 1 ${T.w} ${R} V${T.h - R} A${R} ${R} 0 0 1 ${T.w - R} ${T.h} H${T.x + n} ` +
+  `A${n} ${n} 0 0 0 ${T.x} ${T.h - n} ` +
+  [...holes].reverse().map((cy) => `V${cy + r} A${r} ${r} 0 0 0 ${T.x} ${cy - r} `).join('') +
+  `V${n} A${n} ${n} 0 0 0 ${T.x + n} 0Z`
 
+export const Ticket = forwardRef<SVGSVGElement>(function Ticket(_, ref) {
   return (
     <svg ref={ref} className="ticket" viewBox={`0 0 ${T.w} ${T.h}`} aria-hidden="true">
-      <defs>
-        <mask id={mask} maskUnits="userSpaceOnUse" x="-400" y="-400" width="1000" height="900">
-          <rect x="-400" y="-400" width="1000" height="900" fill="#fff" />
-          {holes.map((cy) => (
-            <circle key={cy} cx={T.x} cy={cy} r={T.hole / 2} fill="#000" />
-          ))}
-          {/* the logo's slot, near the red end: a rounded bar across the ticket, at the logo's proportions */}
-          <rect x="18" y="35.6" width="13" height="24.8" rx="6.5" fill="#000" />
-          <circle cx={T.x} cy="0" r={T.notch} fill="#000" />
-          <circle cx={T.x} cy={T.h} r={T.notch} fill="#000" />
-        </mask>
-      </defs>
       <g className="body">
-        <path
-          mask={`url(#${mask})`}
-          fill="#e2412f"
-          d={`M12 0 H${T.x} V${T.h} H12 A12 12 0 0 1 0 ${T.h - 12} V12 A12 12 0 0 1 12 0Z`}
-        />
+        <path fill="#e2412f" fillRule="evenodd" d={BODY} />
         <g className="words">
           <text x="40" y="40" fill="#fbf3e3" fontFamily="Funnel Display, sans-serif" fontWeight="800" fontSize="24" letterSpacing="-0.5">
             Valet
@@ -41,11 +42,7 @@ export const Ticket = forwardRef<SVGSVGElement>(function Ticket(_, ref) {
       </g>
       <g className="fibres" fill="none" stroke="#b98a4b" strokeLinecap="round" />
       <g className="stub">
-        <path
-          mask={`url(#${mask})`}
-          fill="#efd09b"
-          d={`M${T.x} 0 H${T.w - 12} A12 12 0 0 1 ${T.w} 12 V${T.h - 12} A12 12 0 0 1 ${T.w - 12} ${T.h} H${T.x}Z`}
-        />
+        <path fill="#efd09b" d={STUB} />
         <g className="words">
           <text
             transform={`translate(${T.x + 26} ${T.h / 2}) rotate(-90)`}
