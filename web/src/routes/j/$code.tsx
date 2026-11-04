@@ -26,66 +26,69 @@ function JoinLink() {
   }
 
   return (
-    <main className="join-link">
-      <div className="jt">
-        <div className="jt-body">
-          <a className="jt-brand" href="/">
-            <span className="jt-mark" aria-hidden="true" />
-            Valet
-          </a>
+    <>
+      <nav className="nav" aria-label="Main">
+        <a className="brand" href="/">
+          <img src="/brand/valet-mark.svg" alt="" width="26" height="26" />
+          Valet
+        </a>
+      </nav>
+      <main className="join-link">
+        <div className="jt">
+          <div className="jt-body" aria-hidden="true" />
+          <div className={`jt-stub${code ? ' is-copyable' : ''}`} onClick={copy}>
+            {code ? (
+              <>
+                <h1 className="jt-label">Someone sent you a Valet code</h1>
+                <div className="jt-code">
+                  <span>{code}</span>
+                  <button
+                    type="button"
+                    className="jt-copy"
+                    aria-label={copied ? 'Copied' : 'Copy code'}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      copy()
+                    }}
+                  >
+                    {copied ? <Check /> : <CopyIcon />}
+                  </button>
+                </div>
+                <p className="jt-status" role="status">
+                  {copied ? (
+                    'Copied'
+                  ) : (
+                    <>
+                      <span className="on-pointer">Click to copy</span>
+                      <span className="on-touch">Tap to copy</span>
+                    </>
+                  )}
+                </p>
+                <a className="btn btn-ink jt-open" href={`valet://join/${raw}`} onClick={(e) => e.stopPropagation()}>
+                  Open in Valet
+                </a>
+              </>
+            ) : (
+              <>
+                <h1 className="jt-label">That isn't a Valet code</h1>
+                <p className="jt-bad">A code is six letters and numbers, like ACD-347. Check the link with whoever sent it.</p>
+              </>
+            )}
+          </div>
         </div>
-        <div className={`jt-stub${code ? ' is-copyable' : ''}`} onClick={copy}>
-          {code ? (
-            <>
-              <h1 className="jt-label">Someone sent you a Valet code</h1>
-              <div className="jt-code">
-                <span>{code}</span>
-                <button
-                  type="button"
-                  className="jt-copy"
-                  aria-label={copied ? 'Copied' : 'Copy code'}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    copy()
-                  }}
-                >
-                  {copied ? <Check /> : <CopyIcon />}
-                </button>
-              </div>
-              <p className="jt-status" role="status">
-                {copied ? (
-                  'Copied'
-                ) : (
-                  <>
-                    <span className="on-pointer">Click to copy</span>
-                    <span className="on-touch">Tap to copy</span>
-                  </>
-                )}
-              </p>
-              <a className="btn btn-ink jt-open" href={`valet://join/${raw}`} onClick={(e) => e.stopPropagation()}>
-                Open in Valet
-              </a>
-            </>
-          ) : (
-            <>
-              <h1 className="jt-label">That isn't a Valet code</h1>
-              <p className="jt-bad">A code is six letters and numbers, like ACD-347. Check the link with whoever sent it.</p>
-            </>
-          )}
-        </div>
-      </div>
-      {code && (
-        <div className="join-copy">
-          <p className="lead">
-            Open the Valet app and enter this code to see who is asking and what they want to do. Nothing happens on your
-            computer until you agree.
-          </p>
-          <p className="join-note">
-            The code works once and expires 10 minutes after it was made. If you didn't ask anyone for help, ignore it.
-          </p>
-        </div>
-      )}
-    </main>
+        {code && (
+          <div className="join-copy">
+            <p className="lead">
+              Open the Valet app and enter this code to see who is asking and what they want to do. Nothing happens on your
+              computer until you agree.
+            </p>
+            <p className="join-note">
+              The code works once and expires 10 minutes after it was made. If you didn't ask anyone for help, ignore it.
+            </p>
+          </div>
+        )}
+      </main>
+    </>
   )
 }
 

@@ -578,15 +578,18 @@ a { color: inherit; }
 .jt-body, .jt-stub {
   --cut: radial-gradient(circle var(--notch) at 0 var(--edge), #0000 calc(100% - 0.5px), #000 100%),
     radial-gradient(circle var(--notch) at 100% var(--edge), #0000 calc(100% - 0.5px), #000 100%),
-    radial-gradient(circle var(--hole) at 50% var(--edge), #0000 calc(100% - 0.5px), #000 100%) 50% 0 / 12.649% 100% repeat-x;
+    radial-gradient(circle var(--hole) at 18.378% var(--edge), #0000 calc(100% - 0.5px), #000 100%),
+    radial-gradient(circle var(--hole) at 31.027% var(--edge), #0000 calc(100% - 0.5px), #000 100%),
+    radial-gradient(circle var(--hole) at 43.676% var(--edge), #0000 calc(100% - 0.5px), #000 100%),
+    radial-gradient(circle var(--hole) at 56.324% var(--edge), #0000 calc(100% - 0.5px), #000 100%),
+    radial-gradient(circle var(--hole) at 68.973% var(--edge), #0000 calc(100% - 0.5px), #000 100%),
+    radial-gradient(circle var(--hole) at 81.622% var(--edge), #0000 calc(100% - 0.5px), #000 100%);
   -webkit-mask: var(--cut);
-  -webkit-mask-composite: source-in, source-in;
+  -webkit-mask-composite: source-in;
   mask: var(--cut);
   mask-composite: intersect;
 }
-.jt-body { --edge: 100%; height: 64px; display: flex; align-items: center; padding: 0 20px 6px; background: var(--red); }
-.jt-brand { display: inline-flex; align-items: center; gap: 8px; font: 800 20px/1 var(--display); letter-spacing: -0.02em; color: var(--cream-soft); text-decoration: none; }
-.jt-mark { width: 22px; height: 22px; background: var(--cream-soft); -webkit-mask: url(/brand/valet-mark-mono.svg) center / contain no-repeat; mask: url(/brand/valet-mark-mono.svg) center / contain no-repeat; }
+.jt-body { --edge: 100%; height: 64px; background: var(--red); }
 .jt-stub { --edge: 0; display: grid; justify-items: center; gap: 10px; padding: calc(var(--notch) + 16px) 24px 28px; background: var(--cream); border-radius: 0 0 16px 16px; color: #5c4520; text-align: center; }
 .jt-stub.is-copyable { cursor: copy; }
 .jt-label { margin: 0; font: 500 12px/1.4 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: #8a6a35; }
