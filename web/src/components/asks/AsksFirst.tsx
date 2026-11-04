@@ -53,7 +53,8 @@ export function AsksFirst() {
         scrollTrigger: { trigger: q('.asks-track')[0], start: 'top top', end: 'bottom bottom', scrub: 0.8, invalidateOnRefresh: true },
       })
       // 1. the client holds their finger on Touch ID: the ridges trace in and the ring closes, then both turn green
-      tl.fromTo(q('.touch'), { y: () => centre() + 40, opacity: 0, scale: 0.94 }, { y: () => centre(), opacity: 1, scale: 1, duration: 0.1, ease: 'power2.out' }, 0)
+      // the pad is there from the start, so it slides up over the hero with the heading, still unfilled
+      tl.fromTo(q('.touch'), { y: () => centre() }, { y: () => centre(), duration: 0 }, 0)
         .to(q('.touch-pad'), { scale: 0.97, duration: 0.04, ease: 'power2.out' }, 0.12)
         .fromTo(q('.fp-fill path'), { strokeDashoffset: 103 }, { strokeDashoffset: 0, duration: 0.36, ease: 'power1.in' }, 0.14)
         .fromTo(q('.touch-ring .progress'), { strokeDashoffset: 100 }, { strokeDashoffset: 0, duration: 0.36, ease: 'power1.in' }, 0.14)
