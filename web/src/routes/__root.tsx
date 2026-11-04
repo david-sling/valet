@@ -1,5 +1,6 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackDevtools } from '@tanstack/react-devtools'
+import { Analytics } from '@vercel/analytics/react'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 
 import appCss from '../styles.css?url'
@@ -70,6 +71,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           config={{ position: 'bottom-right' }}
           plugins={[{ name: 'TanStack Router', render: <TanStackRouterDevtoolsPanel /> }]}
         />
+        <Analytics />
         <Scripts />
       </body>
     </html>
