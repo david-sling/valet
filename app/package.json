@@ -9,6 +9,9 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@fontsource/albert-sans": "^5.3.0",
+    "@fontsource/funnel-display": "^5.3.0",
+    "@fontsource/geist-mono": "^5.3.0",
     "@tauri-apps/api": "^2.9.0",
     "@valet/protocol": "workspace:*",
     "react": "^19.2.0",

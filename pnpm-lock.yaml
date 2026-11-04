@@ -10,6 +10,15 @@ importers:
 
   app:
     dependencies:
+      '@fontsource/albert-sans':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/funnel-display':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/geist-mono':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@tauri-apps/api':
         specifier: ^2.9.0
         version: 2.12.4
@@ -199,6 +208,15 @@ packages:
 
   '@emnapi/wasi-threads@1.2.3':
     resolution: {integrity: sha512-ELEBe8PsLvvJ6QMr0zLt8ffvOHW/dc1m3CEzNMg7aJUv3bMaoDtw2TXyDAwkYBuroxxuHEwhRTLJSe5sya547g==}
+
+  '@fontsource/albert-sans@5.3.0':
+    resolution: {integrity: sha512-sxMOb01R+xYfFjc708tKJOElC7qhXyjvF3hWojhX1c+AzoFO18dnbh1hPEkblwvYsY+7Chrs08y80K72omSg7Q==}
+
+  '@fontsource/funnel-display@5.3.0':
+    resolution: {integrity: sha512-3TA/c8FdK+W8Sme1A0Ukg7oEofFk1h+LJYy7A3NFqAJiL2KYDwJHwPTkgPA/GLCridQcaIcYaNJW8OjoQvWFrA==}
+
+  '@fontsource/geist-mono@5.3.0':
+    resolution: {integrity: sha512-UtJ1BBBCVpMYdIcW7nEB45UAoAw5M53ZXs2t0ciPW+IokuAAIc56M8+kW5tXbRJCTpDw4XTtU7proT6NdQAHTg==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -1612,6 +1630,12 @@ snapshots:
     dependencies:
       tslib: 2.9.1
     optional: true
+
+  '@fontsource/albert-sans@5.3.0': {}
+
+  '@fontsource/funnel-display@5.3.0': {}
+
+  '@fontsource/geist-mono@5.3.0': {}
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
