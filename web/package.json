@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "og": "sh scripts/render-og.sh",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:redis": "TEST_REDIS_URL=redis://127.0.0.1:6399 vitest run"
   },
   "dependencies": {
     "@tanstack/react-router": "1.170.46",
