@@ -222,7 +222,11 @@ a { color: inherit; }
 .asks-proof { display: grid; justify-items: center; gap: 28px; }
 
 /* the client's Touch ID, large: the step the section is about */
-.touch { display: grid; justify-items: center; gap: 18px; }
+.touch {
+  display: grid; justify-items: center; gap: 18px;
+  /* the pad can be held like the sensor: a long press selects nothing, the label under it included, and opens no menu */
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
 .touch-pad {
   position: relative; display: grid; place-items: center;
   width: clamp(220px, 26vw, 320px); aspect-ratio: 1; border-radius: 30%;

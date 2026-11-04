@@ -68,6 +68,54 @@ export function AsksFirst() {
         .fromTo(ran, { opacity: 0, y: 32 }, { opacity: 1, y: 0, duration: 0.1, ease: 'power2.out' }, 0.64)
         .fromTo(q('.ran .out'), { opacity: 0 }, { opacity: 1, duration: 0.06 }, 0.76)
         .to({}, { duration: 0.12 }, 0.88) // a short hold on the finished step before the section moves on
+
+      // On a touch screen the pad can be held like the sensor: a finger kept still on it for a moment scrolls the page
+      // on by itself, tracing the fingerprint in, until it turns green. Lifting the finger stops it where it is; a
+      // swipe that starts on the pad still scrolls the page as usual, as the browser then cancels the press.
+      const pad = q('.touch-pad')[0] as HTMLElement
+      const DONE = 0.56 // just past the moment it turns green and says "Allowed once"
+      const HOLD_MS = 180 // how long the finger must stay still before it counts as holding
+      const FILL_S = 1.3 // how long a full trace takes when held
+      let timer = 0
+      let frame = 0
+      const stop = () => {
+        clearTimeout(timer)
+        cancelAnimationFrame(frame)
+      }
+      const onDown = (e: PointerEvent) => {
+        if (e.pointerType !== 'touch') return
+        const st = tl.scrollTrigger
+        if (!st) return
+        const target = st.start + (st.end - st.start) * DONE
+        if (scrollY >= target) return // already allowed
+        // the trace itself runs from 0.14 to 0.5 of the scene; held, it takes FILL_S
+        const speed = ((st.end - st.start) * 0.36) / FILL_S
+        timer = window.setTimeout(() => {
+          let last = performance.now()
+          const step = (now: number) => {
+            const y = Math.min(target, scrollY + (speed * (now - last)) / 1000)
+            last = now
+            window.scrollTo(0, y)
+            if (y < target) frame = requestAnimationFrame(step)
+            else navigator.vibrate?.(18) // the sensor's tap, where the phone allows it
+          }
+          frame = requestAnimationFrame(step)
+        }, HOLD_MS)
+      }
+      const noMenu = (e: Event) => e.preventDefault()
+      pad.addEventListener('pointerdown', onDown)
+      pad.addEventListener('pointerup', stop)
+      pad.addEventListener('pointercancel', stop)
+      pad.addEventListener('pointerleave', stop)
+      pad.addEventListener('contextmenu', noMenu)
+      return () => {
+        stop()
+        pad.removeEventListener('pointerdown', onDown)
+        pad.removeEventListener('pointerup', stop)
+        pad.removeEventListener('pointercancel', stop)
+        pad.removeEventListener('pointerleave', stop)
+        pad.removeEventListener('contextmenu', noMenu)
+      }
     })
 
     return () => mm.revert()
