@@ -163,7 +163,7 @@ export function AsksFirst() {
               <h2 className="h2">Every command asks first.</h2>
               <p>
                 Your agent works inside the ticket the client handed over. Anything outside it waits for a yes on their
-                machine, given with their own finger.
+                machine, with Touch ID for anything risky.
               </p>
             </div>
 

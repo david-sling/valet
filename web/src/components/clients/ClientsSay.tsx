@@ -157,13 +157,7 @@ export function ClientsSay() {
             </div>
             <div className="review-head">
               <p className="vendor">Acme Inc.</p>
-              <p className="verified">
-                <svg viewBox="0 0 16 16" aria-hidden="true">
-                  <circle cx="8" cy="8" r="7" />
-                  <path d="m4.8 8.2 2.1 2.1 4.3-4.4" />
-                </svg>
-                Verified organisation
-              </p>
+              <p className="who">Acme support agent, an AI agent</p>
               <p className="purpose">Find out why AcmeApp crashes when it opens.</p>
               <p className="meta">60-minute session · you can end it at any time</p>
             </div>

@@ -3,9 +3,9 @@ import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 // The section for the vendor side: what their agent gets. The proof is the agent's own view of the same example
-// session, its Valet tool calls over MCP (PRD: A1–A3), each answered with a plain status it can act on: approved,
-// denied or timed_out. It ends with the sealed log both sides receive. Sky is the agent's colour, so the section
-// sits on sky, and the agent's red half of the ticket rests behind its window.
+// session, its calls to Valet's API, made with curl as the Valet skill describes, each answered with a plain status
+// it can act on: approved, denied or rejected. It ends with the sealed log both sides receive. Sky is the agent's
+// colour, so the section sits on sky, and the agent's red half of the ticket rests behind its window.
 // The markup is the finished state, which is what shows without the scroll animation.
 
 type Call = { tool: string; arg?: string; status?: string; note: string; tone: 'ok' | 'denied' | 'gone' }
@@ -16,15 +16,15 @@ const CALLS: Call[] = [
   {
     tool: 'write_file',
     arg: '~/Library/Application Support/AcmeApp/config.json',
-    status: 'timed_out',
-    note: 'No answer within 60 seconds',
+    status: 'rejected',
+    note: 'The file changed after it was read, so it reads again first',
     tone: 'gone',
   },
 ]
 
 const STEPS = [
-  { title: 'Connect your agent.', body: 'Valet is an MCP server, so the agent you already run can use it as a set of tools.' },
-  { title: 'Send the customer a link.', body: 'Start a session from your template. They review it and join from the Valet app.' },
+  { title: 'Connect your agent.', body: 'Add the Valet skill to the agent you already run. It shows the agent how to call Valet with curl.' },
+  { title: 'Send the customer a link.', body: 'Your agent starts a session with the permissions it proposes. They review them and join from the Valet app.' },
   { title: 'Get the signed log.', body: 'When the session ends, you and your customer both receive the same sealed record of every step.' },
 ]
 
@@ -97,7 +97,7 @@ export function ForVendors() {
                 <i />
                 <i />
               </span>
-              <span>Acme support agent · Valet over MCP</span>
+              <span>Acme support agent · Valet skill</span>
             </div>
             <ol className="call-list">
               {CALLS.map((c) => (

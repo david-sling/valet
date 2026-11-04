@@ -27,7 +27,7 @@ const ROWS: { q: string; a: [string, string]; valet: string }[] = [
   {
     q: 'Is it built for an AI agent?',
     a: ['It works through pixels: slow, costly, hard to check', 'A full shell, with nothing in between'],
-    valet: 'Tools with plain answers: approved, denied, timed out',
+    valet: 'Plain answers it can act on: approved, denied, still waiting',
   },
   {
     q: 'What’s left afterwards?',

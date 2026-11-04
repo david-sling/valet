@@ -44,14 +44,14 @@ const ENTRIES: Entry[] = [
   {
     n: 13,
     time: '14:02:33',
-    action: 'AcmeApp opened ~/Documents/Taxes 2025.pdf',
+    action: 'AcmeApp: ~/Documents/Taxes 2025.pdf: Operation not permitted',
     mono: true,
-    outcome: 'Stopped by the sandbox · outside the grants',
+    outcome: 'Refused by the sandbox · outside the grants',
     tone: 'stop',
     hash: 'e8b0…14cd',
     rule: {
       title: 'The operating system enforces it.',
-      body: 'The command only said --diagnose. The sandbox watched what the process actually did and stopped the read no grant covered. Valet never guesses from a command’s text.',
+      body: 'The command only said --diagnose. When the process reached for a file no grant covered, the operating system refused the read. Valet never guesses from a command’s text.',
     },
   },
   {

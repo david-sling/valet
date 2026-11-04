@@ -320,10 +320,7 @@ a { color: inherit; }
 .review-head { display: grid; gap: 3px; padding: 18px 24px 14px; }
 .review-head p { margin: 0; }
 .vendor { font: 700 19px/1.2 var(--display); letter-spacing: -0.01em; }
-.verified { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
-.verified svg { width: 15px; height: 15px; }
-.verified circle { fill: #1fa35a; }
-.verified path { fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.who { font-size: 13px; color: var(--ink-2); }
 .purpose { margin-top: 6px !important; font-size: 15px; }
 .meta { font-size: 12.5px; color: var(--ink-3); }
 
