@@ -1,5 +1,6 @@
 import { createClient } from 'redis'
 import { getConfig } from './config'
+import { closeWake } from './wake'
 
 const create = (url: string) =>
   createClient({ url, socket: { reconnectStrategy: (retries: number) => Math.min(50 * 2 ** retries, 2_000) } })
@@ -27,6 +28,7 @@ export function getRedis() {
 export async function closeRedis() {
   const pending = cache.__valetRedis
   cache.__valetRedis = undefined
+  await closeWake()
   const client = await pending?.catch(() => undefined)
   await client?.close()
 }
