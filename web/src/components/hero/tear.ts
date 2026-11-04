@@ -37,8 +37,9 @@ export type TearTargets = { body: Offset; stub: Offset }
 const f = (n: number) => n.toFixed(2)
 
 // Returns a function that draws the tear for a scroll position. tear 0..1 swings the stub open while the
-// fibres stretch and snap; part 0..1 carries each half's centre to an offset in pixels from where it started.
-// The two overlap, so the tear runs straight on into the halves travelling.
+// fibres stretch and snap; part 0..1 carries each half's centre to an offset in pixels from where it started,
+// easing it down in size by `shrinkBy` on the way. The two overlap, so the tear runs straight on into the halves
+// travelling.
 export function createTear(svg: SVGSVGElement) {
   const T = TICKET
   const body = svg.querySelector<SVGGElement>('.body')!
@@ -48,13 +49,13 @@ export function createTear(svg: SVGSVGElement) {
   layer.replaceChildren()
   const fibres = T.bridges.map(() => [0, 1].map(() => layer.appendChild(document.createElementNS(ns, 'path'))))
 
-  return (tear: number, part: number, to: TearTargets) => {
+  return (tear: number, part: number, to: TearTargets, shrinkBy = 0.22) => {
     const k = svg.clientWidth / T.w || 1 // px per unit
     const th = tear * T.limit
     const slack = 12 * tear * tear // the stub also pulls away a little, so the last fibres by the hinge go too
     const cos = Math.cos(th)
     const sin = Math.sin(th)
-    const shrink = 1 - 0.22 * part // each half eases down in size as it travels
+    const shrink = 1 - shrinkBy * part // each half eases down in size as it travels
     const sc = (cx: number, cy: number) => `translate(${cx} ${cy}) scale(${f(shrink)}) translate(${-cx} ${-cy})`
 
     // the stub turns about the hinge, so its centre drifts; aim the centre, not the hinge, at its target

@@ -90,6 +90,8 @@ a { color: inherit; }
 .display b { display: block; font-weight: 800; }
 .lead { font-size: clamp(16px, 1.4vw, 18px); color: var(--ink-2); max-width: 46ch; text-wrap: pretty; }
 .h2 { margin: 0; font: 700 clamp(2rem, 4vw, 3.25rem)/1.02 var(--display); letter-spacing: -0.03em; text-wrap: balance; }
+/* on phones the size follows the screen width, so a section heading stays within two lines */
+@media (max-width: 520px) { .h2 { font-size: min(2rem, 6.8vw); } }
 
 /* hero: the tearing ticket */
 /* the track pins the stage for the scrubbed scene (150vh), a short hold (20vh), and the next section
@@ -106,7 +108,7 @@ a { color: inherit; }
 .tear-hero .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 
 /* the hands span the screen edge to edge, each wrist off its own side, at a fixed hand size */
-.tear-hero .hands-wrap { --hand: min(20vw, 24vh); position: absolute; left: 0; width: 100%; top: 50vh; height: var(--hand); }
+.tear-hero .hands-wrap { --hand: min(20vw, 24vh); position: absolute; z-index: 2; left: 0; width: 100%; top: 50vh; height: var(--hand); } /* above the shapes */
 /* the scene waits for its script to place it, so it never flashes in its final layout first */
 .tear-hero:not([data-ready]) .hands-wrap { visibility: hidden; }
 .tear-hero .scene { position: relative; width: 100%; height: 100%; }
@@ -165,9 +167,14 @@ a { color: inherit; }
 .tear-hero .shape.sparkle.sky { fill: var(--blue); }
 
 @media (max-width: 760px) {
+  .tear-hero .track { height: 420vh; } /* the upright scene settles the ticket before it tears: 50vh more */
   .tear-hero .hands-wrap { --hand: 24vw; }
-  .tear-hero .ticket-hold { --tw: 40vw; }
+  /* upright, the ticket keeps one size from the first screen to the end, as large as lets its torn halves, the
+     hands and the band between them fit the screen's height (1.29 ticket lengths, 1.1 hand sizes and 200px) */
+  .tear-hero .ticket-hold { --tw: min(110vw, calc((100svh - 200px - 26.4vw) / 1.29)); }
   .tear-hero .shape:is(.ring, .sparkle.sky) { display: none; } /* too close to the hands on a narrow screen */
+  /* the upright ticket's halves part up and down, and the line fills the band between them */
+  .tear-hero .handover { font-size: min(2rem, 7.4vw); }
 }
 
 /* reduced motion: no pinned scroll; the ticket waits between the hands in its resting layout */
@@ -285,14 +292,217 @@ a { color: inherit; }
   .prompt-actions { grid-template-columns: 1fr; gap: 8px; } /* full width each, still equal, so the label clears the fingerprint */
 }
 
-/* the light section that follows */
-.after {
-  position: relative; z-index: 5;
-  background: var(--paper);
-  padding: clamp(72px, 10vw, 120px) clamp(16px, 4vw, 40px) 160px;
+/* "Why your customers will say yes": the client's side, on paper again. The proof takes the wider column,
+   on the left, opposite the section before. */
+.clients { position: relative; z-index: 6; margin-top: -40px; border-radius: 40px 40px 0 0; background: var(--paper); }
+/* each section is one screen: content centred, with only as much padding as the header needs, so it fills the screen
+   and pins (lib/stack-sections) before its top has scrolled under the header */
+.clients, .vendors, .security {
+  min-height: 100vh; min-height: 100svh; display: grid; align-content: center;
+  padding: clamp(96px, 13vh, 120px) clamp(16px, 4vw, 40px) clamp(32px, 4vh, 64px);
 }
-.after-inner { max-width: 72rem; margin: 0 auto; display: grid; gap: 32px; }
-.after p { color: var(--ink-2); max-width: 52ch; }
+/* the heading runs across both columns, so it never takes more than two lines */
+.section-title { grid-column: 1 / -1; grid-row: 1; }
+.clients-inner {
+  max-width: 72rem; margin: 0 auto;
+  display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); gap: clamp(28px, 4.5vh, 44px) clamp(40px, 6vw, 88px); align-items: center;
+}
+.clients-copy { grid-column: 2; grid-row: 2; display: grid; gap: 20px; max-width: 48ch; }
+.clients-copy .lead { margin: 0; }
+.points { list-style: none; margin: 12px 0 0; padding: 0; display: grid; }
+.points li { padding: 16px 0; border-top: 1px solid var(--line); color: var(--ink-2); text-wrap: pretty; }
+.points b { color: var(--ink); font-weight: 600; }
+
+.review { grid-column: 1; grid-row: 2; position: relative; margin: 0; }
+/* the client's half of the ticket, kept behind their window */
+.client-stub { position: absolute; z-index: 0; right: -18px; top: -34px; width: clamp(120px, 14vw, 168px); transform: rotate(8deg); overflow: visible; }
+.client-stub path { fill: var(--cream); stroke: var(--outline); stroke-width: 1.2; }
+.client-stub text { font: 600 7px/1 var(--mono); letter-spacing: 0.12em; fill: var(--ink); }
+.client-stub .stub-no { font: 800 17px/1 var(--display); letter-spacing: -0.02em; }
+
+.review-window {
+  position: relative; z-index: 1; max-width: 40rem;
+  background: #fff; border: 1px solid var(--line); border-radius: 28px;
+  box-shadow: 0 2px 4px rgba(21, 22, 26, 0.04), 0 30px 60px -32px rgba(21, 22, 26, 0.3);
+}
+.review-window .feed-bar { color: var(--ink-3); border-bottom-color: var(--line); }
+.review-window .feed-bar .dots i { background: var(--line); }
+.review-head { display: grid; gap: 3px; padding: 18px 24px 14px; }
+.review-head p { margin: 0; }
+.vendor { font: 700 19px/1.2 var(--display); letter-spacing: -0.01em; }
+.verified { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
+.verified svg { width: 15px; height: 15px; }
+.verified circle { fill: #1fa35a; }
+.verified path { fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.purpose { margin-top: 6px !important; font-size: 15px; }
+.meta { font-size: 12.5px; color: var(--ink-3); }
+
+.segmented { display: flex; gap: 2px; margin: 0 24px; padding: 4px; border-radius: 12px; background: #fafaf8; border: 1px solid #efeff2; font-size: 13px; color: var(--ink-2); }
+.segmented span { flex: 1; text-align: center; padding: 6px 4px; border-radius: 9px; }
+.segmented .is-on { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(21, 22, 26, 0.08); }
+
+.grants { padding: 8px 24px 4px; }
+.grant-group { padding-top: 6px; }
+.grant-label { margin: 0 0 2px; font: 600 11.5px/1.4 var(--sans); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
+.grant-group ul { list-style: none; margin: 0; padding: 0; }
+.grant { position: relative; display: flex; align-items: center; gap: 12px; padding: 6px 0; border-top: 1px solid #efeff2; }
+.grant-group li:first-child { border-top: 0; }
+.grant-body { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.grant-body code { flex: 1 1 14rem; min-width: 0; font: 500 13px/1.45 var(--mono); overflow-wrap: anywhere; }
+.access { padding: 1px 8px; border-radius: 999px; border: 1px solid #efeff2; font: 500 12px/1.5 var(--sans); color: var(--ink-2); }
+.grant.is-off .grant-body { opacity: 0.45; }
+.asked { font: 500 12px/1 var(--sans); color: var(--ink-3); white-space: nowrap; }
+.toggle { flex: none; position: relative; width: 30px; height: 18px; border-radius: 999px; background: #cfcfd6; }
+.toggle.is-on { background: var(--ink); }
+.knob { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(21, 22, 26, 0.2); }
+.toggle.is-on .knob { transform: translateX(12px); }
+.cursor { position: absolute; z-index: 3; left: 14px; top: 16px; width: 26px; height: 26px; opacity: 0; pointer-events: none; overflow: visible; }
+.cursor path { fill: var(--ink); stroke: #fff; stroke-width: 1.4; stroke-linejoin: round; }
+
+.review-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 24px 16px; border-top: 1px solid #efeff2; margin-top: 8px; }
+.review-actions > span { display: inline-block; height: 40px; padding: 0 20px; line-height: 40px !important; text-align: center; border-radius: 999px; font: 600 14px/1 var(--sans); white-space: nowrap; }
+.decline { background: #fff; border: 1px solid var(--line); }
+.start { background: var(--ink); color: #fff; }
+.start b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.review figcaption { margin-top: 10px; font-size: 12.5px; color: var(--ink-3); }
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+@media (max-width: 900px) {
+  .clients-inner { grid-template-columns: 1fr; }
+  .clients-copy, .review { grid-column: 1; grid-row: auto; }
+  .client-stub { right: 4px; }
+}
+@media (max-width: 520px) {
+  .review-head, .grants { padding-left: 18px; padding-right: 18px; }
+  .segmented { margin: 0 18px; }
+  .grant-body code { flex-basis: 100%; } /* the path on its own line, its access and risk beneath it */
+  .review-actions { padding: 14px 18px 18px; }
+  .review-actions > span { flex: 1; padding: 0 12px; }
+  .decline { flex: 0 0 auto !important; }
+}
+
+/* "Your hardest tickets, without the screen-share call": the vendor's side, on the agent's sky. Copy left,
+   the agent's view of the session in the wider column on the right. */
+.vendors { position: relative; z-index: 7; margin-top: -40px; border-radius: 40px 40px 0 0; background: #e4f0ff; }
+.vendors-inner {
+  max-width: 72rem; margin: 0 auto;
+  display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: clamp(28px, 4.5vh, 44px) clamp(40px, 6vw, 88px); align-items: center;
+}
+.vendors-copy { display: grid; gap: 20px; max-width: 48ch; }
+.vendors-copy .lead { margin: 0; }
+.steps { list-style: none; margin: 12px 0 0; padding: 0; display: grid; counter-reset: step; }
+.steps li { counter-increment: step; display: grid; grid-template-columns: 28px 1fr; column-gap: 12px; padding: 16px 0; border-top: 1px solid rgba(31, 75, 143, 0.14); color: var(--ink-2); text-wrap: pretty; }
+.steps li::before { content: counter(step); grid-row: span 2; width: 28px; height: 28px; border-radius: 50%; background: #fff; display: grid; place-items: center; font: 700 13px/1 var(--display); color: #1f4b8f; }
+.steps b { color: var(--ink); font-weight: 600; }
+
+.calls { position: relative; margin: 0; padding: 64px 0 0; }
+/* the agent's half of the ticket, kept behind its window */
+.agent-ticket { position: absolute; z-index: 0; left: -18px; top: -4px; width: clamp(128px, 15vw, 176px); transform: rotate(-7deg); overflow: visible; }
+.agent-ticket path { fill: var(--red-deep); stroke: var(--outline); stroke-width: 1.2; }
+.agent-ticket .slot { fill: #fff; opacity: 0.9; }
+.agent-ticket text { font: 600 7px/1 var(--mono); letter-spacing: 0.12em; fill: #fff; }
+.agent-ticket .ticket-no { font: 800 17px/1 var(--display); letter-spacing: -0.02em; }
+
+.calls-window {
+  position: relative; z-index: 1;
+  background: #fff; border: 1px solid rgba(31, 75, 143, 0.12); border-radius: 28px; overflow: hidden;
+  box-shadow: 0 2px 4px rgba(21, 22, 26, 0.04), 0 30px 60px -32px rgba(31, 75, 143, 0.35);
+}
+.calls-window .feed-bar { color: var(--ink-3); border-bottom-color: var(--line); }
+.calls-window .feed-bar .dots i { background: var(--line); }
+.call-list { list-style: none; margin: 0; padding: 6px 24px; }
+.call { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 12px; padding: 16px 0; border-top: 1px solid #efeff2; }
+.call:first-child { border-top: 0; }
+.agent-tile { width: 30px; height: 30px; border-radius: 9px; background: #e4f0ff; color: #1f4b8f; display: grid; place-items: center; font: 700 12px/1 var(--sans); }
+.call-body { display: grid; gap: 6px; min-width: 0; }
+.call-body p { margin: 0; }
+.call-line { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; row-gap: 2px; }
+.tool { font: 600 13px/1.45 var(--mono); color: var(--ink); }
+.arg { font: 400 13px/1.45 var(--mono); color: var(--ink-2); overflow-wrap: anywhere; }
+.answer { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 13px; color: var(--ink-3); }
+/* the status the agent receives, as it receives it */
+.call-status { padding: 1px 8px; border-radius: 999px; font: 500 12px/1.5 var(--mono); }
+.call-status.is-ok { background: #e3f4ea; color: #136b3a; }
+.call-status.is-denied { background: #ffede6; color: #8f3b1f; }
+.call-status.is-gone { background: #efeff2; color: var(--ink-2); }
+
+.sealed { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 16px 24px 20px; border-top: 1px solid #efeff2; background: #fafaf8; font-size: 13px; color: var(--ink-2); }
+.sealed svg { width: 15px; height: 15px; flex: none; }
+.sealed circle { fill: #1fa35a; }
+.sealed path { fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.sealed span { flex: 1 1 auto; }
+.sealed .tool { margin-right: 6px; }
+.hash { font: 400 12px/1 var(--mono); color: var(--ink-3); }
+.calls figcaption { margin-top: 14px; font-size: 12.5px; color: var(--ink-3); }
+
+@media (max-width: 900px) {
+  .vendors-inner { grid-template-columns: 1fr; }
+  .agent-ticket { left: 4px; }
+}
+@media (max-width: 520px) {
+  .call-list { padding: 4px 18px; }
+  .sealed { padding: 14px 18px 18px; }
+}
+
+/* "The sandbox enforces it. Not the agent.": on the brand's cream paper, built on a spine. The example session's
+   audit log runs down a hash chain, entries on the left, and each rule hangs off the entry that proves it. */
+.security { position: relative; z-index: 8; margin-top: -40px; border-radius: 40px 40px 0 0; background: var(--cream-soft); }
+.security-inner { max-width: 72rem; margin: 0 auto; display: grid; gap: clamp(28px, 4.5vh, 44px); }
+.security-head { display: grid; gap: 14px; }
+.security-head .lead { margin: 0; max-width: 64ch; }
+
+.spine-figure { margin: 0; }
+.spine { list-style: none; margin: 0; padding: 0; display: grid; row-gap: 8px; }
+.spine-row { display: grid; grid-template-columns: minmax(0, 1.1fr) 56px minmax(0, 0.9fr); align-items: center; }
+
+.log-entry {
+  display: grid; gap: 2px; padding: 9px 16px 10px;
+  background: #fff; border: 1px solid rgba(138, 106, 53, 0.14); border-radius: 20px;
+  box-shadow: 0 1px 2px rgba(21, 22, 26, 0.05), 0 8px 24px -12px rgba(92, 69, 32, 0.22);
+}
+.log-entry p { margin: 0; }
+.log-head { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; font-size: 12.5px; color: var(--ink-3); }
+.log-no { font: 600 12px/1.4 var(--mono); color: var(--ink-2); }
+.log-head time { font: 400 12px/1.4 var(--mono); }
+.log-outcome { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.log-outcome::before { content: ""; width: 7px; height: 7px; border-radius: 50%; }
+.log-outcome.is-ok::before { background: #1fa35a; }
+.log-outcome.is-stop::before { background: #ffc4b0; box-shadow: inset 0 0 0 1px #8f3b1f; }
+.log-outcome.is-event::before { background: #c7b8ff; }
+.log-action { font-size: 14px; font-weight: 500; color: var(--ink); }
+.log-action.is-mono { font: 500 13px/1.45 var(--mono); overflow-wrap: anywhere; }
+.log-hash { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; font-size: 11.5px; color: var(--ink-3); }
+.log-hash code { font: 400 11.5px/1.4 var(--mono); }
+.log-hash .is-own { padding: 0 5px; border-radius: 5px; background: #efeaff; color: var(--ink-2); }
+
+/* the chain: a knot per entry, joined to the knots either side across the gap between rows */
+.knot { position: relative; align-self: stretch; }
+.knot b { position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #c7b8ff; box-shadow: 0 0 0 4px #efeaff; }
+.is-seal .knot b { background: #1fa35a; box-shadow: 0 0 0 4px #e3f4ea; }
+.knot i { position: absolute; left: calc(50% - 1px); width: 2px; background: #c7b8ff; }
+.knot .up { top: -4px; bottom: 50%; transform-origin: 50% 0; }
+.knot .down { top: 50%; bottom: -4px; transform-origin: 50% 0; }
+
+.rule { position: relative; margin: 0; max-width: 48ch; font-size: 14.5px; color: var(--ink-2); text-wrap: pretty; }
+.rule b { display: block; margin-bottom: 2px; color: var(--ink); font-weight: 600; }
+/* a short tie from the knot to the rule, level with the knot: both sit on the row's middle */
+.rule::before { content: ""; position: absolute; left: -22px; top: calc(50% - 1px); width: 14px; height: 2px; border-radius: 1px; background: #c7b8ff; }
+.spine-figure figcaption { margin-top: 14px; font-size: 12.5px; color: var(--ink-3); }
+
+@media (max-width: 760px) {
+  /* on a narrow screen the spine runs down the left edge, and each rule sits under its entry */
+  .spine { row-gap: 14px; }
+  .spine-row { grid-template-columns: 28px minmax(0, 1fr); row-gap: 10px; }
+  .knot { grid-column: 1; grid-row: 1 / span 2; }
+  .knot b { top: 26px; left: 9px; margin: -6px 0 0 -6px; }
+  .knot i { left: 8px; }
+  .knot .up { top: -7px; bottom: auto; height: 33px; }
+  .knot .down { top: 26px; bottom: -7px; }
+  .log-entry { grid-column: 2; grid-row: 1; }
+  .rule { grid-column: 2; grid-row: 2; padding-left: 4px; font-size: 14.5px; }
+  .rule::before { display: none; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .btn { transition: none; }
