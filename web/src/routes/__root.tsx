@@ -21,7 +21,7 @@ export const Route = createRootRoute({
       { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
       { title: TITLE },
       { name: 'description', content: DESCRIPTION },
-      { name: 'theme-color', content: '#fbfaf6' },
+      { name: 'theme-color', content: '#ffffff' }, // the hero's white, which the page opens on
       // Open Graph: link previews in Slack, LinkedIn, iMessage, WhatsApp and most others
       { property: 'og:type', content: 'website' },
       { property: 'og:site_name', content: 'Valet' },

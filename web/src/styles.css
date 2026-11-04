@@ -93,7 +93,8 @@ a { color: inherit; }
 /* on phones the size follows the screen width, so a section heading stays within two lines */
 @media (max-width: 520px) { .h2 { font-size: min(2rem, 6.8vw); } }
 
-/* hero: the tearing ticket */
+/* hero: the tearing ticket, on pure white */
+.tear-hero { background: #fff; }
 /* the track pins the stage for the scrubbed scene (300vh) and the next section sliding up over its end (the last
    100vh), from just after the stub starts to fall, while the red body is still drifting. The stage stays put
    underneath until it is fully covered. */
@@ -544,6 +545,13 @@ a { color: inherit; }
 .early-form { width: min(100%, 30rem); text-align: left; }
 .early-form iframe { display: block; width: 100%; border: 0; }
 .rejoin .ticket { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 16px 26px rgba(21, 22, 26, 0.18)); }
+/* on a phone the ticket's words are set smaller, each half's shrinking towards where it sits (the red half's from
+   its left edge, by the slot) */
+@media (max-width: 760px) {
+  .rejoin .ticket .words { transform: scale(0.8); transform-box: fill-box; }
+  .rejoin .ticket .body .words { transform-origin: 0% 50%; }
+  .rejoin .ticket .stub .words { transform-origin: 50% 50%; }
+}
 /* the stub can be pulled off by hand; touch-action keeps a finger's drag from scrolling the page instead */
 .rejoin .stub { cursor: grab; touch-action: none; }
 .closing[data-pulling] .rejoin .stub, .closing[data-pulling] { cursor: grabbing; }
