@@ -176,7 +176,6 @@ export function Home({ onJoin, error }: { onJoin: (code: string) => void; error:
 // plainly, and continuing takes one extra step: the client confirms they know the sender and asked for this.
 export function Join({
   vendor,
-  agent,
   verified,
   purpose,
   createdAt,
@@ -184,7 +183,6 @@ export function Join({
   onDecline,
 }: {
   vendor: string
-  agent: string
   verified: boolean
   purpose: string
   createdAt: number
@@ -217,10 +215,6 @@ export function Join({
           </p>
         )}
         <dl className="kv">
-          <dt>Who connects</dt>
-          <dd>
-            {agent}, an AI agent{verified ? '' : ` run by ${first}`}
-          </dd>
           <dt>Their reason</dt>
           <dd>{purpose}</dd>
           <dt>How long</dt>
@@ -434,7 +428,6 @@ function PageHead({
 
 export function Live({
   vendor,
-  agent,
   verified,
   startedAt,
   feed,
@@ -443,7 +436,6 @@ export function Live({
   onToggle,
 }: {
   vendor: string
-  agent: string
   verified: boolean
   startedAt: number
   feed: FeedItem[]
@@ -453,7 +445,7 @@ export function Live({
 }) {
   return (
     <div className="page live">
-      <PageHead vendor={vendor} meta={`Live since ${hhmm(startedAt)} · ${agent}${verified ? '' : ' · name not verified'}`} />
+      <PageHead vendor={vendor} meta={`Live since ${hhmm(startedAt)}${verified ? '' : ' · name not verified'}`} />
       <div className="page-split">
         <section className="page-sec">
           <h2 className="m-label">Activity</h2>
@@ -461,7 +453,7 @@ export function Live({
             {requests}
             {feed.length <= 1 && !requests.length && (
               <li className="empty">
-                Waiting for {agent}. Anything outside your permissions will ask you first.
+                Waiting for {vendor}. Anything outside your permissions will ask you first.
               </li>
             )}
           </Feed>

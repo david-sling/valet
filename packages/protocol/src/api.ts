@@ -78,7 +78,6 @@ export type SessionState = z.infer<typeof SessionState>
 
 export const CreateSessionBody = z.object({
   name: plain(LIMITS.name),
-  agent: plain(LIMITS.name),
   purpose: plain(LIMITS.purpose),
   template: z.array(Need).max(50).optional(),
 })

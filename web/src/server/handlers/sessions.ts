@@ -46,7 +46,6 @@ export async function createSession(request: Request) {
     .hSet(keys.session(id), {
       state: 'invited',
       sender_name: body.name,
-      agent_name: body.agent,
       purpose: body.purpose,
       template: JSON.stringify(body.template ?? []),
       code,
@@ -98,7 +97,6 @@ export async function join(request: Request) {
     session_id: s.id,
     client_token: token,
     sender_name: s.senderName,
-    agent_name: s.agentName,
     purpose: s.purpose,
     verified: false,
     template: s.template,

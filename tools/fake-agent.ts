@@ -47,7 +47,6 @@ async function settle(aid: string) {
 async function main() {
   const created = await call('POST', '/sessions', {
     name: 'Fake agent',
-    agent: 'Valet test script',
     purpose: 'Check that the client app allows, asks and refuses as it should.',
     template: [
       { kind: 'Files', access: 'read', scope: '/etc/**', risk: 'low' },

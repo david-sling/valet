@@ -37,7 +37,7 @@ async function clean(match = 'valettest:*') {
 async function create() {
   const r = await call(S.createSession, {
     method: 'POST',
-    body: { name: 'Acme Inc.', agent: 'Acme support agent', purpose: 'Find out why AcmeApp crashes.' },
+    body: { name: 'Acme Inc.', purpose: 'Find out why AcmeApp crashes.' },
   })
   expect(r.status).toBe(201)
   return r.body as { session_id: string; agent_token: string; code: string }
@@ -254,7 +254,7 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('relay against a local Redis', () =
     })
     expect(bad.status).toBe(400)
     expect(bad.body.error.hint).toMatch(/command/)
-    const escape = await call(S.createSession, { method: 'POST', body: { name: 'Acme\u001b]0;hi', agent: 'a', purpose: 'p' } })
+    const escape = await call(S.createSession, { method: 'POST', body: { name: 'Acme\u001b]0;hi', purpose: 'p' } })
     expect(escape.status).toBe(400)
     const wait = await call(S.status, { token: s.agent_token, params: s.params, query: '?wait=999' })
     expect(wait.status).toBe(400)

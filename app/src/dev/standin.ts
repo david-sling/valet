@@ -55,7 +55,6 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
         id: `s${++n}`,
         phase: 'joined',
         senderName: 'Northwind support',
-        agentName: 'Claude Code',
         purpose: 'Find out why AcmeApp crashes on launch by reading its log and config.',
         verified: false,
         template: [

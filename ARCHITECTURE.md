@@ -167,7 +167,7 @@ Wave and Valet use the same instance and connection string. Separation rests on:
 | Key | Type | Contents | Expiry |
 |---|---|---|---|
 | `{p}:code:{CODE}` | string | Session ID | 10 min; `GETDEL` on redeem |
-| `{p}:s:{id}` | hash | `state`, `sender_name`, `agent_name`, `purpose`, `template` (JSON), `created_at`, `started_at`, `ends_at`, `ended_at`, `ended_by`, `agent_hash`, `client_hash` | Session expiry |
+| `{p}:s:{id}` | hash | `state`, `sender_name`, `purpose`, `template` (JSON), `created_at`, `started_at`, `ends_at`, `ended_at`, `ended_by`, `agent_hash`, `client_hash` | Session expiry |
 | `{p}:s:{id}:seq` | string | Event counter | Session expiry |
 | `{p}:s:{id}:events` | sorted set, score = seq | JSON events the agent reads (§7.3) | Session expiry |
 | `{p}:s:{id}:inbox` | sorted set, score = seq | Action IDs for the client to pick up | Session expiry |
@@ -204,7 +204,7 @@ Base path `/api/v1`. JSON in and out. Bodies are capped at 256 KB; results are c
 
 | Method and path | Body / query | Returns |
 |---|---|---|
-| `POST /sessions` | `{ name, agent, purpose, template? }`, no auth | `{ session_id, agent_token, code, join_url, expires_at }`, once |
+| `POST /sessions` | `{ name, purpose, template? }`, no auth (the client never learns which agent is acting) | `{ session_id, agent_token, code, join_url, expires_at }`, once |
 | `GET /sessions/{id}` | `?wait=` (returns early on any state change) | `{ state, ends_at, grants, client_connected, last_seq }` |
 | `POST /sessions/{id}/actions` | `{ tool, args, reason, client_id }`, `?wait=` | The action's final result if it finished within `wait`, else `{ action_id, status: "pending" }`. Always includes `events` the agent has not seen |
 | `GET /sessions/{id}/actions/{aid}` | `?wait=` | The action, final or still pending |
@@ -216,7 +216,7 @@ Base path `/api/v1`. JSON in and out. Bodies are capped at 256 KB; results are c
 
 | Method and path | Body / query | Returns |
 |---|---|---|
-| `POST /join` | `{ code }`, no auth | `{ session_id, client_token, sender_name, agent_name, purpose, template, created_at }` |
+| `POST /join` | `{ code }`, no auth | `{ session_id, client_token, sender_name, purpose, template, created_at }` |
 | `POST /sessions/{id}/decline` | — | `{ state: "declined" }` |
 | `POST /sessions/{id}/start` | `{ grants }` | `{ state: "live", ends_at }` |
 | `GET /sessions/{id}/inbox` | `?after=N&wait=` | `{ actions, last_seq, state }` |

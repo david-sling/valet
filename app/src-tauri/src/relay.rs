@@ -17,7 +17,6 @@ pub struct Joined {
     pub session_id: String,
     pub client_token: String,
     pub sender_name: String,
-    pub agent_name: String,
     pub purpose: String,
     pub template: Vec<Need>,
     pub created_at: i64,

@@ -13,7 +13,6 @@ export type Session = {
   id: string
   state: SessionState
   senderName: string
-  agentName: string
   purpose: string
   template: Need[]
   code: string
@@ -36,7 +35,6 @@ function parse(id: string, h: Record<string, string>): Session {
     id,
     state: h.state as SessionState,
     senderName: h.sender_name ?? '',
-    agentName: h.agent_name ?? '',
     purpose: h.purpose ?? '',
     template: h.template ? (JSON.parse(h.template) as Need[]) : [],
     code: h.code ?? '',
@@ -195,7 +193,6 @@ export async function view(redis: Redis, s: Session) {
     session_id: s.id,
     state: s.state,
     sender_name: s.senderName,
-    agent_name: s.agentName,
     purpose: s.purpose,
     created_at: s.createdAt,
     started_at: s.startedAt || undefined,

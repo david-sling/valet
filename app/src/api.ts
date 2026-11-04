@@ -39,7 +39,6 @@ export type Session = {
   id: string
   phase: Phase
   senderName: string
-  agentName: string
   purpose: string
   verified: boolean
   template: Need[]

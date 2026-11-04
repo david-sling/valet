@@ -18,12 +18,12 @@ const RIDGES = [
 // A request waits until the person answers or the session ends. Focus starts on Deny; Escape denies. Allow is
 // disabled for the first 600 ms, and for high and critical risk the app asks macOS for Touch ID itself.
 export function ApprovalPrompt({
-  agent,
+  vendor,
   prompt,
   now,
   onAnswer,
 }: {
-  agent: string
+  vendor: string
   prompt: Prompt
   now: number
   onAnswer: (allow: boolean, scope?: Scope) => Promise<void>
@@ -59,12 +59,12 @@ export function ApprovalPrompt({
       onKeyDown={(e) => e.key === 'Escape' && !prompt.busy && answer(false)}
     >
       <span className="tile" aria-hidden="true">
-        {agent[0]}
+        {vendor[0]}
       </span>
       <div className="request-body">
         <p id={titleId} className="request-ask">
           <span>
-            <b>{agent}</b> wants to {VERB[prompt.tool] ?? prompt.tool}
+            <b>{vendor}</b> wants to {VERB[prompt.tool] ?? prompt.tool}
           </span>
           <RiskBars risk={prompt.risk} />
         </p>
@@ -98,7 +98,7 @@ export function ApprovalPrompt({
         </div>
 
         <div className="reason">
-          <span>Agent's reason</span>
+          <span>Their reason</span>
           <p>{prompt.reason}</p>
         </div>
 

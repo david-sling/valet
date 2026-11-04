@@ -172,7 +172,6 @@ export function App() {
           {screen === 'join' && open && (
             <Join
               vendor={open.senderName}
-              agent={open.agentName}
               verified={open.verified}
               purpose={open.purpose}
               createdAt={open.createdAt}
@@ -197,7 +196,6 @@ export function App() {
             <Live
               key={shown.id}
               vendor={shown.senderName}
-              agent={shown.agentName}
               verified={shown.verified}
               startedAt={shown.startedAt ?? now}
               feed={shown.feed}
@@ -209,7 +207,7 @@ export function App() {
               requests={shown.prompts.map((p) => (
                 <ApprovalPrompt
                   key={p.id}
-                  agent={shown.agentName}
+                  vendor={shown.senderName}
                   prompt={p}
                   now={now}
                   onAnswer={(allow, scope) => api.answer(p.id, allow, scope)}

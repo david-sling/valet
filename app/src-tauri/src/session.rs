@@ -75,7 +75,6 @@ pub struct SessionView {
     pub id: String,
     pub phase: Phase,
     pub sender_name: String,
-    pub agent_name: String,
     pub purpose: String,
     pub verified: bool,
     pub template: Vec<Need>,
@@ -242,7 +241,6 @@ impl Manager {
             id: j.session_id.clone(),
             phase: Phase::Joined,
             sender_name: j.sender_name,
-            agent_name: j.agent_name,
             purpose: j.purpose,
             verified: false,
             template: j.template.into_iter().map(|mut n| {
@@ -400,14 +398,15 @@ impl Manager {
             s.prompts.clear();
             s.view.grants.iter_mut().for_each(|g| g.on = false);
             let tmp = s.tmp.clone();
+            let sender = s.view.sender_name.clone();
             if phase == Phase::Ended {
                 let text = match by.as_deref() {
-                    Some("client") => "You ended the session",
-                    Some("agent") => "The agent ended the session",
-                    Some("time") => "The session reached its time limit",
-                    _ => "The session ended",
+                    Some("client") => "You ended the session".to_string(),
+                    Some("agent") => format!("{sender} ended the session"),
+                    Some("time") => "The session reached its time limit".to_string(),
+                    _ => "The session ended".to_string(),
                 };
-                st.event(id, text.into());
+                st.event(id, text);
             }
             if phase == Phase::Declined {
                 st.order.retain(|o| o != id);
@@ -428,7 +427,7 @@ impl Manager {
                 .find(|(_, s)| s.prompts.iter().any(|p| p.view.id == prompt_id))
                 .ok_or("That request is no longer waiting.")?;
             let id = id.clone();
-            let agent = s.view.agent_name.clone();
+            let agent = s.view.sender_name.clone();
             let i = s.prompts.iter().position(|p| p.view.id == prompt_id).unwrap();
             let p = &mut s.prompts[i];
             if p.view.busy {
@@ -791,7 +790,7 @@ mod tests {
         ]);
         let created: Value = http
             .post(format!("{api}/sessions"))
-            .json(&json!({ "name": "Test vendor", "agent": "Test agent", "purpose": "End-to-end test.", "template": template }))
+            .json(&json!({ "name": "Test vendor", "purpose": "End-to-end test.", "template": template }))
             .send().await.unwrap().json().await.unwrap();
         let agent = Agent {
             http: http.clone(),

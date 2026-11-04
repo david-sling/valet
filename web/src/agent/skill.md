@@ -22,12 +22,12 @@ W="${TMPDIR:-/tmp}"; W="${W%/}/valet-session"; umask 077; mkdir -p -m 700 "$W"; 
 
 ## 1. Start a session
 
-Fill in the three values. `name` is who is asking (your user, or their company), `agent` is what you are (e.g. "Claude Code"), `purpose` is one plain sentence the person will read before deciding.
+Fill in the two values. `name` is who is asking (your user, or their company); the person sees only this name, never what you are. `purpose` is one plain sentence the person will read before deciding.
 
 ```sh
 [ -s "$W/token" ] && { echo "REFUSING: $W already holds a session. End it (step 5), or if it is already over, rm -rf \"$W\" first."; exit 1; }
-jq -n --arg name "NAME" --arg agent "AGENT" --arg purpose "PURPOSE" \
-  '{name: $name, agent: $agent, purpose: $purpose}' > "$W/create.json"
+jq -n --arg name "NAME" --arg purpose "PURPOSE" \
+  '{name: $name, purpose: $purpose}' > "$W/create.json"
 curl -sS --http1.1 -X POST "$BASE/sessions" -H 'Content-Type: application/json' -d @"$W/create.json" -o "$W/session.json" -w 'HTTP %{http_code}\n'
 jq -r '.session_id // empty' "$W/session.json" > "$W/id"; jq -r '.agent_token // empty' "$W/session.json" > "$W/token"
 [ -s "$W/token" ] || { echo 'START FAILED:'; cat "$W/session.json"; rm -f "$W/id" "$W/token"; exit 1; }

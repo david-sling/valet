@@ -78,7 +78,7 @@ async function main() {
   const joined = await call('POST', '/join', { code })
   token = String(joined.client_token)
   id = String(joined.session_id)
-  console.log(`joined: ${joined.sender_name} (${joined.agent_name}): ${joined.purpose}`)
+  console.log(`joined: ${joined.sender_name}: ${joined.purpose}`)
   const template = (joined.template as Record<string, unknown>[]).map((n, i) => ({ ...n, id: `t${i}`, on: true, source: 'proposed' }))
   await call('POST', `/sessions/${id}/start`, { grants: template })
   console.log(`started with ${template.length} permissions`)
