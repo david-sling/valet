@@ -119,6 +119,20 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('relay against a local Redis', () =
     expect((await call(A.getLog, { token: s.agent_token, params })).body).toEqual(log)
   })
 
+  it('returns a waiting status call when the state changes, or at once when live', async () => {
+    const s = await create()
+    const params = { id: s.session_id }
+    const began = Date.now()
+    const waiting = call(S.status, { token: s.agent_token, params, query: '?wait=10' })
+    setTimeout(() => void call(S.join, { method: 'POST', body: { code: s.code } }), 300)
+    expect((await waiting).body.state).toBe('joined')
+    expect(Date.now() - began).toBeLessThan(3000)
+    const l = await live()
+    const t = Date.now()
+    expect((await call(S.status, { token: l.agent_token, params: l.params, query: '?wait=10' })).body.state).toBe('live')
+    expect(Date.now() - t).toBeLessThan(1000)
+  })
+
   it('lets a join code work once', async () => {
     const s = await create()
     expect((await call(S.join, { method: 'POST', body: { code: s.code } })).status).toBe(200)

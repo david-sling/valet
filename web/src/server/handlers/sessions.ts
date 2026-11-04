@@ -1,6 +1,6 @@
 import { CreateSessionBody, JoinBody, StartBody, normaliseCode } from '@valet/protocol'
 import { getConfig } from '../config'
-import { ApiError, json, notFound, readJson, readWait } from '../http'
+import { ApiError, bearer, json, notFound, readJson, readWait } from '../http'
 import { keys } from '../keys'
 import { LIMITS, RATES } from '../limits'
 import { clientIp, limit, pollSlot } from '../rate-limit'
@@ -13,7 +13,6 @@ import {
   expireAt,
   lastSeq,
   loadSession,
-  readSession,
   transition,
   view,
 } from '../session'
@@ -175,22 +174,22 @@ export async function status(request: Request, { id }: Params) {
   const s = await loadSession(redis, id)
   const role = authoriseEither(request, s)
   const { wait, after } = readWait(request)
-  const token = request.headers.get('authorization')!
-  if (wait > 0) {
+  const token = bearer(request)!
+  const waiting = after !== undefined || s.state === 'invited' || s.state === 'joined'
+  if (wait > 0 && waiting) {
     const release = await pollSlot(redis, token)
     try {
-      const since = after ?? (await lastSeq(redis, id))
       const topic = role === 'agent' ? keys.wakeAgent(id) : keys.wakeClient(id)
       await hold(redis, topic, wait * 1000, request.signal, LIMITS.wakeTickMs, async () => {
-        const now = await readSession(redis, id)
+        const now = await loadSession(redis, id).catch(() => undefined)
         if (!now) return true
-        await loadSession(redis, id)
-        return (await lastSeq(redis, id)) > since || undefined
+        if (after !== undefined) return (await lastSeq(redis, id)) > after || undefined
+        return now.state !== s.state || undefined
       })
     } finally {
       await release()
     }
-  } else {
+  } else if (wait === 0) {
     await limit(redis, 'poll', token, RATES.poll)
   }
   return json(await view(redis, await loadSession(redis, id)))
