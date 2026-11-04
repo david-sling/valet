@@ -1,0 +1,84 @@
+<!doctype html>
+<!--
+  The share card (Open Graph / Twitter), 1200 × 630. Rendered to public/og.png with headless Chrome:
+  pnpm og   (see package.json)
+  It reuses the landing page's pieces: the paper ground, the hero's headline, and the ticket torn in two.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@400;700;800&family=Albert+Sans:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap"
+    />
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; }
+      body {
+        position: relative; background: #fbfaf6; color: #15161a;
+        font-family: "Albert Sans", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+      }
+      .copy { position: absolute; left: 80px; top: 72px; bottom: 64px; width: 700px; display: flex; flex-direction: column; }
+      .brand { display: flex; align-items: center; gap: 10px; font: 700 30px/1 "Funnel Display", sans-serif; letter-spacing: -0.02em; }
+      .brand img { width: 38px; height: 38px; }
+      h1 { margin: auto 0 0; font: 400 60px/1.04 "Funnel Display", sans-serif; letter-spacing: -0.035em; white-space: nowrap; }
+      h1 b { display: block; font-weight: 800; } /* one sentence per line */
+      .tag { margin: 26px 0 0; font-size: 26px; color: #4a4c55; }
+      .url { margin: 28px 0 0; font: 500 20px/1 "Geist Mono", monospace; color: #666977; }
+      .ticket { position: absolute; right: 64px; top: 150px; width: 380px; overflow: visible; filter: drop-shadow(0 22px 30px rgba(21, 22, 26, 0.2)); }
+      .shape { position: absolute; border: 2.5px solid #231c3f; box-shadow: 0 6px 0 -1px #231c3f; }
+    </style>
+  </head>
+  <body>
+    <!-- a few of the hero's shapes, kept to the edges -->
+    <span class="shape" style="left: 1062px; top: 50px; width: 70px; height: 44px; border-radius: 14px; background: #ffc33d; transform: rotate(12deg)"></span>
+    <span class="shape" style="left: 720px; top: 486px; width: 98px; height: 40px; border-radius: 999px; background: #ff8fb6; transform: rotate(-10deg)"></span>
+    <span class="shape" style="left: 1100px; top: 520px; width: 38px; height: 38px; border-radius: 10px; background: #2b1e72; transform: rotate(14deg)"></span>
+    <span class="shape" style="left: 760px; top: 70px; width: 46px; height: 46px; border-radius: 50%; background: #b9d0ff"></span>
+
+    <div class="copy">
+      <div class="brand"><img src="../public/brand/valet-mark.svg" alt="" />Valet</div>
+      <h1>Let your agent drive.<b>Keep the trunk locked.</b></h1>
+      <p class="tag">Secure remote control for AI agents.</p>
+      <p class="url">valet.davidsling.in</p>
+    </div>
+
+    <!-- the ticket, torn: the red body tilted one way, the cream stub swung open and dropped. No text on it, only the
+         logo's slot, so it reads as the mark at a glance -->
+    <svg class="ticket" viewBox="-10 -30 230 170" aria-hidden="true">
+      <defs>
+        <mask id="perf" maskUnits="userSpaceOnUse" x="-400" y="-400" width="1000" height="900">
+          <rect x="-400" y="-400" width="1000" height="900" fill="#fff" />
+          <g id="holes"></g>
+          <!-- the logo's slot: a rounded bar near the far end from the tear, at the logo's proportions -->
+          <rect x="18" y="35.6" width="13" height="24.8" rx="6.5" fill="#000" />
+          <circle cx="138" cy="0" r="6" fill="#000" />
+          <circle cx="138" cy="96" r="6" fill="#000" />
+        </mask>
+      </defs>
+      <g transform="rotate(-8 69 48)">
+        <path mask="url(#perf)" fill="#e2412f" d="M12 0 H138 V96 H12 A12 12 0 0 1 0 84 V12 A12 12 0 0 1 12 0Z" />
+      </g>
+      <g transform="translate(20 22) rotate(18 138 90)">
+        <path mask="url(#perf)" fill="#efd09b" d="M138 0 H188 A12 12 0 0 1 200 12 V84 A12 12 0 0 1 188 96 H138Z" />
+      </g>
+    </svg>
+
+    <script>
+      // the perforation, as on the page's ticket: nine holes between the two notches
+      const holes = document.getElementById('holes')
+      const notch = 6, hole = 4.4, count = 9
+      const bridge = (96 - 2 * notch - count * hole) / (count + 1)
+      for (let i = 0; i < count; i += 1) {
+        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+        c.setAttribute('cx', '138')
+        c.setAttribute('cy', String(notch + bridge * (i + 1) + hole * i + hole / 2))
+        c.setAttribute('r', String(hole / 2))
+        c.setAttribute('fill', '#000')
+        holes.appendChild(c)
+      }
+    </script>
+  </body>
+</html>

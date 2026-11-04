@@ -258,7 +258,7 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
         <div className="stage">
           <div className="copy">
             <h1 className="display">
-              Hand your agent the keys.<b>Not the whole car.</b>
+              Let your agent drive.<b>Keep the trunk locked.</b>
             </h1>
             <p className="lead">
               Valet lets an AI agent run commands on your customer's machine: only what they approve, enforced on their
