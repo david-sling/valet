@@ -1,0 +1,3 @@
+# Keep GitHub's language stats to the site itself: the design skill is third-party, and the explorations are sketches
+.claude/** linguist-vendored
+explorations/** linguist-documentation
