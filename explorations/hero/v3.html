@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Valet · Hero 3 · The ticket</title>
+<link rel="icon" href="../../assets/brand/favicon.svg">
+<link rel="stylesheet" href="https://unpkg.com/lenis@1.1.13/dist/lenis.css">
+<link rel="stylesheet" href="shared.css">
+<style>
+  .track { position: relative; height: 340vh; }
+  .stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; background: var(--paper); }
+
+  /* the floating world around the ticket */
+  .bit { position: absolute; will-change: transform; }
+  .blob { border: 2px solid var(--outline); }
+  .b1 { left: 6%; top: 20%; width: 120px; height: 120px; border-radius: 50%; background: var(--sky); }
+  .b2 { right: 7%; top: 16%; width: 150px; height: 96px; border-radius: 28px; background: var(--sun); transform: rotate(10deg); }
+  .b3 { left: 10%; bottom: 12%; width: 110px; height: 150px; border-radius: 26px; background: var(--pink); transform: rotate(-12deg); }
+  .b4 { right: 9%; bottom: 14%; width: 132px; height: 132px; border-radius: 34px; background: var(--night); transform: rotate(8deg); }
+  .c1 { left: 15%; top: 44%; } .c2 { right: 13%; top: 42%; } .c3 { right: 18%; top: 66%; }
+
+  /* the ticket */
+  .ticket-wrap {
+    position: absolute; left: 50%; top: 52%; z-index: 4;
+    width: min(500px, 84vw); transform: translate(-50%, -50%);
+  }
+  .ticket, .stub {
+    --notch: 24px;
+    position: relative; border: 0;
+    -webkit-mask-composite: source-in; mask-composite: intersect;
+  }
+  .ticket {
+    background: var(--red-deep); color: var(--cream);
+    border-radius: 36px 36px 0 0;
+    padding: 30px clamp(22px, 4vw, 40px) 36px;
+    -webkit-mask: radial-gradient(circle var(--notch) at 0 100%, #0000 98%, #000) , radial-gradient(circle var(--notch) at 100% 100%, #0000 98%, #000);
+            mask: radial-gradient(circle var(--notch) at 0 100%, #0000 98%, #000) , radial-gradient(circle var(--notch) at 100% 100%, #0000 98%, #000);
+    -webkit-mask-composite: source-in; mask-composite: intersect;
+    transform-origin: 50% 100%;
+  }
+  .slot { width: 64px; height: 22px; margin: 0 auto 26px; border-radius: 11px; background: var(--paper); }
+  .ticket h1 { margin: 0; font: 400 clamp(2.4rem, 5.6vw, 4.25rem)/0.95 var(--display); letter-spacing: -0.035em; color: #fff; text-wrap: balance; }
+  .ticket h1 b { display: block; font-weight: 800; }
+  .ticket p { margin: 18px 0 22px; color: #fff; font-size: 16px; max-width: 36ch; }
+  .ticket .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn-cream { background: var(--cream); color: var(--ink); }
+  .btn-cream:hover { transform: translateY(-1px); box-shadow: 0 10px 24px -12px rgba(21,22,26,0.5); }
+  .btn-line { background: transparent; color: #fff; border-color: rgba(255,255,255,0.6); }
+  .btn-line:hover { border-color: #fff; }
+  .perf { position: absolute; left: 30px; right: 30px; bottom: -1px; border-bottom: 3px dotted rgba(251,250,246,0.75); }
+
+  .stub {
+    background: var(--cream); color: var(--ink);
+    border-radius: 0 0 28px 28px;
+    padding: 22px clamp(22px, 4vw, 40px);
+    display: flex; justify-content: space-between; gap: 12px; align-items: center;
+    -webkit-mask: radial-gradient(circle var(--notch) at 0 0, #0000 98%, #000) , radial-gradient(circle var(--notch) at 100% 0, #0000 98%, #000);
+            mask: radial-gradient(circle var(--notch) at 0 0, #0000 98%, #000) , radial-gradient(circle var(--notch) at 100% 0, #0000 98%, #000);
+    -webkit-mask-composite: source-in; mask-composite: intersect;
+    font: 500 13px/1.4 var(--mono);
+  }
+  .stub strong { font: 700 15px/1.2 var(--display); letter-spacing: -0.01em; display: block; }
+
+  /* what the ticket opens onto */
+  .inside {
+    position: absolute; inset: 0; z-index: 3; background: var(--red-deep);
+    display: grid; place-items: center; padding: 96px 16px;
+    clip-path: inset(50% 50% 50% 50% round 36px);
+  }
+  .inside-grid { display: grid; gap: 28px; justify-items: center; text-align: center; color: #fff; }
+  .inside .h2 { color: #fff; max-width: 16ch; }
+  .inside .prompt-card { width: min(380px, 88vw); color: var(--ink); text-align: left; }
+  .stage .example-note { position: absolute; right: clamp(16px, 4vw, 40px); bottom: 24px; color: var(--ink-2); z-index: 5; }
+
+  @media (max-width: 760px) {
+    .b1, .b2 { width: 70px; height: 70px; } .b3, .b4 { width: 64px; height: 90px; }
+    .c1, .c2, .c3 { display: none; }
+    .stub { flex-direction: column; align-items: flex-start; }
+  }
+  .reduced .track { height: auto; }
+  .reduced .stage { position: relative; }
+</style>
+</head>
+<body>
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="#"><img src="../../assets/brand/valet-mark.svg" alt="" width="26" height="26">Valet</a>
+  <div class="nav-links"><a href="#how">How it works</a><a href="#security">Security</a><a href="#clients">For clients</a><a href="#docs">Docs</a></div>
+  <a class="btn btn-ink btn-sm" href="#access">Get early access</a>
+</nav>
+
+<main>
+  <div class="track">
+    <div class="stage">
+      <div class="bit blob b1" data-speed="1.2" aria-hidden="true"></div>
+      <div class="bit blob b2" data-speed="0.7" aria-hidden="true"></div>
+      <div class="bit blob b3" data-speed="1.5" aria-hidden="true"></div>
+      <div class="bit blob b4" data-speed="0.9" aria-hidden="true"></div>
+      <div class="bit c1" data-speed="1.8"><span class="chip sun">run /usr/bin/log show</span></div>
+      <div class="bit c2" data-speed="1.1"><span class="chip sky">read ~/Library/Logs/Acme/**</span></div>
+      <div class="bit c3" data-speed="1.4"><span class="chip pink">~/.ssh <i style="background:#fff">Protected</i></span></div>
+
+      <div class="inside" aria-hidden="true">
+        <div class="inside-grid">
+          <p class="h2">Every command asks first.</p>
+          <div class="prompt-card">
+            <div class="who">Acme support agent wants to run a command</div>
+            <div class="act">system_profiler SPDisplaysDataType</div>
+            <div class="row"><span>Deny</span><span class="allow">Allow with Touch ID</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ticket-wrap">
+        <div class="ticket">
+          <div class="slot" aria-hidden="true"></div>
+          <h1>A valet key<b>for AI agents.</b></h1>
+          <p>Your agent runs commands on your customer's machine, and only the ones they hand over. Enforced on their machine, logged for both of you.</p>
+          <div class="actions">
+            <a class="btn btn-cream" href="#access">Get early access</a>
+            <a class="btn btn-line" href="#security">How it stays safe</a>
+          </div>
+          <span class="perf" aria-hidden="true"></span>
+        </div>
+        <div class="stub">
+          <span><strong>Client copy</strong>Keep this. It ends the session.</span>
+          <span>No. 0042 · 60 min</span>
+        </div>
+      </div>
+      <span class="example-note">Example session</span>
+    </div>
+  </div>
+
+  <section class="after" id="how">
+    <div class="after-inner">
+      <h2 class="h2">The client keeps the stub.</h2>
+      <p>The rest of the page continues here.</p>
+    </div>
+  </section>
+</main>
+
+<nav class="switcher" aria-label="Variations"><a href="v1.html">1 · Tear</a><a href="v2.html">2 · Handover</a><a href="v3.html" aria-current="page">3 · The ticket</a></nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+<script src="shared.js"></script>
+<script>
+  if (VALET_REDUCED) {
+    document.documentElement.classList.add("reduced");
+  } else {
+    valetScroll();
+    // a gentle idle sway so the ticket reads as paper, stopped once scrolling takes over
+    const sway = gsap.to(".ticket-wrap", { rotate: 1.2, duration: 2.6, yoyo: true, repeat: -1, ease: "sine.inOut" });
+    const tl = gsap.timeline({
+      defaults: { ease: "none" },
+      scrollTrigger: { trigger: ".track", start: "top top", end: "+=220%", scrub: 0.8, onEnter: () => sway.pause(), onLeaveBack: () => sway.play() }
+    });
+    document.querySelectorAll(".bit").forEach((el) => {
+      const sp = +el.dataset.speed;
+      tl.to(el, { y: -160 * sp, rotate: `+=${sp * 14}`, duration: 1 }, 0);
+    });
+    // 1. the stub tears along the perforation and falls away
+    tl.to(".stub", { rotate: -9, x: -30, y: 16, transformOrigin: "100% 0%", duration: 0.12, ease: "power1.in" }, 0.05)
+      .to(".stub", { y: "70vh", x: "-30vw", rotate: -38, duration: 0.3, ease: "power2.in" }, 0.17)
+      // 2. the ticket lifts, then opens: its red becomes the whole screen
+      .to(".ticket-wrap", { rotate: 0, y: -20, duration: 0.15 }, 0.1)
+      .to(".ticket-wrap", { scale: 1.12, opacity: 0, duration: 0.2, ease: "power2.in" }, 0.42)
+      .to(".inside", { clipPath: "inset(0% 0% 0% 0% round 0px)", duration: 0.3, ease: "power2.inOut" }, 0.4)
+      .from(".inside-grid > *", { y: 60, opacity: 0, stagger: 0.06, duration: 0.2, ease: "power2.out" }, 0.58)
+      .to(".stage .example-note", { color: "#ffffff", duration: 0.05 }, 0.5);
+  }
+</script>
+</body>
+</html>

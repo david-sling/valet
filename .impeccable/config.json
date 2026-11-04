@@ -1,0 +1,23 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "geist mono",
+        "createdAt": "2026-11-04T09:41:41.696Z",
+        "reason": "DESIGN.md (adopted from Wave at the user's request) reserves Geist Mono for literal commands, paths and hosts only"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "explorations/hero/v3.html"
+        ],
+        "createdAt": "2026-11-04T09:41:41.723Z",
+        "reason": "False positive: .ticket and .stub compute 40px side padding in the browser (clamp(22px, 4vw, 40px)); detector reads them as flush"
+      }
+    ]
+  }
+}

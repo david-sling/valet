@@ -1,0 +1,12 @@
+.DS_Store
+
+# Impeccable engine binary: the launcher downloads it on first run
+/.claude/skills/impeccable/scripts/bin/
+
+# Impeccable review captures and local config
+/.impeccable/review/
+/.impeccable/config.local.json
+/.impeccable/hook.cache.json
+
+# Per-machine agent permissions and hooks
+.claude/settings.local.json

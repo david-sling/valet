@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Valet · Hero 1 · Tear</title>
+<link rel="icon" href="../../assets/brand/favicon.svg">
+<link rel="stylesheet" href="https://unpkg.com/lenis@1.1.13/dist/lenis.css">
+<link rel="stylesheet" href="shared.css">
+<style>
+  .track { position: relative; height: 290vh; }
+  .stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
+
+  .copy {
+    position: absolute; inset: 0 0 auto 0; z-index: 3;
+    padding: clamp(92px, 13vh, 128px) 16px 0;
+    display: grid; justify-items: center; text-align: center; gap: 18px;
+  }
+  .copy .display { font-size: clamp(2.5rem, 5.6vw, 5rem); }
+  .copy .lead { margin: 0; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+  /* the hands span the card edge to edge, each wrist off its own side, at a fixed hand size */
+  .hands-wrap { --hand: min(36vw, 44vh); position: absolute; left: 0; width: 100%; top: 54vh; height: var(--hand); }
+  .h3d { position: relative; width: 100%; height: 100%; }
+  .h3d .hand-agent, .h3d .hand-client, .h3d .ticket-hold { position: absolute; }
+  .h3d img { display: block; width: 100%; height: auto; user-select: none; }
+  /* The Creation of Adam: the agent's open palm reaches up from the left, the client's hand reaches down from
+     the right. Both images point right; the client's is mirrored. Their resting x is set from the script. */
+  .h3d .hand-agent { left: 0; top: 8%; width: var(--hand); z-index: 1; transform-origin: 0% 60%; }
+  .h3d .hand-client { right: 0; top: -20%; width: var(--hand); z-index: 3; transform-origin: 100% 40%; }
+  .h3d .hand-client img { transform: scaleX(-1); }
+  /* the valet ticket lies flat in the middle, its stub towards the client, above both hands so its halves stay visible */
+  /* before scrolling the ticket is the hero's big card, as wide as the page's content; the script scales it
+     down to this size, where it waits for the hands */
+  .h3d .ticket-hold { --tw: clamp(230px, 26vw, 380px); left: 50%; top: 50%; width: var(--tw); margin: calc(var(--tw) * -0.24) 0 0 calc(var(--tw) * -0.5); z-index: 4; }
+  .h3d .ticket { display: block; width: 100%; height: auto; overflow: visible; transform: rotate(-3deg); filter: drop-shadow(0 12px 22px rgba(21, 22, 26, 0.18)); }
+  .captions { position: absolute; z-index: 3; left: clamp(24px, 6vw, 80px); top: clamp(88px, 14vh, 140px); }
+  .captions .h2 { position: absolute; top: 0; left: 0; width: 15ch; }
+  .captions .c2 { opacity: 0; }
+
+  @media (max-width: 760px) {
+    .hands-wrap { top: 58vh; --hand: 32vw; }
+    .h3d .ticket-hold { --tw: 40vw; }
+    .captions { top: 96px; }
+  }
+
+  .reduced .track { height: auto; }
+  .reduced .stage { position: relative; height: auto; display: grid; padding-bottom: 24px; }
+  .reduced .copy { position: relative; padding-bottom: 32px; }
+  .reduced .hands-wrap { position: relative; top: auto; margin: 24px 0 48px; transform: none !important; }
+  .reduced .captions { display: none; }
+</style>
+</head>
+<body>
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="#"><img src="../../assets/brand/valet-mark.svg" alt="" width="26" height="26">Valet</a>
+  <div class="nav-links"><a href="#how">How it works</a><a href="#security">Security</a><a href="#clients">For clients</a><a href="#docs">Docs</a></div>
+  <a class="btn btn-ink btn-sm" href="#access">Get early access</a>
+</nav>
+
+<main>
+  <div class="track">
+    <div class="stage">
+      <div class="copy">
+        <h1 class="display">Hand your agent the keys.<b>Not the whole car.</b></h1>
+        <p class="lead">Valet lets an AI agent run commands on your customer's machine: only what they approve, enforced on their machine, logged for both of you.</p>
+        <div class="actions">
+          <a class="btn btn-ink" href="#access">Get early access</a>
+          <a class="btn btn-ghost" href="#security">How it stays safe</a>
+        </div>
+      </div>
+
+      <div class="hands-wrap" id="hands"></div>
+      <div class="captions">
+        <p class="h2 c1">Every session starts with a handover.</p>
+        <p class="h2 c2">The client keeps the stub.</p>
+      </div>
+    </div>
+  </div>
+
+  <section class="after" id="how">
+    <div class="after-inner">
+      <h2 class="h2">Every command asks first.</h2>
+      <p>The rest of the page continues here. This section slides up over the pinned scene.</p>
+    </div>
+  </section>
+</main>
+
+<nav class="switcher" aria-label="Variations"><a href="v1.html" aria-current="page">1 · Tear</a><a href="v2.html">2 · Handover</a><a href="v3.html">3 · The ticket</a></nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+<script src="shared.js"></script>
+<script src="hands3d.js"></script>
+<script>
+  document.getElementById("hands").innerHTML = valetHands3d(new URLSearchParams(location.search).get("set"));
+  gsap.set(".hands-wrap", { yPercent: -50 });
+
+  if (VALET_REDUCED) {
+    document.documentElement.classList.add("reduced");
+    document.querySelector(".c1").style.opacity = 0;
+    document.querySelector(".c2").style.opacity = 1;
+  } else {
+    valetScroll();
+    // where the big ticket's top edge sits before scrolling: under the copy
+    const cardTop = () => Math.max(document.querySelector(".copy").getBoundingClientRect().bottom + 36, innerHeight * 0.6);
+    const W = () => document.getElementById("hands").offsetWidth;
+    const H = () => document.getElementById("hands").offsetHeight; // the hand size
+    const tw = () => document.querySelector("#hands .ticket-hold").offsetWidth;
+    // how far each hand reaches in: fingertips stop just short of the ticket's ends, never touching it
+    const reach = () => W() / 2 - tw() / 2 - 14 - H() * 0.95;
+    const PULL = 0.12; // how far, in hand sizes, each hand draws back as it tears the ticket
+
+    const tl = gsap.timeline({
+      defaults: { ease: "none" },
+      scrollTrigger: { trigger: ".track", start: "top top", end: "+=190%", scrub: 0.8, invalidateOnRefresh: true }
+    });
+
+    // 1. the copy lifts away and the big ticket shrinks into the middle of the screen; only then
+    //    do the hands slide in from the sides, stopping just short of its ends
+    const big = () => {
+      const wrap = document.getElementById("hands").getBoundingClientRect();
+      const scale = (Math.min(innerWidth - 32, innerWidth * 0.84)) / tw(); // as wide as the page's content
+      const top = cardTop() - wrap.top - wrap.height / 2; // ticket centre sits at the wrap's centre at scale 1
+      return { scale, y: top + (tw() * 0.48 * scale) / 2 };
+    };
+    tl.to(".copy", { y: -140, opacity: 0, duration: 0.28 }, 0)
+      .fromTo("#hands .ticket-hold", { scale: () => big().scale, y: () => big().y }, { scale: 1, y: 0, duration: 0.42, ease: "power2.inOut" }, 0)
+      .fromTo("#hands .hand-agent", { x: () => -H() * 1.05 }, { x: () => reach(), duration: 0.24, ease: "power2.out" }, 0.3)
+      .fromTo("#hands .hand-client", { x: () => H() * 1.05 }, { x: () => -reach(), duration: 0.24, ease: "power2.out" }, 0.3)
+      .fromTo(".c1", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.1 }, 0.36);
+
+    // 2. the hands pause at the ticket's ends, then draw apart, and only then does it tear, slowly.
+    //    The tear runs on into the halves travelling, in one motion: the red body comes to hover above the
+    //    agent's open palm and the stub to hang below the client's fingers, never touching either hand.
+    const tear = valetTear(document.querySelector("#hands .ticket"));
+    const agentX = () => reach() - H() * PULL; // each hand's left edge once drawn back
+    const clientX = () => W() - H() - reach() + H() * PULL;
+    const to = () => {
+      const mid = H() * 0.5; // the ticket's centre line
+      return {
+        // the agent's thumb tops out near 0.35 of the hand; the body's lower edge stays clear of it
+        body: { x: agentX() + H() * 0.58 - (W() / 2 - tw() * 0.155), y: H() * 0.3 - tw() * 0.19 - mid },
+        // the client's fingers bottom out near 0.3; the stub hangs below them, inside the thumb
+        stub: { x: clientX() + H() * 0.34 - (W() / 2 + tw() * 0.345), y: H() * 0.3 + tw() * 0.22 + 14 - mid }
+      };
+    };
+    const smooth = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+    const ticket = { p: 0 };
+    const draw = () => tear(smooth(0, 0.62, ticket.p), smooth(0.4, 1, ticket.p), to());
+    tl.to("#hands .hand-agent", { x: () => agentX(), duration: 0.3, ease: "sine.inOut" }, 0.6)
+      .to("#hands .hand-client", { x: () => -reach() + H() * PULL, duration: 0.3, ease: "sine.inOut" }, 0.6)
+      .to(ticket, { p: 1, duration: 0.4, onUpdate: draw }, 0.6)
+      .to(".c1", { opacity: 0, y: -20, duration: 0.08 }, 0.8)
+      .fromTo(".c2", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.08 }, 0.86);
+  }
+</script>
+</body>
+</html>

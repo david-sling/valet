@@ -1,0 +1,161 @@
+@import "lenis/dist/lenis.css";
+
+:root {
+  --paper: #fbfaf6;
+  --white: #ffffff;
+  --ink: #15161a;
+  --ink-2: #4a4c55;
+  --ink-3: #666977;
+  --line: #e4e4e9;
+
+  /* brand */
+  --red: #e2412f;
+  --red-ink: #b8301f;
+  --red-deep: #d03826; /* brand red for large surfaces carrying white body text: 4.9:1 */
+  --cream: #efd09b;
+  --cream-soft: #fbf3e3;
+
+  /* landing palette */
+  --night: #2b1e72;
+  --sun: #ffc33d;
+  --blue: #4f6bff;
+  --sky: #b9d0ff;
+  --pink: #ff8fb6;
+  --peach: #ffc4b0;
+  --outline: #231c3f;
+
+  --display: "Funnel Display", "Albert Sans", system-ui, sans-serif;
+  --sans: "Albert Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--paper); }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--sun); color: var(--ink); }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 6px; }
+img, svg { display: block; max-width: 100%; }
+a { color: inherit; }
+
+/* nav */
+.nav {
+  position: fixed; inset: 0 0 auto 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px clamp(16px, 4vw, 40px);
+  pointer-events: none;
+}
+.nav > * { pointer-events: auto; }
+.brand {
+  display: flex; align-items: center; gap: 8px; padding: 7px 14px 7px 10px;
+  font: 700 20px/1 var(--display); letter-spacing: -0.02em; text-decoration: none; color: var(--ink);
+  background: rgba(255, 255, 255, 0.86); backdrop-filter: blur(14px);
+  border: 1px solid rgba(21, 22, 26, 0.06); border-radius: 999px;
+}
+.nav-links {
+  display: none; gap: 4px; padding: 5px;
+  background: rgba(255, 255, 255, 0.86); backdrop-filter: blur(14px);
+  border: 1px solid rgba(21, 22, 26, 0.06); border-radius: 999px;
+}
+.nav-links a { padding: 7px 14px; border-radius: 999px; font-size: 14px; color: var(--ink-2); text-decoration: none; }
+.nav-links a:hover { background: rgba(21, 22, 26, 0.05); color: var(--ink); }
+@media (min-width: 860px) { .nav-links { display: flex; } }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 48px; padding: 0 22px; border-radius: 999px;
+  font: 600 15px/1 var(--sans); text-decoration: none; border: 1px solid transparent;
+  transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out), background-color 180ms;
+}
+.btn-sm { height: 40px; padding: 0 16px; font-size: 14px; }
+.btn-ink { background: var(--ink); color: #fff; }
+.btn-ink:hover { transform: translateY(-1px); box-shadow: 0 10px 24px -12px rgba(21, 22, 26, 0.5); }
+.btn-ghost { background: #fff; color: var(--ink); border-color: var(--line); }
+.btn-ghost:hover { border-color: #cfcfd6; }
+
+/* type */
+.display {
+  margin: 0; font-family: var(--display); font-weight: 400;
+  font-size: clamp(2.75rem, 7vw, 6rem); line-height: 0.96; letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+.display b { display: block; font-weight: 800; }
+.lead { font-size: clamp(16px, 1.4vw, 18px); color: var(--ink-2); max-width: 46ch; text-wrap: pretty; }
+.h2 { margin: 0; font: 700 clamp(2rem, 4vw, 3.25rem)/1.02 var(--display); letter-spacing: -0.03em; text-wrap: balance; }
+
+/* hero: the tearing ticket */
+.tear-hero .track { position: relative; height: 250vh; }
+.tear-hero .stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
+.tear-hero .copy {
+  position: absolute; inset: 0 0 auto 0; z-index: 3;
+  padding: clamp(92px, 13vh, 128px) 16px 0;
+  display: grid; justify-items: center; text-align: center; gap: 18px;
+}
+.tear-hero .copy .display { font-size: clamp(2.5rem, 5.6vw, 5rem); }
+.tear-hero .copy .lead { margin: 0; }
+.tear-hero .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+/* the hands span the screen edge to edge, each wrist off its own side, at a fixed hand size */
+.tear-hero .hands-wrap { --hand: min(20vw, 24vh); position: absolute; left: 0; width: 100%; top: 54vh; height: var(--hand); }
+/* the scene waits for its script to place it, so it never flashes in its final layout first */
+.tear-hero:not([data-ready]) .hands-wrap { visibility: hidden; }
+.tear-hero .scene { position: relative; width: 100%; height: 100%; }
+.tear-hero .hand-agent, .tear-hero .hand-client, .tear-hero .ticket-hold { position: absolute; }
+.tear-hero .scene img { display: block; width: 100%; height: auto; user-select: none; }
+/* The Creation of Adam: the agent's open palm reaches up from the left, the client's hand reaches down from
+   the right. Both images point right; the client's is mirrored. Their x positions come from the script. */
+.tear-hero .hand-agent { left: 0; top: 8%; width: var(--hand); z-index: 1; transform-origin: 0% 60%; }
+.tear-hero .hand-client { right: 0; top: -20%; width: var(--hand); z-index: 3; transform-origin: 100% 40%; }
+.tear-hero .hand-client img { transform: scaleX(-1); }
+/* before scrolling the ticket is the hero's big card, as wide as the page's content; the script scales it
+   down to this size between the hands. It sits above both hands so its halves stay visible as they part. */
+.tear-hero .ticket-hold {
+  --tw: clamp(230px, 26vw, 380px);
+  left: 50%; top: 50%; width: var(--tw); z-index: 4;
+  margin: calc(var(--tw) * -0.24) 0 0 calc(var(--tw) * -0.5);
+}
+.tear-hero .ticket {
+  display: block; width: 100%; height: auto; overflow: visible;
+  filter: drop-shadow(0 12px 22px rgba(21, 22, 26, 0.18));
+}
+/* the line that sits in the gap between the torn halves, centred on the screen, always on exactly two lines */
+.tear-hero .handover {
+  position: absolute; left: 50%; top: 50%; z-index: 5; /* centred from the script, with xPercent and yPercent */
+  text-align: center; opacity: 0;
+  font-size: clamp(1.25rem, 2.6vw, 2.25rem);
+}
+.tear-hero .handover span { display: block; white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .tear-hero .hands-wrap { top: 58vh; --hand: 24vw; }
+  .tear-hero .ticket-hold { --tw: 40vw; }
+}
+
+/* reduced motion: no pinned scroll; the ticket waits between the hands in its resting layout */
+.tear-hero[data-motion="reduced"] .track { height: auto; }
+.tear-hero[data-motion="reduced"] .stage { position: relative; height: auto; display: grid; }
+.tear-hero[data-motion="reduced"] .copy { position: relative; padding-bottom: 32px; }
+.tear-hero[data-motion="reduced"] .hands-wrap { position: relative; top: auto; margin: 24px 0 64px; }
+.tear-hero[data-motion="reduced"] .handover { display: none; }
+
+/* a plain section that follows the hero */
+.after {
+  position: relative; z-index: 5;
+  background: var(--paper);
+  border-radius: 40px 40px 0 0;
+  padding: clamp(72px, 10vw, 120px) clamp(16px, 4vw, 40px) 160px;
+}
+.after-inner { max-width: 72rem; margin: 0 auto; display: grid; gap: 32px; }
+.after p { color: var(--ink-2); max-width: 52ch; }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn { transition: none; }
+}
