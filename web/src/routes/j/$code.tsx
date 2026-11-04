@@ -28,7 +28,12 @@ function JoinLink() {
   return (
     <main className="join-link">
       <div className="jt">
-        <div className="jt-body" aria-hidden="true" />
+        <div className="jt-body">
+          <a className="jt-brand" href="/">
+            <span className="jt-mark" aria-hidden="true" />
+            Valet
+          </a>
+        </div>
         <div className={`jt-stub${code ? ' is-copyable' : ''}`} onClick={copy}>
           {code ? (
             <>
