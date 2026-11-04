@@ -164,7 +164,13 @@
 .side-item .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
 .side-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
 .side-icon svg { width: 14px; height: 14px; fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; }
-.side-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px; font-size: 13px; color: var(--ink-2); }
+.side-foot { margin-top: auto; display: flex; padding: 8px; }
+/* light or dark: a sun and a moon, the chosen one raised like a selected segment */
+.theme-pick { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line-2); }
+.theme-pick button { display: grid; place-items: center; width: 30px; height: 24px; padding: 0; border: 0; border-radius: 999px; background: none; color: var(--ink-3); transition: color 180ms; }
+.theme-pick button:hover { color: var(--ink); }
+.theme-pick button[aria-checked="true"] { background: var(--panel); color: var(--ink); box-shadow: var(--soft); }
+.theme-pick svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 .side-item small.is-waiting { color: var(--ink); font-weight: 600; }
 .side-empty { padding: 0 8px; font-size: 12.5px; line-height: 1.5; color: var(--ink-3); }
 
