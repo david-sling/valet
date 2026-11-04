@@ -84,6 +84,7 @@ type Change = {
   wake: Role[]
   endActions?: boolean
   grants?: Grant[]
+  log?: string
 }
 
 export async function transition(redis: Redis, s: Session, change: Change) {
@@ -105,6 +106,7 @@ export async function transition(redis: Redis, s: Session, change: Change) {
     topics,
     change.endActions ? '1' : '0',
     change.grants ? JSON.stringify(change.grants) : '',
+    change.log ?? '',
   ])
   const [seq, state] = pair(reply)
   if (!seq) {
@@ -204,4 +206,8 @@ export async function view(redis: Redis, s: Session) {
     client_connected: s.state === 'live' && Date.now() - s.clientSeenAt < LIMITS.clientGoneMs,
     last_seq: await lastSeq(redis, s.id),
   }
+}
+
+export async function advance(redis: Redis, id: string, field: 'agent_cursor' | 'client_seen_at', value: number) {
+  await run(redis, SCRIPTS.ADVANCE, [keys.session(id)], [field, value])
 }

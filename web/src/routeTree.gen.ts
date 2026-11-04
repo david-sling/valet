@@ -11,7 +11,23 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MockupRouteImport } from './routes/mockup'
+import { Route as ApiSplatRouteImport } from './routes/api/$'
+import { Route as ApiCronSweepRouteImport } from './routes/api/cron/sweep'
 import { Route as ApiV1HealthRouteImport } from './routes/api/v1/health'
+import { Route as ApiV1JoinRouteImport } from './routes/api/v1/join'
+import { Route as ApiV1SessionsRouteImport } from './routes/api/v1/sessions'
+import { Route as ApiV1SessionsIdRouteImport } from './routes/api/v1/sessions/$id'
+import { Route as ApiV1SessionsIdActionsRouteImport } from './routes/api/v1/sessions/$id/actions'
+import { Route as ApiV1SessionsIdDeclineRouteImport } from './routes/api/v1/sessions/$id/decline'
+import { Route as ApiV1SessionsIdEndRouteImport } from './routes/api/v1/sessions/$id/end'
+import { Route as ApiV1SessionsIdEventsRouteImport } from './routes/api/v1/sessions/$id/events'
+import { Route as ApiV1SessionsIdExtendRouteImport } from './routes/api/v1/sessions/$id/extend'
+import { Route as ApiV1SessionsIdGrantsRouteImport } from './routes/api/v1/sessions/$id/grants'
+import { Route as ApiV1SessionsIdInboxRouteImport } from './routes/api/v1/sessions/$id/inbox'
+import { Route as ApiV1SessionsIdLogRouteImport } from './routes/api/v1/sessions/$id/log'
+import { Route as ApiV1SessionsIdStartRouteImport } from './routes/api/v1/sessions/$id/start'
+import { Route as ApiV1SessionsIdActionsAidRouteImport } from './routes/api/v1/sessions/$id/actions/$aid'
+import { Route as ApiV1SessionsIdActionsAidResultRouteImport } from './routes/api/v1/sessions/$id/actions/$aid/result'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,40 +39,232 @@ const MockupRoute = MockupRouteImport.update({
   path: '/mockup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSplatRoute = ApiSplatRouteImport.update({
+  id: '/api/$',
+  path: '/api/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCronSweepRoute = ApiCronSweepRouteImport.update({
+  id: '/api/cron/sweep',
+  path: '/api/cron/sweep',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiV1HealthRoute = ApiV1HealthRouteImport.update({
   id: '/api/v1/health',
   path: '/api/v1/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1JoinRoute = ApiV1JoinRouteImport.update({
+  id: '/api/v1/join',
+  path: '/api/v1/join',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1SessionsRoute = ApiV1SessionsRouteImport.update({
+  id: '/api/v1/sessions',
+  path: '/api/v1/sessions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1SessionsIdRoute = ApiV1SessionsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiV1SessionsRoute,
+} as any)
+const ApiV1SessionsIdActionsRoute = ApiV1SessionsIdActionsRouteImport.update({
+  id: '/actions',
+  path: '/actions',
+  getParentRoute: () => ApiV1SessionsIdRoute,
+} as any)
+const ApiV1SessionsIdDeclineRoute = ApiV1SessionsIdDeclineRouteImport.update({
+  id: '/decline',
+  path: '/decline',
+  getParentRoute: () => ApiV1SessionsIdRoute,
+} as any)
+const ApiV1SessionsIdEndRoute = ApiV1SessionsIdEndRouteImport.update({
+  id: '/end',
+  path: '/end',
+  getParentRoute: () => ApiV1SessionsIdRoute,
+} as any)
+const ApiV1SessionsIdEventsRoute = ApiV1SessionsIdEventsRouteImport.update({
+  id: '/events',
+  path: '/events',
+  getParentRoute: () => ApiV1SessionsIdRoute,
+} as any)
+const ApiV1SessionsIdExtendRoute = ApiV1SessionsIdExtendRouteImport.update({
+  id: '/extend',
+  path: '/extend',
+  getParentRoute: () => ApiV1SessionsIdRoute,
+} as any)
+const ApiV1SessionsIdGrantsRoute = ApiV1SessionsIdGrantsRouteImport.update({
+  id: '/grants',
+  path: '/grants',
+  getParentRoute: () => ApiV1SessionsIdRoute,
+} as any)
+const ApiV1SessionsIdInboxRoute = ApiV1SessionsIdInboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
+  getParentRoute: () => ApiV1SessionsIdRoute,
+} as any)
+const ApiV1SessionsIdLogRoute = ApiV1SessionsIdLogRouteImport.update({
+  id: '/log',
+  path: '/log',
+  getParentRoute: () => ApiV1SessionsIdRoute,
+} as any)
+const ApiV1SessionsIdStartRoute = ApiV1SessionsIdStartRouteImport.update({
+  id: '/start',
+  path: '/start',
+  getParentRoute: () => ApiV1SessionsIdRoute,
+} as any)
+const ApiV1SessionsIdActionsAidRoute =
+  ApiV1SessionsIdActionsAidRouteImport.update({
+    id: '/$aid',
+    path: '/$aid',
+    getParentRoute: () => ApiV1SessionsIdActionsRoute,
+  } as any)
+const ApiV1SessionsIdActionsAidResultRoute =
+  ApiV1SessionsIdActionsAidResultRouteImport.update({
+    id: '/result',
+    path: '/result',
+    getParentRoute: () => ApiV1SessionsIdActionsAidRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/mockup': typeof MockupRoute
+  '/api/$': typeof ApiSplatRoute
+  '/api/cron/sweep': typeof ApiCronSweepRoute
   '/api/v1/health': typeof ApiV1HealthRoute
+  '/api/v1/join': typeof ApiV1JoinRoute
+  '/api/v1/sessions': typeof ApiV1SessionsRouteWithChildren
+  '/api/v1/sessions/$id': typeof ApiV1SessionsIdRouteWithChildren
+  '/api/v1/sessions/$id/actions': typeof ApiV1SessionsIdActionsRouteWithChildren
+  '/api/v1/sessions/$id/decline': typeof ApiV1SessionsIdDeclineRoute
+  '/api/v1/sessions/$id/end': typeof ApiV1SessionsIdEndRoute
+  '/api/v1/sessions/$id/events': typeof ApiV1SessionsIdEventsRoute
+  '/api/v1/sessions/$id/extend': typeof ApiV1SessionsIdExtendRoute
+  '/api/v1/sessions/$id/grants': typeof ApiV1SessionsIdGrantsRoute
+  '/api/v1/sessions/$id/inbox': typeof ApiV1SessionsIdInboxRoute
+  '/api/v1/sessions/$id/log': typeof ApiV1SessionsIdLogRoute
+  '/api/v1/sessions/$id/start': typeof ApiV1SessionsIdStartRoute
+  '/api/v1/sessions/$id/actions/$aid': typeof ApiV1SessionsIdActionsAidRouteWithChildren
+  '/api/v1/sessions/$id/actions/$aid/result': typeof ApiV1SessionsIdActionsAidResultRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/mockup': typeof MockupRoute
+  '/api/$': typeof ApiSplatRoute
+  '/api/cron/sweep': typeof ApiCronSweepRoute
   '/api/v1/health': typeof ApiV1HealthRoute
+  '/api/v1/join': typeof ApiV1JoinRoute
+  '/api/v1/sessions': typeof ApiV1SessionsRouteWithChildren
+  '/api/v1/sessions/$id': typeof ApiV1SessionsIdRouteWithChildren
+  '/api/v1/sessions/$id/actions': typeof ApiV1SessionsIdActionsRouteWithChildren
+  '/api/v1/sessions/$id/decline': typeof ApiV1SessionsIdDeclineRoute
+  '/api/v1/sessions/$id/end': typeof ApiV1SessionsIdEndRoute
+  '/api/v1/sessions/$id/events': typeof ApiV1SessionsIdEventsRoute
+  '/api/v1/sessions/$id/extend': typeof ApiV1SessionsIdExtendRoute
+  '/api/v1/sessions/$id/grants': typeof ApiV1SessionsIdGrantsRoute
+  '/api/v1/sessions/$id/inbox': typeof ApiV1SessionsIdInboxRoute
+  '/api/v1/sessions/$id/log': typeof ApiV1SessionsIdLogRoute
+  '/api/v1/sessions/$id/start': typeof ApiV1SessionsIdStartRoute
+  '/api/v1/sessions/$id/actions/$aid': typeof ApiV1SessionsIdActionsAidRouteWithChildren
+  '/api/v1/sessions/$id/actions/$aid/result': typeof ApiV1SessionsIdActionsAidResultRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/mockup': typeof MockupRoute
+  '/api/$': typeof ApiSplatRoute
+  '/api/cron/sweep': typeof ApiCronSweepRoute
   '/api/v1/health': typeof ApiV1HealthRoute
+  '/api/v1/join': typeof ApiV1JoinRoute
+  '/api/v1/sessions': typeof ApiV1SessionsRouteWithChildren
+  '/api/v1/sessions/$id': typeof ApiV1SessionsIdRouteWithChildren
+  '/api/v1/sessions/$id/actions': typeof ApiV1SessionsIdActionsRouteWithChildren
+  '/api/v1/sessions/$id/decline': typeof ApiV1SessionsIdDeclineRoute
+  '/api/v1/sessions/$id/end': typeof ApiV1SessionsIdEndRoute
+  '/api/v1/sessions/$id/events': typeof ApiV1SessionsIdEventsRoute
+  '/api/v1/sessions/$id/extend': typeof ApiV1SessionsIdExtendRoute
+  '/api/v1/sessions/$id/grants': typeof ApiV1SessionsIdGrantsRoute
+  '/api/v1/sessions/$id/inbox': typeof ApiV1SessionsIdInboxRoute
+  '/api/v1/sessions/$id/log': typeof ApiV1SessionsIdLogRoute
+  '/api/v1/sessions/$id/start': typeof ApiV1SessionsIdStartRoute
+  '/api/v1/sessions/$id/actions/$aid': typeof ApiV1SessionsIdActionsAidRouteWithChildren
+  '/api/v1/sessions/$id/actions/$aid/result': typeof ApiV1SessionsIdActionsAidResultRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/mockup' | '/api/v1/health'
+  fullPaths:
+    | '/'
+    | '/mockup'
+    | '/api/$'
+    | '/api/cron/sweep'
+    | '/api/v1/health'
+    | '/api/v1/join'
+    | '/api/v1/sessions'
+    | '/api/v1/sessions/$id'
+    | '/api/v1/sessions/$id/actions'
+    | '/api/v1/sessions/$id/decline'
+    | '/api/v1/sessions/$id/end'
+    | '/api/v1/sessions/$id/events'
+    | '/api/v1/sessions/$id/extend'
+    | '/api/v1/sessions/$id/grants'
+    | '/api/v1/sessions/$id/inbox'
+    | '/api/v1/sessions/$id/log'
+    | '/api/v1/sessions/$id/start'
+    | '/api/v1/sessions/$id/actions/$aid'
+    | '/api/v1/sessions/$id/actions/$aid/result'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/mockup' | '/api/v1/health'
-  id: '__root__' | '/' | '/mockup' | '/api/v1/health'
+  to:
+    | '/'
+    | '/mockup'
+    | '/api/$'
+    | '/api/cron/sweep'
+    | '/api/v1/health'
+    | '/api/v1/join'
+    | '/api/v1/sessions'
+    | '/api/v1/sessions/$id'
+    | '/api/v1/sessions/$id/actions'
+    | '/api/v1/sessions/$id/decline'
+    | '/api/v1/sessions/$id/end'
+    | '/api/v1/sessions/$id/events'
+    | '/api/v1/sessions/$id/extend'
+    | '/api/v1/sessions/$id/grants'
+    | '/api/v1/sessions/$id/inbox'
+    | '/api/v1/sessions/$id/log'
+    | '/api/v1/sessions/$id/start'
+    | '/api/v1/sessions/$id/actions/$aid'
+    | '/api/v1/sessions/$id/actions/$aid/result'
+  id:
+    | '__root__'
+    | '/'
+    | '/mockup'
+    | '/api/$'
+    | '/api/cron/sweep'
+    | '/api/v1/health'
+    | '/api/v1/join'
+    | '/api/v1/sessions'
+    | '/api/v1/sessions/$id'
+    | '/api/v1/sessions/$id/actions'
+    | '/api/v1/sessions/$id/decline'
+    | '/api/v1/sessions/$id/end'
+    | '/api/v1/sessions/$id/events'
+    | '/api/v1/sessions/$id/extend'
+    | '/api/v1/sessions/$id/grants'
+    | '/api/v1/sessions/$id/inbox'
+    | '/api/v1/sessions/$id/log'
+    | '/api/v1/sessions/$id/start'
+    | '/api/v1/sessions/$id/actions/$aid'
+    | '/api/v1/sessions/$id/actions/$aid/result'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   MockupRoute: typeof MockupRoute
+  ApiSplatRoute: typeof ApiSplatRoute
+  ApiCronSweepRoute: typeof ApiCronSweepRoute
   ApiV1HealthRoute: typeof ApiV1HealthRoute
+  ApiV1JoinRoute: typeof ApiV1JoinRoute
+  ApiV1SessionsRoute: typeof ApiV1SessionsRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -75,6 +283,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MockupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/$': {
+      id: '/api/$'
+      path: '/api/$'
+      fullPath: '/api/$'
+      preLoaderRoute: typeof ApiSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cron/sweep': {
+      id: '/api/cron/sweep'
+      path: '/api/cron/sweep'
+      fullPath: '/api/cron/sweep'
+      preLoaderRoute: typeof ApiCronSweepRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/v1/health': {
       id: '/api/v1/health'
       path: '/api/v1/health'
@@ -82,13 +304,183 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1HealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/join': {
+      id: '/api/v1/join'
+      path: '/api/v1/join'
+      fullPath: '/api/v1/join'
+      preLoaderRoute: typeof ApiV1JoinRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/sessions': {
+      id: '/api/v1/sessions'
+      path: '/api/v1/sessions'
+      fullPath: '/api/v1/sessions'
+      preLoaderRoute: typeof ApiV1SessionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/sessions/$id': {
+      id: '/api/v1/sessions/$id'
+      path: '/$id'
+      fullPath: '/api/v1/sessions/$id'
+      preLoaderRoute: typeof ApiV1SessionsIdRouteImport
+      parentRoute: typeof ApiV1SessionsRoute
+    }
+    '/api/v1/sessions/$id/actions': {
+      id: '/api/v1/sessions/$id/actions'
+      path: '/actions'
+      fullPath: '/api/v1/sessions/$id/actions'
+      preLoaderRoute: typeof ApiV1SessionsIdActionsRouteImport
+      parentRoute: typeof ApiV1SessionsIdRoute
+    }
+    '/api/v1/sessions/$id/decline': {
+      id: '/api/v1/sessions/$id/decline'
+      path: '/decline'
+      fullPath: '/api/v1/sessions/$id/decline'
+      preLoaderRoute: typeof ApiV1SessionsIdDeclineRouteImport
+      parentRoute: typeof ApiV1SessionsIdRoute
+    }
+    '/api/v1/sessions/$id/end': {
+      id: '/api/v1/sessions/$id/end'
+      path: '/end'
+      fullPath: '/api/v1/sessions/$id/end'
+      preLoaderRoute: typeof ApiV1SessionsIdEndRouteImport
+      parentRoute: typeof ApiV1SessionsIdRoute
+    }
+    '/api/v1/sessions/$id/events': {
+      id: '/api/v1/sessions/$id/events'
+      path: '/events'
+      fullPath: '/api/v1/sessions/$id/events'
+      preLoaderRoute: typeof ApiV1SessionsIdEventsRouteImport
+      parentRoute: typeof ApiV1SessionsIdRoute
+    }
+    '/api/v1/sessions/$id/extend': {
+      id: '/api/v1/sessions/$id/extend'
+      path: '/extend'
+      fullPath: '/api/v1/sessions/$id/extend'
+      preLoaderRoute: typeof ApiV1SessionsIdExtendRouteImport
+      parentRoute: typeof ApiV1SessionsIdRoute
+    }
+    '/api/v1/sessions/$id/grants': {
+      id: '/api/v1/sessions/$id/grants'
+      path: '/grants'
+      fullPath: '/api/v1/sessions/$id/grants'
+      preLoaderRoute: typeof ApiV1SessionsIdGrantsRouteImport
+      parentRoute: typeof ApiV1SessionsIdRoute
+    }
+    '/api/v1/sessions/$id/inbox': {
+      id: '/api/v1/sessions/$id/inbox'
+      path: '/inbox'
+      fullPath: '/api/v1/sessions/$id/inbox'
+      preLoaderRoute: typeof ApiV1SessionsIdInboxRouteImport
+      parentRoute: typeof ApiV1SessionsIdRoute
+    }
+    '/api/v1/sessions/$id/log': {
+      id: '/api/v1/sessions/$id/log'
+      path: '/log'
+      fullPath: '/api/v1/sessions/$id/log'
+      preLoaderRoute: typeof ApiV1SessionsIdLogRouteImport
+      parentRoute: typeof ApiV1SessionsIdRoute
+    }
+    '/api/v1/sessions/$id/start': {
+      id: '/api/v1/sessions/$id/start'
+      path: '/start'
+      fullPath: '/api/v1/sessions/$id/start'
+      preLoaderRoute: typeof ApiV1SessionsIdStartRouteImport
+      parentRoute: typeof ApiV1SessionsIdRoute
+    }
+    '/api/v1/sessions/$id/actions/$aid': {
+      id: '/api/v1/sessions/$id/actions/$aid'
+      path: '/$aid'
+      fullPath: '/api/v1/sessions/$id/actions/$aid'
+      preLoaderRoute: typeof ApiV1SessionsIdActionsAidRouteImport
+      parentRoute: typeof ApiV1SessionsIdActionsRoute
+    }
+    '/api/v1/sessions/$id/actions/$aid/result': {
+      id: '/api/v1/sessions/$id/actions/$aid/result'
+      path: '/result'
+      fullPath: '/api/v1/sessions/$id/actions/$aid/result'
+      preLoaderRoute: typeof ApiV1SessionsIdActionsAidResultRouteImport
+      parentRoute: typeof ApiV1SessionsIdActionsAidRoute
+    }
   }
 }
+
+interface ApiV1SessionsIdActionsAidRouteChildren {
+  ApiV1SessionsIdActionsAidResultRoute: typeof ApiV1SessionsIdActionsAidResultRoute
+}
+
+const ApiV1SessionsIdActionsAidRouteChildren: ApiV1SessionsIdActionsAidRouteChildren =
+  {
+    ApiV1SessionsIdActionsAidResultRoute: ApiV1SessionsIdActionsAidResultRoute,
+  }
+
+const ApiV1SessionsIdActionsAidRouteWithChildren =
+  ApiV1SessionsIdActionsAidRoute._addFileChildren(
+    ApiV1SessionsIdActionsAidRouteChildren,
+  )
+
+interface ApiV1SessionsIdActionsRouteChildren {
+  ApiV1SessionsIdActionsAidRoute: typeof ApiV1SessionsIdActionsAidRouteWithChildren
+}
+
+const ApiV1SessionsIdActionsRouteChildren: ApiV1SessionsIdActionsRouteChildren =
+  {
+    ApiV1SessionsIdActionsAidRoute: ApiV1SessionsIdActionsAidRouteWithChildren,
+  }
+
+const ApiV1SessionsIdActionsRouteWithChildren =
+  ApiV1SessionsIdActionsRoute._addFileChildren(
+    ApiV1SessionsIdActionsRouteChildren,
+  )
+
+interface ApiV1SessionsIdRouteChildren {
+  ApiV1SessionsIdActionsRoute: typeof ApiV1SessionsIdActionsRouteWithChildren
+  ApiV1SessionsIdDeclineRoute: typeof ApiV1SessionsIdDeclineRoute
+  ApiV1SessionsIdEndRoute: typeof ApiV1SessionsIdEndRoute
+  ApiV1SessionsIdEventsRoute: typeof ApiV1SessionsIdEventsRoute
+  ApiV1SessionsIdExtendRoute: typeof ApiV1SessionsIdExtendRoute
+  ApiV1SessionsIdGrantsRoute: typeof ApiV1SessionsIdGrantsRoute
+  ApiV1SessionsIdInboxRoute: typeof ApiV1SessionsIdInboxRoute
+  ApiV1SessionsIdLogRoute: typeof ApiV1SessionsIdLogRoute
+  ApiV1SessionsIdStartRoute: typeof ApiV1SessionsIdStartRoute
+}
+
+const ApiV1SessionsIdRouteChildren: ApiV1SessionsIdRouteChildren = {
+  ApiV1SessionsIdActionsRoute: ApiV1SessionsIdActionsRouteWithChildren,
+  ApiV1SessionsIdDeclineRoute: ApiV1SessionsIdDeclineRoute,
+  ApiV1SessionsIdEndRoute: ApiV1SessionsIdEndRoute,
+  ApiV1SessionsIdEventsRoute: ApiV1SessionsIdEventsRoute,
+  ApiV1SessionsIdExtendRoute: ApiV1SessionsIdExtendRoute,
+  ApiV1SessionsIdGrantsRoute: ApiV1SessionsIdGrantsRoute,
+  ApiV1SessionsIdInboxRoute: ApiV1SessionsIdInboxRoute,
+  ApiV1SessionsIdLogRoute: ApiV1SessionsIdLogRoute,
+  ApiV1SessionsIdStartRoute: ApiV1SessionsIdStartRoute,
+}
+
+const ApiV1SessionsIdRouteWithChildren = ApiV1SessionsIdRoute._addFileChildren(
+  ApiV1SessionsIdRouteChildren,
+)
+
+interface ApiV1SessionsRouteChildren {
+  ApiV1SessionsIdRoute: typeof ApiV1SessionsIdRouteWithChildren
+}
+
+const ApiV1SessionsRouteChildren: ApiV1SessionsRouteChildren = {
+  ApiV1SessionsIdRoute: ApiV1SessionsIdRouteWithChildren,
+}
+
+const ApiV1SessionsRouteWithChildren = ApiV1SessionsRoute._addFileChildren(
+  ApiV1SessionsRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   MockupRoute: MockupRoute,
+  ApiSplatRoute: ApiSplatRoute,
+  ApiCronSweepRoute: ApiCronSweepRoute,
   ApiV1HealthRoute: ApiV1HealthRoute,
+  ApiV1JoinRoute: ApiV1JoinRoute,
+  ApiV1SessionsRoute: ApiV1SessionsRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

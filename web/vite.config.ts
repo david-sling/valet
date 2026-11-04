@@ -8,7 +8,18 @@ import viteReact from '@vitejs/plugin-react'
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
-  plugins: [devtools(), tanstackStart(), nitro(), viteReact()],
+  nitro: {
+    vercel: {
+      functions: { maxDuration: 60 },
+      config: { version: 3, crons: [{ path: '/api/cron/sweep', schedule: '0 4 * * *' }] },
+    },
+  },
+  plugins: [
+    devtools(),
+    tanstackStart(),
+    nitro(),
+    viteReact(),
+  ],
 })
 
 export default config

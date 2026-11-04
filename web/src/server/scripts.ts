@@ -14,7 +14,8 @@ local function wake(topics, seq)
 end
 `
 
-// ARGV: expireAt, allowed states (csv), fields (json), event (json), wake topics (csv), end actions ('1'), grants json or ''
+// ARGV: expireAt, allowed states (csv), fields (json), event (json), wake topics (csv), end actions ('1'), grants json or '',
+// sealed log or ''
 const TRANSITION = `${PRELUDE}
 local state = redis.call('HGET', KEYS[1], 'state')
 if not state then return {0, ''} end
@@ -24,6 +25,7 @@ if not allowed then return {0, state} end
 local fields = cjson.decode(ARGV[3])
 for k, v in pairs(fields) do redis.call('HSET', KEYS[1], k, tostring(v)) end
 if ARGV[7] ~= '' then redis.call('SET', KEYS[6], ARGV[7]) end
+if ARGV[8] ~= '' then redis.call('SET', KEYS[7], ARGV[8]) end
 if ARGV[6] == '1' then
   local all = redis.call('HGETALL', KEYS[5])
   for i = 1, #all, 2 do
@@ -93,7 +95,14 @@ redis.call('EXPIRE', KEYS[1], 120)
 return 1
 `
 
-export const SCRIPTS = { TRANSITION, ENQUEUE, RESULT, ACQUIRE_SLOT }
+// moves a numeric field forward without ever recreating an expired session. ARGV: field, value
+const ADVANCE = `
+if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
+if tonumber(ARGV[2]) > tonumber(redis.call('HGET', KEYS[1], ARGV[1]) or '0') then redis.call('HSET', KEYS[1], ARGV[1], ARGV[2]) end
+return 1
+`
+
+export const SCRIPTS = { TRANSITION, ENQUEUE, RESULT, ACQUIRE_SLOT, ADVANCE }
 
 export async function run(redis: Redis, script: string, keys: string[], args: (string | number)[]) {
   return (await redis.eval(script, { keys, arguments: args.map(String) })) as unknown
