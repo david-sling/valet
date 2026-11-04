@@ -1,0 +1,61 @@
+:root {
+  --ground: #f4f4f2;
+  --ink: #15161a;
+  --ink-2: #4a4c55;
+  --line: #e4e4e9;
+  color-scheme: light dark;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #17181b;
+    --ink: #ececef;
+    --ink-2: #b6b8c1;
+    --line: #303137;
+  }
+}
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+}
+.home {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 96px 24px;
+}
+.home h1 {
+  margin: 24px 0 8px;
+  font-size: 28px;
+}
+.home p {
+  margin: 0 0 24px;
+  color: var(--ink-2);
+}
+.home form {
+  display: flex;
+  gap: 8px;
+}
+.home input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: 500 18px ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.home button {
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--ground);
+  font: inherit;
+  font-weight: 600;
+}
+.home button:disabled {
+  opacity: 0.4;
+}

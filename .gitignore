@@ -10,3 +10,7 @@
 
 # Per-machine agent permissions and hooks
 .claude/settings.local.json
+
+# Dependencies and build output, across the workspace
+node_modules
+target

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MockupRouteImport } from './routes/mockup'
+import { Route as ApiV1HealthRouteImport } from './routes/api/v1/health'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const MockupRoute = MockupRouteImport.update({
   path: '/mockup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1HealthRoute = ApiV1HealthRouteImport.update({
+  id: '/api/v1/health',
+  path: '/api/v1/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/mockup': typeof MockupRoute
+  '/api/v1/health': typeof ApiV1HealthRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/mockup': typeof MockupRoute
+  '/api/v1/health': typeof ApiV1HealthRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/mockup': typeof MockupRoute
+  '/api/v1/health': typeof ApiV1HealthRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/mockup'
+  fullPaths: '/' | '/mockup' | '/api/v1/health'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/mockup'
-  id: '__root__' | '/' | '/mockup'
+  to: '/' | '/mockup' | '/api/v1/health'
+  id: '__root__' | '/' | '/mockup' | '/api/v1/health'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   MockupRoute: typeof MockupRoute
+  ApiV1HealthRoute: typeof ApiV1HealthRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MockupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/health': {
+      id: '/api/v1/health'
+      path: '/api/v1/health'
+      fullPath: '/api/v1/health'
+      preLoaderRoute: typeof ApiV1HealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   MockupRoute: MockupRoute,
+  ApiV1HealthRoute: ApiV1HealthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

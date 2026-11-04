@@ -1,0 +1,12 @@
+packages:
+  - web
+  - app
+  - packages/*
+
+# install scripts that may run; everything else is skipped
+onlyBuiltDependencies:
+  - esbuild
+  - lightningcss
+allowBuilds:
+  esbuild: true
+  lightningcss: true
