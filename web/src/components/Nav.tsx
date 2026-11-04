@@ -9,7 +9,6 @@ export function Nav() {
         <a href="#how">How it works</a>
         <a href="#security">Security</a>
         <a href="#clients">For clients</a>
-        <a href="#docs">Docs</a>
       </div>
       <a className="btn btn-ink btn-sm" href="#access">
         Get early access
