@@ -70,23 +70,55 @@ export function AsksFirst() {
         .to({}, { duration: 0.12 }, 0.88) // a short hold on the finished step before the section moves on
 
       // On a touch screen the pad can be held like the sensor: a finger kept still on it for a moment scrolls the page
-      // on by itself, tracing the fingerprint in, until it turns green. Lifting the finger stops it where it is; a
-      // swipe that starts on the pad still scrolls the page as usual, as the browser then cancels the press.
+      // on by itself, tracing the fingerprint in, until it turns green. Lifting the finger then plays the rest: the
+      // page glides on until the command has run and the scene is done. Lifting before it is green stops it where it
+      // is; a swipe that starts on the pad still scrolls the page as usual, as the browser then cancels the press.
       const pad = q('.touch-pad')[0] as HTMLElement
       const DONE = 0.56 // just past the moment it turns green and says "Allowed once"
       const HOLD_MS = 180 // how long the finger must stay still before it counts as holding
       const FILL_S = 1.3 // how long a full trace takes when held
+      const GLIDE_S = 1.6 // how long the rest of the scene takes once the finger lifts
       let timer = 0
       let frame = 0
+      let allowed = false // the hold has turned it green, and the finger is still down
       const stop = () => {
         clearTimeout(timer)
         cancelAnimationFrame(frame)
+      }
+      // the rest of the scene: from here to its end, easing in and out
+      const glide = () => {
+        const st = tl.scrollTrigger
+        if (!st) return
+        const from = scrollY
+        const to = st.end
+        const t0 = performance.now()
+        // any touch or wheel while it glides hands the page back
+        const cancel = () => {
+          cancelAnimationFrame(frame)
+          removeEventListener('touchstart', cancel)
+          removeEventListener('wheel', cancel)
+        }
+        addEventListener('touchstart', cancel, { passive: true })
+        addEventListener('wheel', cancel, { passive: true })
+        const step = (now: number) => {
+          const t = Math.min(1, (now - t0) / (GLIDE_S * 1000))
+          window.scrollTo(0, from + (to - from) * (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2))
+          if (t < 1) frame = requestAnimationFrame(step)
+          else cancel()
+        }
+        frame = requestAnimationFrame(step)
+      }
+      const onUp = () => {
+        stop()
+        if (allowed) glide()
+        allowed = false
       }
       const onDown = (e: PointerEvent) => {
         if (e.pointerType !== 'touch') return
         const st = tl.scrollTrigger
         if (!st) return
         const target = st.start + (st.end - st.start) * DONE
+        allowed = false
         if (scrollY >= target) return // already allowed
         // the trace itself runs from 0.14 to 0.5 of the scene; held, it takes FILL_S
         const speed = ((st.end - st.start) * 0.36) / FILL_S
@@ -97,23 +129,24 @@ export function AsksFirst() {
             last = now
             window.scrollTo(0, y)
             if (y < target) frame = requestAnimationFrame(step)
-            else navigator.vibrate?.(18) // the sensor's tap, where the phone allows it
+            else {
+              allowed = true
+              navigator.vibrate?.(18) // the sensor's tap, where the phone allows it
+            }
           }
           frame = requestAnimationFrame(step)
         }, HOLD_MS)
       }
       const noMenu = (e: Event) => e.preventDefault()
       pad.addEventListener('pointerdown', onDown)
-      pad.addEventListener('pointerup', stop)
+      pad.addEventListener('pointerup', onUp)
       pad.addEventListener('pointercancel', stop)
-      pad.addEventListener('pointerleave', stop)
       pad.addEventListener('contextmenu', noMenu)
       return () => {
         stop()
         pad.removeEventListener('pointerdown', onDown)
-        pad.removeEventListener('pointerup', stop)
+        pad.removeEventListener('pointerup', onUp)
         pad.removeEventListener('pointercancel', stop)
-        pad.removeEventListener('pointerleave', stop)
         pad.removeEventListener('contextmenu', noMenu)
       }
     })
