@@ -3,7 +3,7 @@ import { ConfigError, readConfig } from './config'
 
 const ENV = {
   HOST: 'https://valet.example.com',
-  REDIS_URL: 'redis://localhost:6379',
+  STORAGE_REDIS_URL: 'redis://localhost:6379',
   CRON_SECRET: 'a-secret-of-enough-length',
 }
 
@@ -17,8 +17,8 @@ describe('readConfig', () => {
   })
 
   it('names what is wrong without printing values', () => {
-    const problems = () => readConfig({ REDIS_URL: 'http://user:hunter2@host' })
-    expect(problems).toThrow(/HOST is not set[\s\S]*REDIS_URL must start/)
+    const problems = () => readConfig({ STORAGE_REDIS_URL: 'http://user:hunter2@host' })
+    expect(problems).toThrow(/HOST is not set[\s\S]*STORAGE_REDIS_URL must start/)
     expect(problems).not.toThrow(/hunter2/)
   })
 

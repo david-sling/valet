@@ -18,7 +18,6 @@ type Env = Record<string, string | undefined>
 const WAVE_PREFIX = 'wave'
 const PREFIX = /^[A-Za-z0-9_-]{1,32}$/
 const MIN_CRON_SECRET = 16
-const REDIS_URL_NAMES = ['REDIS_URL', 'STORAGE_REDIS_URL', 'KV_URL', 'REDIS_TLS_URL'] as const
 
 function fail(problems: string[], message: string) {
   problems.push(message)
@@ -43,16 +42,15 @@ function readHost(raw: string | undefined, problems: string[]) {
   return url.origin
 }
 
-function readRedisUrl(env: Env, problems: string[]) {
-  const raw = REDIS_URL_NAMES.map((n) => env[n]).find(Boolean)
-  if (!raw) return fail(problems, `REDIS_URL is not set (nor any of: ${REDIS_URL_NAMES.slice(1).join(', ')})`)
+function readRedisUrl(raw: string | undefined, problems: string[]) {
+  if (!raw) return fail(problems, 'STORAGE_REDIS_URL is not set')
   let url: URL
   try {
     url = new URL(raw)
   } catch {
-    return fail(problems, 'REDIS_URL is not a URL. Expected redis://host:port or rediss://host:port')
+    return fail(problems, 'STORAGE_REDIS_URL is not a URL. Expected redis://host:port or rediss://host:port')
   }
-  if (url.protocol !== 'redis:' && url.protocol !== 'rediss:') return fail(problems, 'REDIS_URL must start with redis:// or rediss://')
+  if (url.protocol !== 'redis:' && url.protocol !== 'rediss:') return fail(problems, 'STORAGE_REDIS_URL must start with redis:// or rediss://')
   return raw
 }
 
@@ -73,7 +71,7 @@ export function readConfig(env: Env): Config {
   const problems: string[] = []
   const config = {
     host: readHost(env.HOST ?? vercelHost(env), problems),
-    redisUrl: readRedisUrl(env, problems),
+    redisUrl: readRedisUrl(env.STORAGE_REDIS_URL, problems),
     redisPrefix: readRedisPrefix(env.REDIS_PREFIX, problems),
     cronSecret: readCronSecret(env.CRON_SECRET, problems),
   }

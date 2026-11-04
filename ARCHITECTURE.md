@@ -361,7 +361,7 @@ If the app quits or crashes, it treats every session as ended on its next launch
 
 | Variable | Used by | Notes |
 |---|---|---|
-| `REDIS_URL` | Relay | Same instance as Wave; ideally a Valet-only ACL user |
+| `STORAGE_REDIS_URL` | Relay | Set by the Vercel Redis integration; same instance as Wave, ideally a Valet-only ACL user |
 | `REDIS_PREFIX` | Relay | `valet`; must differ from Wave's |
 | `HOST` | Relay | Public base URL used in `join_url`; falls back to Vercel's URL variables |
 | `CRON_SECRET` | Relay | At least 16 characters; protects the sweep cron and salts rate-limit keys; separate from Wave's |
