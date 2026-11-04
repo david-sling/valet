@@ -529,6 +529,9 @@ a { color: inherit; }
 .early-form { width: min(100%, 30rem); text-align: left; }
 .early-form iframe { display: block; width: 100%; border: 0; }
 .rejoin .ticket { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 16px 26px rgba(21, 22, 26, 0.18)); }
+/* the stub can be pulled off by hand; touch-action keeps a finger's drag from scrolling the page instead */
+.rejoin .stub { cursor: grab; touch-action: none; }
+.closing[data-pulling] .rejoin .stub, .closing[data-pulling] { cursor: grabbing; }
 
 .site-foot {
   width: 100%; max-width: 72rem; margin: clamp(48px, 9vh, 96px) auto 0; padding: 24px 0 28px;

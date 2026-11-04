@@ -70,6 +70,8 @@ export function StubEnds() {
     const q = gsap.utils.selector(root)
     const tear = createTear(svg)
     const mm = gsap.matchMedia()
+    // how far the scroll has brought the halves together: 1 apart, 0 whole
+    const ticket = { p: 0 }
 
     mm.add('(prefers-reduced-motion: no-preference)', () => {
       const hold = q('.rejoin')[0] as HTMLElement
@@ -83,7 +85,6 @@ export function StubEnds() {
         return t * t * (3 - 2 * t)
       }
       // p runs from 1, apart, to 0, whole: the halves travel in first, and the perforation closes as they meet
-      const ticket = { p: 1 }
       const draw = () => tear(smooth(0, 0.62, ticket.p), smooth(0.4, 1, ticket.p), apart(), 0)
       ScrollTrigger.addEventListener('refresh', draw)
       gsap
@@ -92,11 +93,54 @@ export function StubEnds() {
       draw()
       return () => {
         ScrollTrigger.removeEventListener('refresh', draw)
+        ticket.p = 0
         tear(0, 0, { body: { x: 0, y: 0 }, stub: { x: 0, y: 0 } }, 0)
       }
     })
 
-    return () => mm.revert()
+    // Once whole, the stub can be pulled off by hand: dragging it first swings it open from the perforation while
+    // the fibres stretch, then, further out, they snap and the stub follows the pointer. Let go and it springs back.
+    const stub = svg.querySelector<SVGGElement>('.stub')!
+    const pull = { x: 0, y: 0 }
+    const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches
+    const drawPull = () => {
+      const reach = Math.hypot(pull.x, pull.y)
+      const part = Math.min(1, Math.max(0, (reach - 60) / 140))
+      tear(Math.min(1, reach / 90), part, { body: { x: 0, y: 0 }, stub: { x: pull.x, y: pull.y } }, 0, 0) // the body stays put
+    }
+    let start: { x: number; y: number } | null = null
+    const onDown = (e: PointerEvent) => {
+      if (ticket.p > 0.01) return // only once the scroll has brought it back together
+      gsap.killTweensOf(pull)
+      start = { x: e.clientX - pull.x, y: e.clientY - pull.y }
+      stub.setPointerCapture(e.pointerId)
+      root.dataset.pulling = ''
+    }
+    const onMove = (e: PointerEvent) => {
+      if (!start) return
+      pull.x = e.clientX - start.x
+      pull.y = e.clientY - start.y
+      drawPull()
+    }
+    const onUp = () => {
+      if (!start) return
+      start = null
+      delete root.dataset.pulling
+      gsap.to(pull, { x: 0, y: 0, duration: still() ? 0 : 0.9, ease: 'elastic.out(1, 0.6)', onUpdate: drawPull })
+    }
+    stub.addEventListener('pointerdown', onDown)
+    stub.addEventListener('pointermove', onMove)
+    stub.addEventListener('pointerup', onUp)
+    stub.addEventListener('pointercancel', onUp)
+
+    return () => {
+      stub.removeEventListener('pointerdown', onDown)
+      stub.removeEventListener('pointermove', onMove)
+      stub.removeEventListener('pointerup', onUp)
+      stub.removeEventListener('pointercancel', onUp)
+      gsap.killTweensOf(pull)
+      mm.revert()
+    }
   }, [])
 
   return (

@@ -1,4 +1,6 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { TanStackDevtools } from '@tanstack/react-devtools'
+import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 
 import appCss from '../styles.css?url'
 
@@ -63,6 +65,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
+        {/* the devtools' floating button; the devtools Vite plugin strips it from production builds */}
+        <TanStackDevtools
+          config={{ position: 'bottom-right' }}
+          plugins={[{ name: 'TanStack Router', render: <TanStackRouterDevtoolsPanel /> }]}
+        />
         <Scripts />
       </body>
     </html>
