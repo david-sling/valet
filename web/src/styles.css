@@ -203,32 +203,42 @@ a { color: inherit; }
 }
 .asks-copy { display: grid; gap: 20px; max-width: 48ch; }
 .asks-copy p { margin: 0; color: rgba(255, 255, 255, 0.74); font-size: clamp(16px, 1.4vw, 18px); }
-.asks-proof { position: relative; padding-bottom: 120px; }
+.asks-proof { display: grid; justify-items: center; gap: 28px; }
 
-/* the client's activity feed: what the agent has run on this machine */
-.feed { border-radius: 28px; background: #1d1452; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; }
-.feed-bar {
-  display: flex; align-items: center; gap: 14px; padding: 14px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  font: 500 12.5px/1 var(--sans); color: rgba(255, 255, 255, 0.6);
+/* the client's Touch ID, large: the step the section is about */
+.touch { display: grid; justify-items: center; gap: 18px; }
+.touch-pad {
+  position: relative; display: grid; place-items: center;
+  width: clamp(220px, 26vw, 320px); aspect-ratio: 1; border-radius: 30%;
+  background: #1d1452; border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 30px 60px -30px rgba(8, 4, 30, 0.8);
 }
-.feed-bar .dots { display: flex; gap: 6px; }
-.feed-bar .dots i { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); }
-.feed-rows { list-style: none; margin: 0; padding: 8px 20px 20px; display: grid; }
-.row { display: grid; gap: 8px; padding: 16px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
-.row:last-child { border-bottom: 0; }
-.row .cmd { font: 500 14px/1.55 var(--mono); color: #fff; overflow-wrap: anywhere; }
-.row .cmd::before { content: "› "; color: rgba(255, 255, 255, 0.4); }
-.row .out { display: block; overflow: hidden; font: 400 12.5px/1.5 var(--mono); color: rgba(255, 255, 255, 0.55); }
+.touch-ring { position: absolute; inset: 9%; overflow: visible; transform: rotate(-90deg); }
+.touch-ring circle { fill: none; stroke: rgba(255, 255, 255, 0.1); stroke-width: 1.6; }
+/* the ring closes as the finger is held. The finished state is the markup's: closed and green */
+.touch-ring .progress { stroke: #1fa35a; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 0; }
+.fp { width: 60%; height: 60%; fill: none; stroke-width: 1.3; stroke-linecap: round; }
+.fp-base { stroke: rgba(255, 255, 255, 0.18); }
+.fp-fill { stroke: #1fa35a; }
+/* traced in while Touch ID is held. The trace starts a little past each ridge's end (103): at exactly 100 it would
+   be a zero-length dash, and its round cap would still draw a dot */
+.fp-fill path { stroke-dasharray: 100 110; stroke-dashoffset: 0; }
+.touch-label { margin: 0; display: grid; font: 600 15px/1.3 var(--sans); color: #fff; }
+.touch-label > * { grid-area: 1 / 1; text-align: center; }
+.touch-label .holding { opacity: 0; }
+
+/* then the command it allowed, run on the client's machine */
+.ran {
+  width: min(100%, 30rem); display: grid; gap: 8px; padding: 16px 20px 18px;
+  border-radius: 20px; background: #1d1452; border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.ran .cmd { font: 500 14px/1.55 var(--mono); color: #fff; overflow-wrap: anywhere; }
+.ran .cmd::before { content: "› "; color: rgba(255, 255, 255, 0.4); }
+.ran .out { display: block; font: 400 12.5px/1.5 var(--mono); color: rgba(255, 255, 255, 0.55); }
 .status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.swap { display: grid; }
-.swap > * { grid-area: 1 / 1; }
-.row-2 .allowed, .row-2 .out { opacity: 0; } /* revealed once the client allows it */
 .outcome { display: inline-flex; align-items: center; gap: 7px; font: 500 12.5px/1.2 var(--sans); color: rgba(255, 255, 255, 0.78); }
 .outcome::before { content: ""; width: 7px; height: 7px; border-radius: 50%; }
 .outcome.is-ok::before { background: #1fa35a; }
-.outcome.is-waiting::before { background: #d99a00; }
-.outcome.is-gone::before { background: #9a9ca8; }
 
 /* risk chips: always a word and its colour */
 .risk { display: inline-block; padding: 1px 8px; border-radius: 999px; font: 600 11.5px/1.5 var(--sans); letter-spacing: 0.01em; }
@@ -236,60 +246,20 @@ a { color: inherit; }
 .risk-medium { background: #fdf0d2; color: #7a5200; }
 .risk-high { background: #ffe3d9; color: #8f2f14; }
 
-/* Valet's approval prompt, as it appears on the client's screen (DESIGN.md: Approval prompt) */
-.prompt {
-  position: absolute; right: clamp(-40px, -3vw, 0px); bottom: 0; z-index: 2;
-  width: min(440px, 92%);
-  display: grid; gap: 16px; padding: 20px 24px 22px;
-  background: #fff; color: var(--ink); border-radius: 28px; overflow: hidden;
-  box-shadow: 0 2px 4px rgba(21, 22, 26, 0.05), 0 24px 56px -24px rgba(21, 22, 26, 0.28), 0 40px 80px -30px rgba(8, 4, 30, 0.6);
+/* window title bars, shared by the product windows further down */
+.feed-bar {
+  display: flex; align-items: center; gap: 14px; padding: 14px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font: 500 12.5px/1 var(--sans); color: rgba(255, 255, 255, 0.6);
 }
-.prompt-title { display: flex; align-items: center; gap: 7px; font: 600 12.5px/1 var(--sans); color: var(--ink-3); }
-.prompt-head { margin: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font: 400 16px/1.35 var(--sans); }
-.prompt-head b { font-weight: 600; }
-.action-block { display: grid; gap: 12px; padding: 14px 16px; border-radius: 12px; background: #fafaf8; border: 1px solid #efeff2; }
-.action-block .action { font: 500 14px/1.55 var(--mono); overflow-wrap: anywhere; }
-.action-block dl { margin: 0; display: grid; grid-template-columns: auto 1fr; font-size: 12.5px; }
-.action-block dt, .action-block dd { padding: 6px 0; border-top: 1px solid #efeff2; }
-.action-block dt { color: var(--ink-3); padding-right: 16px; }
-.action-block dd { margin: 0; }
-.action-block dd code { font: 500 12.5px/1.4 var(--mono); }
-.reason { display: grid; gap: 4px; }
-.reason span { font-size: 12.5px; color: var(--ink-3); }
-.reason p { margin: 0; font-size: 14px; color: var(--ink-2); }
-.scope { display: flex; gap: 2px; padding: 4px; border-radius: 12px; background: #fafaf8; border: 1px solid #efeff2; font-size: 13px; color: var(--ink-2); }
-.scope span { flex: 1; text-align: center; padding: 7px 4px; border-radius: 9px; white-space: nowrap; }
-.scope .is-on { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(21, 22, 26, 0.08); }
-.prompt-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.prompt-actions > span {
-  position: relative; overflow: hidden; display: grid; place-items: center;
-  height: 44px; border-radius: 999px; font: 600 14px/1 var(--sans); white-space: nowrap;
-}
-/* Deny holds the initial focus: approving always takes a deliberate step */
-.btn-deny { background: #fff; color: var(--ink); border: 1px solid var(--line); outline: 2px solid var(--accent, #4353e8); outline-offset: 2px; }
-.allow { background: var(--ink); color: #fff; }
-.allow .hold { position: absolute; inset: 0; background: #3a3c46; transform-origin: 0 50%; transform: scaleX(0); }
-.allow .label { position: relative; padding-left: 30px; }
-/* the fingerprint sits snug in the button's left end */
-.fp { position: absolute; left: 8px; top: 5px; width: 30px; height: 30px; fill: none; stroke-width: 1.6; stroke-linecap: round; }
-.fp-base { stroke: rgba(255, 255, 255, 0.35); }
-.fp-fill { stroke: #fff; }
-/* traced in while Touch ID is held. The trace starts a little past each ridge's end: at exactly 100 it would be
-   a zero-length dash, and its round cap would still draw a dot */
-.fp-fill path { stroke-dasharray: 100 110; stroke-dashoffset: 103; }
-.timeout-note { margin: -4px 0 0; font-size: 12.5px; color: var(--ink-3); }
-.timeout-note b { font-weight: 500; font-variant-numeric: tabular-nums; }
-.timeout-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: #efeff2; }
-.timeout-bar i { position: absolute; inset: 0; background: var(--ink-3); transform-origin: 0 50%; }
+.feed-bar .dots { display: flex; gap: 6px; }
+.feed-bar .dots i { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); }
 
 @media (max-width: 900px) {
   .asks-track { height: 300vh; }
   .asks-stage { align-items: start; padding-top: 92px; }
-  .asks-inner { grid-template-columns: 1fr; gap: 24px; }
-  .asks-proof { padding-bottom: 0; }
-  .prompt { left: 0; right: 0; bottom: auto; top: 48px; margin: 0 auto; width: min(400px, calc(100vw - 24px)); gap: 12px; padding: 16px 18px 18px; }
-  .action-block dl { display: none; } /* the command and the reason carry the decision on a small screen */
-  .prompt-actions { grid-template-columns: 1fr; gap: 8px; } /* full width each, still equal, so the label clears the fingerprint */
+  .asks-inner { grid-template-columns: 1fr; gap: 28px; }
+  .touch-pad { width: min(220px, 56vw); }
 }
 
 /* "Why your customers will say yes": the client's side, on paper again. The proof takes the wider column,

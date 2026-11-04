@@ -2,11 +2,11 @@ import { useEffect, useRef } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
-// The section after the hero: a session playing out on the client's machine. Commands inside the ticket's grants
-// run; one outside them raises Valet's approval prompt on the client's screen, which the client allows with Touch ID;
-// one aimed at a protected location is blocked without asking. The prompt follows DESIGN.md's Approval prompt spec.
-// A fingerprint for the Touch ID button, in two layers: the ridges sit faint, and a bright copy traces over them
-// while the finger is held down, so the press reads as a long one that completes.
+// The section after the hero: the moment the client says yes. It plays in two steps while the stage is pinned.
+// First the client's Touch ID: a large fingerprint traces in as the finger is held, a ring closes around it, and
+// both turn green once it completes. Then the command it allowed runs on their machine. The request itself is left
+// unsaid: it can only have come from the other side.
+// A fingerprint in two layers: the ridges sit faint, and a bright copy traces over them while the finger is held.
 const RIDGES = [
   'M6.2 7.6a7.6 7.6 0 0 1 11.6 0',
   'M4.6 12.2a7.4 7.4 0 0 1 14.8 0v1.3',
@@ -43,37 +43,29 @@ export function AsksFirst() {
     const mm = gsap.matchMedia()
 
     mm.add('(prefers-reduced-motion: no-preference)', () => {
-      const clock = { left: 45 }
-      const countdown = q('.timeout-note b')[0] as HTMLElement
-      const tick = () => (countdown.textContent = `0:${String(Math.ceil(clock.left)).padStart(2, '0')}`)
+      const ran = q('.ran')[0] as HTMLElement
+      // until the command runs, the pad sits in the middle of the proof, where the command will later sit under it
+      const centre = () => (ran.offsetHeight + 28) / 2
+      const ok = '#1fa35a'
 
       const tl = gsap.timeline({
         defaults: { ease: 'none' },
-        scrollTrigger: { trigger: q('.asks-track')[0], start: 'top top', end: 'bottom bottom', scrub: 0.8 },
+        scrollTrigger: { trigger: q('.asks-track')[0], start: 'top top', end: 'bottom bottom', scrub: 0.8, invalidateOnRefresh: true },
       })
-      const rise = { opacity: 0, y: 18 }
-      const settle = { opacity: 1, y: 0, duration: 0.06, ease: 'power2.out' }
-
-      // 1. a command inside the grants just runs
-      tl.fromTo(q('.row-1'), rise, settle, 0.02)
-        .fromTo(q('.row-1 .out'), { opacity: 0 }, { opacity: 1, duration: 0.04 }, 0.08)
-        // 2. one outside them waits, and the prompt comes up on the client's screen
-        .fromTo(q('.row-2'), rise, settle, 0.16)
-        .fromTo(q('.prompt'), { opacity: 0, y: 48, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.1, ease: 'power3.out' }, 0.24)
-        .fromTo(q('.timeout-bar i'), { scaleX: 1 }, { scaleX: 0.72, duration: 0.36 }, 0.3)
-        .fromTo(clock, { left: 45 }, { left: 33, duration: 0.36, onUpdate: tick }, 0.3)
-        // the client allows it, deliberately: the button fills while Touch ID is held
-        .fromTo(q('.allow .hold'), { scaleX: 0 }, { scaleX: 1, duration: 0.14, ease: 'power1.in' }, 0.48)
-        .fromTo(q('.fp-fill path'), { strokeDashoffset: 103 }, { strokeDashoffset: 0, duration: 0.14, ease: 'power1.in' }, 0.48)
-        .to(q('.allow'), { scale: 0.97, duration: 0.02, yoyo: true, repeat: 1 }, 0.62)
-        .to(q('.prompt'), { opacity: 0, y: 32, scale: 0.97, duration: 0.07, ease: 'power2.in' }, 0.66)
-        .to(q('.row-2 .waiting'), { opacity: 0, duration: 0.03 }, 0.7)
-        .fromTo(q('.row-2 .allowed'), { opacity: 0 }, { opacity: 1, duration: 0.04 }, 0.71)
-        .fromTo(q('.row-2 .out'), { opacity: 0, height: 0 }, { opacity: 1, height: 'auto', duration: 0.05 }, 0.72)
-        // 3. a protected location is refused outright, without a prompt
-        .fromTo(q('.row-3'), rise, settle, 0.8)
-        .to({}, { duration: 0.1 }, 0.9) // a short hold on the finished feed before the section scrolls on
-      return () => (countdown.textContent = '0:45')
+      // 1. the client holds their finger on Touch ID: the ridges trace in and the ring closes, then both turn green
+      tl.fromTo(q('.touch'), { y: () => centre() + 40, opacity: 0, scale: 0.94 }, { y: () => centre(), opacity: 1, scale: 1, duration: 0.1, ease: 'power2.out' }, 0)
+        .to(q('.touch-pad'), { scale: 0.97, duration: 0.04, ease: 'power2.out' }, 0.12)
+        .fromTo(q('.fp-fill path'), { strokeDashoffset: 103 }, { strokeDashoffset: 0, duration: 0.36, ease: 'power1.in' }, 0.14)
+        .fromTo(q('.touch-ring .progress'), { strokeDashoffset: 100 }, { strokeDashoffset: 0, duration: 0.36, ease: 'power1.in' }, 0.14)
+        .fromTo(q('.fp-fill, .touch-ring .progress'), { stroke: '#fff' }, { stroke: ok, duration: 0.04 }, 0.5)
+        .to(q('.touch-pad'), { scale: 1, duration: 0.05, ease: 'back.out(3)' }, 0.5)
+        .fromTo(q('.touch-label .holding'), { opacity: 1 }, { opacity: 0, duration: 0.03 }, 0.51)
+        .fromTo(q('.touch-label .done'), { opacity: 0 }, { opacity: 1, duration: 0.03 }, 0.53)
+        // 2. the pad steps back, and the command it allowed runs on the client's machine
+        .to(q('.touch'), { y: 0, scale: 0.86, duration: 0.12, ease: 'power2.inOut' }, 0.6)
+        .fromTo(ran, { opacity: 0, y: 32 }, { opacity: 1, y: 0, duration: 0.1, ease: 'power2.out' }, 0.64)
+        .fromTo(q('.ran .out'), { opacity: 0 }, { opacity: 1, duration: 0.06 }, 0.76)
+        .to({}, { duration: 0.12 }, 0.88) // a short hold on the finished step before the section moves on
     })
 
     return () => mm.revert()
@@ -88,101 +80,32 @@ export function AsksFirst() {
               <h2 className="h2">Every command asks first.</h2>
               <p>
                 Your agent works inside the ticket the client handed over. Anything outside it waits for a yes on their
-                machine, and protected files stay out of reach either way.
+                machine, given with their own finger.
               </p>
             </div>
 
             <div className="asks-proof">
-              <div className="feed" aria-label="Example session on the client's machine">
-                <div className="feed-bar" aria-hidden="true">
-                  <span className="dots">
-                    <i />
-                    <i />
-                    <i />
-                  </span>
-                  <span>Session 0042 · Acme support agent</span>
+              <div className="touch" role="img" aria-label="Example: the client allows a command with Touch ID">
+                <div className="touch-pad">
+                  <svg className="touch-ring" viewBox="0 0 100 100" aria-hidden="true">
+                    <circle cx="50" cy="50" r="46" />
+                    <circle className="progress" cx="50" cy="50" r="46" pathLength={100} />
+                  </svg>
+                  <Fingerprint />
                 </div>
-                <ol className="feed-rows">
-                  <li className="row row-1">
-                    <code className="cmd">log show --last 1h --predicate 'process == "Acme"'</code>
-                    <span className="status">
-                      <span className="risk risk-low">Low</span>
-                      <span className="outcome is-ok">Ran · inside the grants</span>
-                    </span>
-                    <code className="out">Acme[4127]: GPU context lost (code -6), restarting renderer</code>
-                  </li>
-                  <li className="row row-2">
-                    <code className="cmd">system_profiler SPDisplaysDataType</code>
-                    <span className="status">
-                      <span className="risk risk-medium">Medium</span>
-                      <span className="swap">
-                        <span className="outcome is-waiting waiting">Waiting for the client</span>
-                        <span className="outcome is-ok allowed">Allowed once by the client</span>
-                      </span>
-                    </span>
-                    <code className="out">Chipset Model: Apple M2 Pro · Metal Support: Metal 3</code>
-                  </li>
-                  <li className="row row-3">
-                    <code className="cmd">cat ~/.ssh/id_ed25519</code>
-                    <span className="status">
-                      <span className="risk risk-high">High</span>
-                      <span className="outcome is-gone">Blocked · SSH private key is protected</span>
-                    </span>
-                  </li>
-                </ol>
+                <p className="touch-label" aria-hidden="true">
+                  <span className="holding">Allow with Touch ID</span>
+                  <span className="done">Allowed once</span>
+                </p>
               </div>
 
-              <div className="prompt" role="dialog" aria-label="Valet approval prompt, example">
-                <div className="prompt-title" aria-hidden="true">
-                  <img src="/brand/valet-mark.svg" alt="" width="16" height="16" />
-                  Valet
-                </div>
-                <p className="prompt-head">
+              <div className="ran">
+                <code className="cmd">system_profiler SPDisplaysDataType</code>
+                <span className="status">
                   <span className="risk risk-medium">Medium</span>
-                  <span>
-                    <b>Acme support agent</b> wants to run a command.
-                  </span>
-                </p>
-                <div className="action-block">
-                  <code className="action">system_profiler SPDisplaysDataType</code>
-                  <dl>
-                    <dt>Runs in</dt>
-                    <dd>
-                      <code>~/</code>
-                    </dd>
-                    <dt>Program</dt>
-                    <dd>
-                      <code>/usr/sbin/system_profiler</code>
-                    </dd>
-                    <dt>Needs</dt>
-                    <dd>
-                      <code>run /usr/sbin/system_profiler</code>
-                    </dd>
-                  </dl>
-                </div>
-                <div className="reason">
-                  <span>Agent's reason</span>
-                  <p>The crash log points at the GPU. I need the display details to match it against known driver issues.</p>
-                </div>
-                <div className="scope" aria-label="Allow for">
-                  <span className="is-on">Once</span>
-                  <span>This session</span>
-                  <span>15 minutes</span>
-                </div>
-                <div className="prompt-actions">
-                  <span className="btn-deny">Deny</span>
-                  <span className="allow">
-                    <span className="hold" aria-hidden="true" />
-                    <Fingerprint />
-                    <span className="label">Allow with Touch ID</span>
-                  </span>
-                </div>
-                <p className="timeout-note">
-                  Denies automatically in <b>0:45</b>
-                </p>
-                <span className="timeout-bar" aria-hidden="true">
-                  <i />
+                  <span className="outcome is-ok">Allowed once by the client</span>
                 </span>
+                <code className="out">Chipset Model: Apple M2 Pro · Metal Support: Metal 3</code>
               </div>
             </div>
           </div>
