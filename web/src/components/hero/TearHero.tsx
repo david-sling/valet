@@ -7,6 +7,24 @@ import { createTear } from './tear'
 
 export type EmojiSet = 'noto' | 'fluent'
 
+// where each shred of paper flies from the tear: x as a share of the scene's width, y of the hand size, and its spin
+const SHREDS = [
+  { x: 0.16, y: -0.9, r: 220 }, { x: -0.12, y: -1.1, r: -160 }, { x: 0.22, y: 0.7, r: 300 },
+  { x: -0.2, y: 0.8, r: -240 }, { x: 0.08, y: -1.4, r: 140 }, { x: -0.05, y: 1.2, r: -320 },
+  { x: 0.28, y: -0.3, r: 180 }, { x: -0.26, y: -0.5, r: -200 }, { x: 0.12, y: 1.5, r: 260 },
+  { x: -0.15, y: -1.6, r: -120 }, { x: 0.3, y: 0.3, r: 340 }, { x: -0.3, y: 0.2, r: -280 },
+]
+// each shape's resting turn, in degrees
+const SHAPE_TURN = [0, 12, -14, 8, 0, 0, 0, 18, -10]
+
+function Sparkle({ className, left, top }: { className: string; left: string; top: string }) {
+  return (
+    <svg className={`shape sparkle ${className}`} style={{ left, top }} viewBox="0 0 24 24">
+      <path d="M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0Z" />
+    </svg>
+  )
+}
+
 // The hero: the valet ticket starts as the page's big card under the headline. On scroll it shrinks into the
 // middle, two yellow emoji hands slide in from the sides (posed after The Creation of Adam) and stop short of it,
 // then draw apart, and only then does it tear: the red body comes to hover above the agent's open palm and the
@@ -50,7 +68,7 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
       const cardTop = () => Math.max(copyBottom() + 72 + row() + 64, innerHeight * 0.82)
 
       gsap.set(hands, { yPercent: -50 })
-      gsap.set(q('.handover'), { xPercent: -50, yPercent: -50 })
+      gsap.set(q('.handover, .shape'), { xPercent: -50, yPercent: -50 })
       const tl = gsap.timeline({
         defaults: { ease: 'none' },
         scrollTrigger: { trigger: q('.track')[0], start: 'top top', end: '+=150%', scrub: 0.8, invalidateOnRefresh: true },
@@ -90,6 +108,8 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
       }
       const ticket = { p: 0 }
       const draw = () => tear(smooth(0, 0.62, ticket.p), smooth(0.4, 1, ticket.p), to())
+      // a refresh re-renders the timeline without firing onUpdate, so redraw the tear after every one
+      ScrollTrigger.addEventListener('refresh', draw)
       const move = { duration: 0.5, ease: 'power2.inOut' }
       const part = { duration: 0.34, ease: 'power2.inOut' } // the hands draw apart quicker than the ticket settles
       tl.to(q('.copy'), { y: -140, opacity: 0, duration: 0.25 }, 0)
@@ -100,6 +120,34 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
         .to(ticket, { p: 1, duration: 0.75, onUpdate: draw }, 0)
         // the line comes up in the gap as the two halves part to either side of it
         .fromTo(q('.handover'), { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.16, ease: 'power2.out' }, 0.5)
+        // the shapes pop up around the halves and drift on as the scroll runs out
+        .fromTo(
+          q('.shape'),
+          { opacity: 0, scale: 0.3, rotate: (i) => SHAPE_TURN[i % SHAPE_TURN.length] - 40 },
+          { opacity: 1, scale: 1, rotate: (i) => SHAPE_TURN[i % SHAPE_TURN.length], duration: 0.14, stagger: 0.025, ease: 'back.out(1.8)' },
+          0.5,
+        )
+        .to(q('.shape'), { y: (i) => -24 - (i % 4) * 14, duration: 0.3 }, 0.62)
+
+      // shreds of paper burst from the perforation while it tears, and settle out of sight
+      tl.fromTo(
+        q('.shred'),
+        { x: 0, y: 0, rotate: 0, opacity: 0, scale: 0.4 },
+        {
+          keyframes: {
+            '0%': { opacity: 0 },
+            '15%': { opacity: 1, scale: 1 },
+            '100%': { opacity: 0 },
+          },
+          x: (i) => SHREDS[i].x * W(),
+          y: (i) => SHREDS[i].y * H(),
+          rotate: (i) => SHREDS[i].r,
+          duration: 0.32,
+          stagger: 0.012,
+          ease: 'power2.out',
+        },
+        0.18,
+      )
 
       // the hands and the big ticket are placed under the copy, so measure again whenever its height changes,
       // as it does once the web fonts arrive
@@ -113,6 +161,7 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
       root.dataset.ready = ''
       return () => {
         watchCopy.disconnect()
+        ScrollTrigger.removeEventListener('refresh', draw)
         stopScroll()
         tear(0, 0, { body: { x: 0, y: 0 }, stub: { x: 0, y: 0 } })
       }
@@ -164,6 +213,24 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
           <p className="h2 handover">
             <span>Every session starts</span> <span>with a handover.</span>
           </p>
+
+          {/* the scene's confetti: shreds of ticket that fly from the tear, and shapes that come up around the halves */}
+          <div className="shreds" aria-hidden="true">
+            {SHREDS.map((_, i) => (
+              <span key={i} className={`shred ${i % 3 === 0 ? 'is-red' : ''}`} />
+            ))}
+          </div>
+          <div className="shapes" aria-hidden="true">
+            <span className="shape circle sky" style={{ left: '12%', top: '24%' }} />
+            <span className="shape block sun" style={{ left: '84%', top: '20%' }} />
+            <span className="shape pill pink" style={{ left: '20%', top: '80%' }} />
+            <span className="shape square night" style={{ left: '80%', top: '76%' }} />
+            <span className="shape dot peach" style={{ left: '58%', top: '16%' }} />
+            <span className="shape ring" style={{ left: '93%', top: '52%' }} />
+            <Sparkle className="sun" left="34%" top="18%" />
+            <Sparkle className="pink" left="66%" top="85%" />
+            <Sparkle className="sky" left="6%" top="56%" />
+          </div>
         </div>
       </div>
     </div>

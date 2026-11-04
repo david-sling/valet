@@ -92,7 +92,9 @@ a { color: inherit; }
 .h2 { margin: 0; font: 700 clamp(2rem, 4vw, 3.25rem)/1.02 var(--display); letter-spacing: -0.03em; text-wrap: balance; }
 
 /* hero: the tearing ticket */
-.tear-hero .track { position: relative; height: 250vh; }
+/* the track pins the stage for the scrubbed scene (150vh), a short hold (20vh), and the next section
+   sliding up over it (100vh): the stage stays put underneath until it is fully covered */
+.tear-hero .track { position: relative; height: 370vh; }
 .tear-hero .stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
 .tear-hero .copy {
   position: absolute; inset: 0 0 auto 0; z-index: 3;
@@ -104,7 +106,7 @@ a { color: inherit; }
 .tear-hero .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 
 /* the hands span the screen edge to edge, each wrist off its own side, at a fixed hand size */
-.tear-hero .hands-wrap { --hand: min(20vw, 24vh); position: absolute; left: 0; width: 100%; top: 54vh; height: var(--hand); }
+.tear-hero .hands-wrap { --hand: min(20vw, 24vh); position: absolute; left: 0; width: 100%; top: 50vh; height: var(--hand); }
 /* the scene waits for its script to place it, so it never flashes in its final layout first */
 .tear-hero:not([data-ready]) .hands-wrap { visibility: hidden; }
 .tear-hero .scene { position: relative; width: 100%; height: 100%; }
@@ -134,9 +136,38 @@ a { color: inherit; }
 }
 .tear-hero .handover span { display: block; white-space: nowrap; }
 
+/* shreds of ticket, flung from the perforation as it tears */
+.tear-hero .shreds { position: absolute; left: 0; width: 100%; top: 50vh; height: var(--hand); translate: 0 -50%; z-index: 4; pointer-events: none; }
+.tear-hero .shred {
+  position: absolute; left: 50%; top: 50%; width: 7px; height: 11px; margin: -5px 0 0 -3px;
+  border-radius: 1.5px; background: var(--cream); opacity: 0;
+}
+.tear-hero .shred.is-red { background: var(--red); }
+
+/* the shapes that come up around the halves once the ticket has torn: the landing palette, outlined */
+.tear-hero .shapes { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.tear-hero .shape { position: absolute; display: block; opacity: 0; } /* centred on its point from the script */
+.tear-hero .shape.circle { width: clamp(40px, 5vw, 68px); aspect-ratio: 1; border-radius: 50%; }
+.tear-hero .shape.block { width: clamp(56px, 7vw, 96px); aspect-ratio: 1.6; border-radius: 16px; }
+.tear-hero .shape.pill { width: clamp(64px, 8.5vw, 116px); aspect-ratio: 2.5; border-radius: 999px; }
+.tear-hero .shape.square { width: clamp(30px, 3.6vw, 48px); aspect-ratio: 1; border-radius: 10px; }
+.tear-hero .shape.dot { width: clamp(18px, 2.4vw, 32px); aspect-ratio: 1; border-radius: 50%; }
+.tear-hero .shape.ring { width: clamp(30px, 3.8vw, 52px); aspect-ratio: 1; border-radius: 50%; border: 3px solid var(--blue); }
+.tear-hero .shape:is(.circle, .block, .pill, .square, .dot) { border: 2px solid var(--outline); box-shadow: 0 5px 0 -1px var(--outline); }
+.tear-hero .shape.sky { background: var(--sky); }
+.tear-hero .shape.sun { background: var(--sun); }
+.tear-hero .shape.pink { background: var(--pink); }
+.tear-hero .shape.night { background: var(--night); }
+.tear-hero .shape.peach { background: var(--peach); }
+.tear-hero .shape.sparkle { width: clamp(18px, 2.2vw, 30px); height: auto; background: none; }
+.tear-hero .shape.sparkle.sun { fill: var(--sun); }
+.tear-hero .shape.sparkle.pink { fill: var(--pink); }
+.tear-hero .shape.sparkle.sky { fill: var(--blue); }
+
 @media (max-width: 760px) {
-  .tear-hero .hands-wrap { top: 58vh; --hand: 24vw; }
+  .tear-hero .hands-wrap { --hand: 24vw; }
   .tear-hero .ticket-hold { --tw: 40vw; }
+  .tear-hero .shape:is(.ring, .sparkle.sky) { display: none; } /* too close to the hands on a narrow screen */
 }
 
 /* reduced motion: no pinned scroll; the ticket waits between the hands in its resting layout */
@@ -144,13 +175,120 @@ a { color: inherit; }
 .tear-hero[data-motion="reduced"] .stage { position: relative; height: auto; display: grid; }
 .tear-hero[data-motion="reduced"] .copy { position: relative; padding-bottom: 32px; }
 .tear-hero[data-motion="reduced"] .hands-wrap { position: relative; top: auto; margin: 24px 0 64px; }
-.tear-hero[data-motion="reduced"] .handover { display: none; }
+.tear-hero[data-motion="reduced"] .handover,
+.tear-hero[data-motion="reduced"] .shreds,
+.tear-hero[data-motion="reduced"] .shapes { display: none; }
 
-/* a plain section that follows the hero */
+/* "Every command asks first": dark, and pulled up a full screen so it slides over the pinned hero.
+   Inside, its own stage pins while a session plays out on the client's machine. */
+.asks {
+  position: relative; z-index: 5; margin-top: -100vh;
+  background: var(--night); color: #fff;
+  border-radius: 40px 40px 0 0;
+}
+/* without the pinned scroll there is nothing to slide over */
+.tear-hero[data-motion="reduced"] + .asks { margin-top: 0; }
+.asks-track { position: relative; height: 280vh; }
+.asks-stage { position: sticky; top: 0; height: 100vh; height: 100svh; display: grid; align-items: center; padding: 88px clamp(16px, 4vw, 40px) 40px; }
+.asks-inner {
+  width: 100%; max-width: 72rem; margin: 0 auto;
+  display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: clamp(32px, 5vw, 72px); align-items: center;
+}
+.asks-copy { display: grid; gap: 20px; max-width: 48ch; }
+.asks-copy p { margin: 0; color: rgba(255, 255, 255, 0.74); font-size: clamp(16px, 1.4vw, 18px); }
+.asks-proof { position: relative; padding-bottom: 120px; }
+
+/* the client's activity feed: what the agent has run on this machine */
+.feed { border-radius: 28px; background: #1d1452; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; }
+.feed-bar {
+  display: flex; align-items: center; gap: 14px; padding: 14px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font: 500 12.5px/1 var(--sans); color: rgba(255, 255, 255, 0.6);
+}
+.feed-bar .dots { display: flex; gap: 6px; }
+.feed-bar .dots i { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); }
+.feed-rows { list-style: none; margin: 0; padding: 8px 20px 20px; display: grid; }
+.row { display: grid; gap: 8px; padding: 16px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+.row:last-child { border-bottom: 0; }
+.row .cmd { font: 500 14px/1.55 var(--mono); color: #fff; overflow-wrap: anywhere; }
+.row .cmd::before { content: "› "; color: rgba(255, 255, 255, 0.4); }
+.row .out { display: block; overflow: hidden; font: 400 12.5px/1.5 var(--mono); color: rgba(255, 255, 255, 0.55); }
+.status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.swap { display: grid; }
+.swap > * { grid-area: 1 / 1; }
+.row-2 .allowed, .row-2 .out { opacity: 0; } /* revealed once the client allows it */
+.outcome { display: inline-flex; align-items: center; gap: 7px; font: 500 12.5px/1.2 var(--sans); color: rgba(255, 255, 255, 0.78); }
+.outcome::before { content: ""; width: 7px; height: 7px; border-radius: 50%; }
+.outcome.is-ok::before { background: #1fa35a; }
+.outcome.is-waiting::before { background: #d99a00; }
+.outcome.is-gone::before { background: #9a9ca8; }
+
+/* risk chips: always a word and its colour */
+.risk { display: inline-block; padding: 1px 8px; border-radius: 999px; font: 600 11.5px/1.5 var(--sans); letter-spacing: 0.01em; }
+.risk-low { background: #e3f4ea; color: #136b3a; }
+.risk-medium { background: #fdf0d2; color: #7a5200; }
+.risk-high { background: #ffe3d9; color: #8f2f14; }
+
+/* Valet's approval prompt, as it appears on the client's screen (DESIGN.md: Approval prompt) */
+.prompt {
+  position: absolute; right: clamp(-40px, -3vw, 0px); bottom: 0; z-index: 2;
+  width: min(440px, 92%);
+  display: grid; gap: 16px; padding: 20px 24px 22px;
+  background: #fff; color: var(--ink); border-radius: 28px; overflow: hidden;
+  box-shadow: 0 2px 4px rgba(21, 22, 26, 0.05), 0 24px 56px -24px rgba(21, 22, 26, 0.28), 0 40px 80px -30px rgba(8, 4, 30, 0.6);
+}
+.prompt-title { display: flex; align-items: center; gap: 7px; font: 600 12.5px/1 var(--sans); color: var(--ink-3); }
+.prompt-head { margin: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font: 400 16px/1.35 var(--sans); }
+.prompt-head b { font-weight: 600; }
+.action-block { display: grid; gap: 12px; padding: 14px 16px; border-radius: 12px; background: #fafaf8; border: 1px solid #efeff2; }
+.action-block .action { font: 500 14px/1.55 var(--mono); overflow-wrap: anywhere; }
+.action-block dl { margin: 0; display: grid; grid-template-columns: auto 1fr; font-size: 12.5px; }
+.action-block dt, .action-block dd { padding: 6px 0; border-top: 1px solid #efeff2; }
+.action-block dt { color: var(--ink-3); padding-right: 16px; }
+.action-block dd { margin: 0; }
+.action-block dd code { font: 500 12.5px/1.4 var(--mono); }
+.reason { display: grid; gap: 4px; }
+.reason span { font-size: 12.5px; color: var(--ink-3); }
+.reason p { margin: 0; font-size: 14px; color: var(--ink-2); }
+.scope { display: flex; gap: 2px; padding: 4px; border-radius: 12px; background: #fafaf8; border: 1px solid #efeff2; font-size: 13px; color: var(--ink-2); }
+.scope span { flex: 1; text-align: center; padding: 7px 4px; border-radius: 9px; white-space: nowrap; }
+.scope .is-on { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(21, 22, 26, 0.08); }
+.prompt-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.prompt-actions > span {
+  position: relative; overflow: hidden; display: grid; place-items: center;
+  height: 44px; border-radius: 999px; font: 600 14px/1 var(--sans); white-space: nowrap;
+}
+/* Deny holds the initial focus: approving always takes a deliberate step */
+.btn-deny { background: #fff; color: var(--ink); border: 1px solid var(--line); outline: 2px solid var(--accent, #4353e8); outline-offset: 2px; }
+.allow { background: var(--ink); color: #fff; }
+.allow .hold { position: absolute; inset: 0; background: #3a3c46; transform-origin: 0 50%; transform: scaleX(0); }
+.allow .label { position: relative; padding-left: 30px; }
+/* the fingerprint sits snug in the button's left end */
+.fp { position: absolute; left: 8px; top: 5px; width: 30px; height: 30px; fill: none; stroke-width: 1.6; stroke-linecap: round; }
+.fp-base { stroke: rgba(255, 255, 255, 0.35); }
+.fp-fill { stroke: #fff; }
+/* traced in while Touch ID is held. The trace starts a little past each ridge's end: at exactly 100 it would be
+   a zero-length dash, and its round cap would still draw a dot */
+.fp-fill path { stroke-dasharray: 100 110; stroke-dashoffset: 103; }
+.timeout-note { margin: -4px 0 0; font-size: 12.5px; color: var(--ink-3); }
+.timeout-note b { font-weight: 500; font-variant-numeric: tabular-nums; }
+.timeout-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: #efeff2; }
+.timeout-bar i { position: absolute; inset: 0; background: var(--ink-3); transform-origin: 0 50%; }
+
+@media (max-width: 900px) {
+  .asks-track { height: 300vh; }
+  .asks-stage { align-items: start; padding-top: 92px; }
+  .asks-inner { grid-template-columns: 1fr; gap: 24px; }
+  .asks-proof { padding-bottom: 0; }
+  .prompt { left: 0; right: 0; bottom: auto; top: 48px; margin: 0 auto; width: min(400px, calc(100vw - 24px)); gap: 12px; padding: 16px 18px 18px; }
+  .action-block dl { display: none; } /* the command and the reason carry the decision on a small screen */
+  .prompt-actions { grid-template-columns: 1fr; gap: 8px; } /* full width each, still equal, so the label clears the fingerprint */
+}
+
+/* the light section that follows */
 .after {
   position: relative; z-index: 5;
   background: var(--paper);
-  border-radius: 40px 40px 0 0;
   padding: clamp(72px, 10vw, 120px) clamp(16px, 4vw, 40px) 160px;
 }
 .after-inner { max-width: 72rem; margin: 0 auto; display: grid; gap: 32px; }
