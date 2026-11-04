@@ -104,7 +104,7 @@ a { color: inherit; }
 .tear-hero .stage { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .tear-hero .copy {
   position: absolute; inset: 0 0 auto 0; z-index: 3;
-  padding: clamp(92px, 13vh, 128px) 16px 0;
+  padding: clamp(104px, 15vh, 140px) 16px 0;
   display: grid; justify-items: center; text-align: center; gap: 18px;
 }
 .tear-hero .copy .display { font-size: clamp(2.5rem, 5.6vw, 5rem); }
@@ -167,6 +167,7 @@ a { color: inherit; }
 /* lying flat, the hero's ticket is drawn several times its size, so its words are set smaller: each half's words
    shrink towards the middle of where they sit (the body's from its left edge) */
 @media (min-width: 761px) {
+  .tear-hero .copy { padding-top: clamp(128px, 19vh, 184px); } /* more room under the header on a wide screen */
   .tear-hero .ticket .words { transform: scale(0.72); transform-box: fill-box; }
   .tear-hero .ticket .body .words { transform-origin: 0% 50%; }
   .tear-hero .ticket .stub .words { transform-origin: 50% 50%; }

@@ -94,8 +94,9 @@ export function TearHero() {
       // carries a transform mid-scroll. The copy and the scene both sit in the pinned stage, which starts at the top.
       const copy = q('.copy')[0] as HTMLElement
       const copyBottom = () => copy.offsetTop + copy.offsetHeight
-      // where the big ticket's top edge sits before scrolling: just under the buttons, running on below the fold
-      const cardTop = () => copyBottom() + 48
+      // where the big ticket's top edge sits before scrolling: under the buttons, running on below the fold; a wide
+      // screen leaves more room above it
+      const cardTop = () => copyBottom() + (upright ? 64 : 88)
 
       gsap.set(frame, { yPercent: -50 })
       gsap.set(q('.handover, .shape'), { xPercent: -50, yPercent: -50 })
