@@ -50,7 +50,8 @@ export function AsksFirst() {
 
       const tl = gsap.timeline({
         defaults: { ease: 'none' },
-        scrollTrigger: { trigger: q('.asks-track')[0], start: 'top top', end: 'bottom bottom', scrub: 0.8, invalidateOnRefresh: true },
+        // it finishes 40% of a screen before the section lets go, so the next one only comes up once it has
+        scrollTrigger: { trigger: q('.asks-track')[0], start: 'top top', end: () => `bottom-=${innerHeight * 0.4} bottom`, scrub: 0.8, invalidateOnRefresh: true },
       })
       // 1. the client holds their finger on Touch ID: the ridges trace in and the ring closes, then both turn green
       // the pad is there from the start, so it slides up over the hero with the heading, still unfilled

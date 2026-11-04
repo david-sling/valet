@@ -15,6 +15,8 @@ export const Ticket = forwardRef<SVGSVGElement>(function Ticket(_, ref) {
           {holes.map((cy) => (
             <circle key={cy} cx={T.x} cy={cy} r={T.hole / 2} fill="#000" />
           ))}
+          {/* the logo's slot, near the red end: a rounded bar across the ticket, at the logo's proportions */}
+          <rect x="18" y="35.6" width="13" height="24.8" rx="6.5" fill="#000" />
           <circle cx={T.x} cy="0" r={T.notch} fill="#000" />
           <circle cx={T.x} cy={T.h} r={T.notch} fill="#000" />
         </mask>
@@ -26,13 +28,13 @@ export const Ticket = forwardRef<SVGSVGElement>(function Ticket(_, ref) {
           d={`M12 0 H${T.x} V${T.h} H12 A12 12 0 0 1 0 ${T.h - 12} V12 A12 12 0 0 1 12 0Z`}
         />
         <g className="words">
-          <text x="18" y="40" fill="#fbf3e3" fontFamily="Funnel Display, sans-serif" fontWeight="800" fontSize="24" letterSpacing="-0.5">
+          <text x="40" y="40" fill="#fbf3e3" fontFamily="Funnel Display, sans-serif" fontWeight="800" fontSize="24" letterSpacing="-0.5">
             Valet
           </text>
-          <text x="18" y="60" fill="#f6b8ad" fontFamily="Geist Mono, monospace" fontSize="8.5" letterSpacing="0.6">
+          <text x="40" y="60" fill="#f6b8ad" fontFamily="Geist Mono, monospace" fontSize="8.5" letterSpacing="0.3">
             SESSION NO. 0042
           </text>
-          <text x="18" y="76" fill="#f6b8ad" fontFamily="Geist Mono, monospace" fontSize="8.5" letterSpacing="0.6">
+          <text x="40" y="76" fill="#f6b8ad" fontFamily="Geist Mono, monospace" fontSize="8.5" letterSpacing="0.3">
             60 MIN · 3 GRANTS
           </text>
         </g>

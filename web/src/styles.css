@@ -207,7 +207,7 @@ a { color: inherit; }
 @media (prefers-reduced-motion: no-preference) {
   main > section:not(:last-child) { position: sticky; top: min(0px, calc(100vh - var(--h, 100vh))); top: min(0px, calc(100dvh - var(--h, 100dvh))); }
 }
-.asks-track { position: relative; height: 280vh; }
+.asks-track { position: relative; height: 320vh; } /* the scene, then 40vh with it finished */
 .asks-stage { position: sticky; top: 0; height: 100vh; height: 100svh; display: grid; align-items: center; padding: 88px clamp(16px, 4vw, 40px) 40px; }
 .asks-inner {
   width: 100%; max-width: 72rem; margin: 0 auto;
@@ -268,7 +268,7 @@ a { color: inherit; }
 .feed-bar .dots i { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); }
 
 @media (max-width: 900px) {
-  .asks-track { height: 300vh; }
+  .asks-track { height: 340vh; }
   .asks-stage { align-items: start; padding-top: 92px; }
   .asks-inner { grid-template-columns: 1fr; gap: 28px; }
   .touch-pad { width: min(220px, 56vw); }
