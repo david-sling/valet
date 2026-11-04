@@ -171,8 +171,8 @@ a { color: inherit; }
   .tear-hero .track { height: 420vh; } /* the upright scene settles the ticket before it tears: 50vh more */
   .tear-hero .hands-wrap { --hand: 24vw; }
   /* upright, the ticket keeps one size from the first screen to the end, as large as lets its torn halves, the
-     hands and the band between them fit the screen's height (1.29 ticket lengths, 1.1 hand sizes and 200px) */
-  .tear-hero .ticket-hold { --tw: min(110vw, calc((100svh - 228px - 26.4vw) / 1.29)); }
+     hands and the band between them fit the screen's height (1.29 ticket lengths, 1.16 hand sizes and 202px) */
+  .tear-hero .ticket-hold { --tw: min(110vw, calc((100svh - 202px - 27.84vw) / 1.29)); }
   .tear-hero .shape:is(.ring, .sparkle.sky) { display: none; } /* too close to the hands on a narrow screen */
   /* the upright ticket's halves part up and down, and the line fills the band between them */
   .tear-hero .handover { font-size: min(2rem, 7.4vw); }

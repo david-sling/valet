@@ -82,7 +82,8 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
       const copyBottom = () => copy.offsetTop + copy.offsetHeight
       // where the big ticket's top edge sits before scrolling: low, mostly below the fold, with room above it
       // for the hands' row and a clear gap either side of that row
-      const cardTop = () => Math.max(copyBottom() + 72 + row() + 64, SH() * 0.82)
+      // upright, only a strip of it shows at the bottom, as the card is too tall to fit on the first screen
+      const cardTop = () => Math.max(copyBottom() + 72 + row() + 64, SH() * (upright ? 0.9 : 0.82))
 
       gsap.set(hands, { yPercent: -50 })
       gsap.set(q('.handover, .shape'), { xPercent: -50, yPercent: -50 })
@@ -115,11 +116,12 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
       // Upright, the halves keep their full size, so the torn scene is laid out as a column measured from the ticket:
       // the client's hand, the body hanging from its fingers, a band for the line, the stub, and the agent's palm
       // under it. Tilted as they come to rest, the body stands about 0.75 of the ticket's length tall and the stub
-      // 0.54. x is across the scene; y is from the middle of the screen, where the ticket rested whole.
-      const BAND = 48 // half the height of the band the line opens into
+      // 0.54, and the agent's palm runs 0.66 of a hand size (and a 6px gap) below the stub. x is across the scene; y is
+      // from the middle of the screen, where the ticket rested whole.
+      const BAND = 42 // half the height of the band the line opens into: its two lines, with a little air
       const column = () => {
         const L = tw()
-        const height = H() * 0.5 + L * 0.75 + BAND * 2 + L * 0.54 + H() * 0.6
+        const height = H() * 0.5 + L * 0.75 + BAND * 2 + L * 0.54 + H() * 0.66 + 6
         const top = 88 + Math.max(0, (SH() - 88 - 16 - height) / 2) - SH() / 2
         const band = top + H() * 0.5 + L * 0.75 + BAND
         return {
