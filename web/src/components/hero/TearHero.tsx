@@ -4,7 +4,6 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { startSmoothScroll } from '#/lib/smooth-scroll'
 import { Ticket } from './Ticket'
 import { createTear } from './tear'
-
 export type EmojiSet = 'noto' | 'fluent'
 
 // where each shred of paper flies from the tear: x as a share of the scene's width, y of the hand size, and its spin

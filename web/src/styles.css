@@ -515,6 +515,32 @@ a { color: inherit; }
   .cmp td.is-valet::before { color: var(--ink-3); }
 }
 
+/* "Every session ends with the stub.": the closing, back on paper. The ticket comes back together above the one
+   action the page asks for, and the footer closes the page. */
+.closing {
+  position: relative; z-index: 10; margin-top: -40px; border-radius: 40px 40px 0 0; background: var(--paper);
+  min-height: 100vh; min-height: 100svh; display: grid; grid-template-rows: 1fr auto;
+  padding: clamp(96px, 13vh, 120px) clamp(16px, 4vw, 40px) 0;
+}
+.closing-inner { align-self: center; display: grid; justify-items: center; gap: 18px; text-align: center; }
+.closing-inner .lead { margin: 0 0 8px; max-width: 44ch; }
+.rejoin { width: min(440px, 78vw); margin-bottom: clamp(24px, 5vh, 48px); }
+/* the Tally form sits straight on the paper: its own background is transparent and its title hidden */
+.early-form { width: min(100%, 30rem); text-align: left; }
+.early-form iframe { display: block; width: 100%; border: 0; }
+.rejoin .ticket { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 16px 26px rgba(21, 22, 26, 0.18)); }
+
+.site-foot {
+  width: 100%; max-width: 72rem; margin: clamp(48px, 9vh, 96px) auto 0; padding: 24px 0 28px;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;
+  border-top: 1px solid var(--line); font-size: 14px; color: var(--ink-3);
+}
+.site-foot .brand { padding: 0; background: none; border: 0; backdrop-filter: none; font-size: 18px; }
+.site-foot nav { display: flex; flex-wrap: wrap; gap: 4px 20px; }
+.site-foot nav a { color: var(--ink-2); text-decoration: none; }
+.site-foot nav a:hover { color: var(--ink); }
+.site-foot p { margin: 0; }
+
 @media (prefers-reduced-motion: reduce) {
   .btn { transition: none; }
 }
