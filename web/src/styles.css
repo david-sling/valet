@@ -174,6 +174,8 @@ a { color: inherit; }
 
 @media (max-width: 760px) {
   .tear-hero .scene-wrap { --frame: 24vw; }
+  /* upright, the red half's words are set smaller too, shrinking towards its far end (the stub's stay as they are) */
+  .tear-hero .ticket .body .words { transform: scale(0.8); transform-box: fill-box; transform-origin: 0% 50%; }
   /* upright, the ticket keeps one size from the first screen to the end: nearly as wide as the screen (its width
      is 0.48 of its length), or as long as fits whole between the header and the bottom of the screen */
   .tear-hero .ticket-hold { --tw: min(190vw, calc(100svh - 112px - env(safe-area-inset-bottom, 0px))); }
