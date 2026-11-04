@@ -45,7 +45,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "UPDATER_PUBLIC_KEY",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdEQ0IxNEUyOTM5NjEzRDAKUldUUUU1YVQ0aFRMZlp4bEJqc2JobTNVSVBPeHlIMEt4RmROS1VtRTQrN0kwZmUwUTgwSWRYYmcK",
       "endpoints": [
         "https://github.com/david-sling/valet/releases/latest/download/latest.json"
       ]
