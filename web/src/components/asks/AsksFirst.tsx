@@ -7,7 +7,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 // both turn green once it completes. Then the command it allowed runs on their machine. The request itself is left
 // unsaid: it can only have come from the other side.
 // A fingerprint in two layers: the ridges sit faint, and a bright copy traces over them while the finger is held.
-const RIDGES = [
+export const RIDGES = [
   'M6.2 7.6a7.6 7.6 0 0 1 11.6 0',
   'M4.6 12.2a7.4 7.4 0 0 1 14.8 0v1.3',
   'M7.8 12.6a4.2 4.2 0 0 1 8.4 0v1c0 2.6-1 4.7-2.6 6.3',
