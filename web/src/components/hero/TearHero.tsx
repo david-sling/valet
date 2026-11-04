@@ -14,8 +14,10 @@ const SHREDS = [
   { x: 0.28, y: -0.3, r: 180 }, { x: -0.26, y: -0.5, r: -200 }, { x: 0.12, y: 1.5, r: 260 },
   { x: -0.15, y: -1.6, r: -120 }, { x: 0.3, y: 0.3, r: 340 }, { x: -0.3, y: 0.2, r: -280 },
 ]
-// each shape's resting turn, in degrees
+// each shape's turn, in degrees, and its depth: how fast it scrolls past against the page, so nearer (bigger)
+// shapes travel further than the small ones behind them
 const SHAPE_TURN = [0, 12, -14, 8, 0, 0, 0, 18, -10]
+const SHAPE_DEPTH = [1.15, 1.3, 1.2, 0.95, 0.75, 0.9, 0.7, 0.8, 0.75]
 
 function Sparkle({ className, left, top }: { className: string; left: string; top: string }) {
   return (
@@ -69,6 +71,7 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
 
       gsap.set(hands, { yPercent: -50 })
       gsap.set(q('.handover, .shape'), { xPercent: -50, yPercent: -50 })
+      gsap.set(q('.shape'), { opacity: 1, rotate: (i) => SHAPE_TURN[i] })
       const tl = gsap.timeline({
         defaults: { ease: 'none' },
         scrollTrigger: { trigger: q('.track')[0], start: 'top top', end: '+=150%', scrub: 0.8, invalidateOnRefresh: true },
@@ -120,14 +123,16 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
         .to(ticket, { p: 1, duration: 0.75, onUpdate: draw }, 0)
         // the line comes up in the gap as the two halves part to either side of it
         .fromTo(q('.handover'), { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.16, ease: 'power2.out' }, 0.5)
-        // the shapes pop up around the halves and drift on as the scroll runs out
-        .fromTo(
-          q('.shape'),
-          { opacity: 0, scale: 0.3, rotate: (i) => SHAPE_TURN[i % SHAPE_TURN.length] - 40 },
-          { opacity: 1, scale: 1, rotate: (i) => SHAPE_TURN[i % SHAPE_TURN.length], duration: 0.14, stagger: 0.025, ease: 'back.out(1.8)' },
-          0.5,
-        )
-        .to(q('.shape'), { y: (i) => -24 - (i % 4) * 14, duration: 0.3 }, 0.62)
+
+      // the shapes scroll through the pinned scene as if the page were moving under it, each at its own depth:
+      // in from below, easing into their places as the line comes up, then only drifting on, so they stay in
+      // frame until the next section slides over them. Durations are in screen heights of scroll: the pin lasts 2.7.
+      gsap
+        .timeline({
+          scrollTrigger: { trigger: q('.track')[0], start: 'top top', end: 'bottom bottom', scrub: true, invalidateOnRefresh: true },
+        })
+        .fromTo(q('.shape'), { y: (i) => SHAPE_DEPTH[i] * innerHeight * 1.3 }, { y: 0, duration: 1.2, ease: 'power1.out' })
+        .to(q('.shape'), { y: (i) => -SHAPE_DEPTH[i] * innerHeight * 0.14, duration: 1.5, ease: 'none' })
 
       // shreds of paper burst from the perforation while it tears, and settle out of sight
       tl.fromTo(
