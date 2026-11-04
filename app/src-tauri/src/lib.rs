@@ -1,4 +1,7 @@
+mod needs;
 mod policy;
+mod sandbox;
+mod tools;
 mod types;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
