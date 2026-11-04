@@ -97,7 +97,8 @@ a { color: inherit; }
 /* the track pins the stage for the scrubbed scene (150vh), a short hold (20vh), and the next section
    sliding up over it (100vh): the stage stays put underneath until it is fully covered */
 .tear-hero .track { position: relative; height: 370vh; }
-.tear-hero .stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
+/* the stage is the screen with the address bar showing; the scene may run past its bottom edge when the bar hides */
+.tear-hero .stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow-x: clip; overflow-y: visible; }
 .tear-hero .copy {
   position: absolute; inset: 0 0 auto 0; z-index: 3;
   padding: clamp(92px, 13vh, 128px) 16px 0;
@@ -108,7 +109,7 @@ a { color: inherit; }
 .tear-hero .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 
 /* the hands span the screen edge to edge, each wrist off its own side, at a fixed hand size */
-.tear-hero .hands-wrap { --hand: min(20vw, 24vh); position: absolute; z-index: 2; left: 0; width: 100%; top: 50vh; height: var(--hand); } /* above the shapes */
+.tear-hero .hands-wrap { --hand: min(20vw, 24vh); position: absolute; z-index: 2; left: 0; width: 100%; top: 50%; height: var(--hand); } /* above the shapes */
 /* the scene waits for its script to place it, so it never flashes in its final layout first */
 .tear-hero:not([data-ready]) .hands-wrap { visibility: hidden; }
 .tear-hero .scene { position: relative; width: 100%; height: 100%; }
@@ -139,7 +140,7 @@ a { color: inherit; }
 .tear-hero .handover span { display: block; white-space: nowrap; }
 
 /* shreds of ticket, flung from the perforation as it tears */
-.tear-hero .shreds { position: absolute; left: 0; width: 100%; top: 50vh; height: var(--hand); translate: 0 -50%; z-index: 4; pointer-events: none; }
+.tear-hero .shreds { position: absolute; left: 0; width: 100%; top: 50%; height: var(--hand); translate: 0 -50%; z-index: 4; pointer-events: none; }
 .tear-hero .shred {
   position: absolute; left: 50%; top: 50%; width: 7px; height: 11px; margin: -5px 0 0 -3px;
   border-radius: 1.5px; background: var(--cream); opacity: 0;
@@ -171,7 +172,7 @@ a { color: inherit; }
   .tear-hero .hands-wrap { --hand: 24vw; }
   /* upright, the ticket keeps one size from the first screen to the end, as large as lets its torn halves, the
      hands and the band between them fit the screen's height (1.29 ticket lengths, 1.1 hand sizes and 200px) */
-  .tear-hero .ticket-hold { --tw: min(110vw, calc((100svh - 200px - 26.4vw) / 1.29)); }
+  .tear-hero .ticket-hold { --tw: min(110vw, calc((100svh - 228px - 26.4vw) / 1.29)); }
   .tear-hero .shape:is(.ring, .sparkle.sky) { display: none; } /* too close to the hands on a narrow screen */
   /* the upright ticket's halves part up and down, and the line fills the band between them */
   .tear-hero .handover { font-size: min(2rem, 7.4vw); }
@@ -195,6 +196,12 @@ a { color: inherit; }
 }
 /* without the pinned scroll there is nothing to slide over */
 .tear-hero[data-motion="reduced"] + .asks { margin-top: 0; }
+
+/* every section but the last holds once its bottom reaches the bottom of the screen, and the next slides over it;
+   --h is the section's height, kept up to date from the script */
+@media (prefers-reduced-motion: no-preference) {
+  main > section:not(:last-child) { position: sticky; top: min(0px, calc(100vh - var(--h, 100vh))); top: min(0px, calc(100dvh - var(--h, 100dvh))); }
+}
 .asks-track { position: relative; height: 280vh; }
 .asks-stage { position: sticky; top: 0; height: 100vh; height: 100svh; display: grid; align-items: center; padding: 88px clamp(16px, 4vw, 40px) 40px; }
 .asks-inner {

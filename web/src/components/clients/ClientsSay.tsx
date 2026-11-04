@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { pageTop } from '#/lib/page-top'
 
 // The section for the client side: why a customer accepts a session. The proof is the client app's permission
 // review (DESIGN.md: Permission review) for the same example session as the section before, and its one moment is
@@ -61,12 +62,8 @@ export function ClientsSay() {
       count.textContent = String(ON + 1) // before the customer switches one off
       const review = q('.review')[0] as HTMLElement
       const row = q('.grant.is-off')[0] as HTMLElement
-      // places from layout offsets, so the window's own rise doesn't skew them
-      const top = (el: HTMLElement) => {
-        let y = 0
-        for (let e: HTMLElement | null = el; e; e = e.offsetParent as HTMLElement | null) y += e.offsetTop
-        return y
-      }
+      // places from the layout, so the window's own rise doesn't skew them
+      const top = pageTop
       const lead = () => innerHeight * 0.3
       // the scroll position of the click: the window's top just clear of the header, so all of it that fits is on
       // screen, unless that leaves the row too low on a short screen; and finished before the section pins and the

@@ -57,6 +57,8 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
       const hands = q('.hands-wrap')[0] as HTMLElement
       const hold = q('.ticket-hold')[0] as HTMLElement
       const W = () => hands.offsetWidth
+      // the stage's height: the screen with the address bar showing, which holds still as the bar hides and shows
+      const SH = () => (q('.stage')[0] as HTMLElement).offsetHeight
       const H = () => hands.offsetHeight // the hand size
       const tw = () => hold.offsetWidth
       // On a narrow screen the ticket stands upright, turned a quarter clockwise: the red body on top, the stub
@@ -80,7 +82,7 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
       const copyBottom = () => copy.offsetTop + copy.offsetHeight
       // where the big ticket's top edge sits before scrolling: low, mostly below the fold, with room above it
       // for the hands' row and a clear gap either side of that row
-      const cardTop = () => Math.max(copyBottom() + 72 + row() + 64, innerHeight * 0.82)
+      const cardTop = () => Math.max(copyBottom() + 72 + row() + 64, SH() * 0.82)
 
       gsap.set(hands, { yPercent: -50 })
       gsap.set(q('.handover, .shape'), { xPercent: -50, yPercent: -50 })
@@ -118,7 +120,7 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
       const column = () => {
         const L = tw()
         const height = H() * 0.5 + L * 0.75 + BAND * 2 + L * 0.54 + H() * 0.6
-        const top = 88 + Math.max(0, (innerHeight - 88 - 16 - height) / 2) - innerHeight / 2
+        const top = 88 + Math.max(0, (SH() - 88 - 16 - height) / 2) - SH() / 2
         const band = top + H() * 0.5 + L * 0.75 + BAND
         return {
           body: { x: W() - 20 - L * 0.26, y: top + H() * 0.5 + L * 0.375 },
