@@ -17,7 +17,8 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+      // cover: on phones that draw pages behind the gesture bar, the page runs on under it instead of stopping short
+      { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
       { title: TITLE },
       { name: 'description', content: DESCRIPTION },
       { name: 'theme-color', content: '#fbfaf6' },

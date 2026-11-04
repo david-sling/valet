@@ -39,7 +39,8 @@ const f = (n: number) => n.toFixed(2)
 // Returns a function that draws the tear for a scroll position. tear 0..1 swings the stub open while the
 // fibres stretch and snap; part 0..1 carries each half's centre to an offset in pixels from where it started,
 // easing it down in size by `shrinkBy` and tilting the body back by `tilt` degrees on the way. The two overlap, so the tear runs straight on into the halves
-// travelling.
+// travelling. With `swing` off, nothing turns: the body pulls straight away from the stub, the fibres stretch
+// across the widening gap, and the stub stays where it is.
 export function createTear(svg: SVGSVGElement) {
   const T = TICKET
   const body = svg.querySelector<SVGGElement>('.body')!
@@ -49,17 +50,18 @@ export function createTear(svg: SVGSVGElement) {
   layer.replaceChildren()
   const fibres = T.bridges.map(() => [0, 1].map(() => layer.appendChild(document.createElementNS(ns, 'path'))))
 
-  return (tear: number, part: number, to: TearTargets, shrinkBy = 0.22, tilt = 8) => {
+  return (tear: number, part: number, to: TearTargets, shrinkBy = 0.22, tilt = 8, swing = true) => {
     const k = svg.clientWidth / T.w || 1 // px per unit
-    const th = tear * T.limit
-    const slack = 12 * tear * tear // the stub also pulls away a little, so the last fibres by the hinge go too
+    const th = swing ? tear * T.limit : 0
+    const slack = swing ? 12 * tear * tear : 0 // the stub also pulls away a little, so the last fibres by the hinge go too
+    const pull = swing ? 0 : -16 * tear * tear // or, pulled straight, the body draws back from the perforation
     const cos = Math.cos(th)
     const sin = Math.sin(th)
     const shrink = 1 - shrinkBy * part // each half eases down in size as it travels
     const sc = (cx: number, cy: number) => `translate(${cx} ${cy}) scale(${f(shrink)}) translate(${-cx} ${-cy})`
 
     // the stub turns about the hinge, so its centre drifts; aim the centre, not the hinge, at its target
-    const turn = th + (part * 12 * Math.PI) / 180
+    const turn = th + (swing ? (part * 12 * Math.PI) / 180 : 0)
     const cx = (T.x + T.w) / 2 - T.hinge.x
     const cy = T.h / 2 - T.hinge.y
     const aimX = cx - (cx * Math.cos(turn) - cy * Math.sin(turn)) + to.stub.x / k
@@ -72,7 +74,7 @@ export function createTear(svg: SVGSVGElement) {
     )
     body.setAttribute(
       'transform',
-      `translate(${f((part * to.body.x) / k)} ${f((part * to.body.y) / k)}) rotate(${f(part * -tilt)} ${T.x / 2} ${T.h / 2}) ${sc(T.x / 2, T.h / 2)}`,
+      `translate(${f(pull * (1 - part) + (part * to.body.x) / k)} ${f((part * to.body.y) / k)}) rotate(${f(part * -tilt)} ${T.x / 2} ${T.h / 2}) ${sc(T.x / 2, T.h / 2)}`,
     )
 
     const fade = Math.max(0, 1 - part * 5) // any last fibres let go as the halves start to travel
@@ -82,7 +84,8 @@ export function createTear(svg: SVGSVGElement) {
       const dy = b.mid - T.hinge.y
       const tx = T.hinge.x - dy * sin + slack
       const ty = T.hinge.y + dy * cos
-      const gx = tx - T.x
+      const bx = T.x + pull // and the body's edge, which only moves when pulled straight
+      const gx = tx - bx
       const gy = ty - b.mid
       const gap = Math.hypot(gx, gy)
       const show = (opacity: number, width: number) => {
@@ -93,8 +96,8 @@ export function createTear(svg: SVGSVGElement) {
       if (gap < T.stretch) {
         // still holding: two fibres stretch and thin across the gap, sagging slightly
         const sag = gap * 0.18
-        near.setAttribute('d', `M${f(T.x)},${f(b.mid - 1.4)}Q${f(T.x + gx / 2)},${f(b.mid - 1.4 + gy / 2 + sag)} ${f(tx)},${f(ty - 1.4)}`)
-        far.setAttribute('d', `M${f(T.x)},${f(b.mid + 1.4)}Q${f(T.x + gx / 2)},${f(b.mid + 1.4 + gy / 2 - sag)} ${f(tx)},${f(ty + 1.4)}`)
+        near.setAttribute('d', `M${f(bx)},${f(b.mid - 1.4)}Q${f(bx + gx / 2)},${f(b.mid - 1.4 + gy / 2 + sag)} ${f(tx)},${f(ty - 1.4)}`)
+        far.setAttribute('d', `M${f(bx)},${f(b.mid + 1.4)}Q${f(bx + gx / 2)},${f(b.mid + 1.4 + gy / 2 - sag)} ${f(tx)},${f(ty + 1.4)}`)
         return show(fade, 1.7 - 1.15 * (gap / T.stretch))
       }
       // snapped: the loose ends curl back towards their own edges as the gap widens
@@ -102,7 +105,7 @@ export function createTear(svg: SVGSVGElement) {
       const len = T.stretch * 0.5 * left
       const ux = gx / gap
       const uy = gy / gap
-      near.setAttribute('d', `M${f(T.x)},${f(b.mid)}L${f(T.x + ux * len)},${f(b.mid + uy * len)}`)
+      near.setAttribute('d', `M${f(bx)},${f(b.mid)}L${f(bx + ux * len)},${f(b.mid + uy * len)}`)
       far.setAttribute('d', `M${f(tx)},${f(ty)}L${f(tx - ux * len)},${f(ty - uy * len)}`)
       show(left * fade, 0.9)
     })

@@ -94,11 +94,13 @@ a { color: inherit; }
 @media (max-width: 520px) { .h2 { font-size: min(2rem, 6.8vw); } }
 
 /* hero: the tearing ticket */
-/* the track pins the stage for the scrubbed scene (150vh), a short hold (20vh), and the next section
+/* the track pins the stage for the scrubbed scene (200vh), a short hold (20vh), and the next section
    sliding up over it (100vh): the stage stays put underneath until it is fully covered */
-.tear-hero .track { position: relative; height: 370vh; }
+.tear-hero .track { position: relative; height: 420vh; }
 /* the stage is the screen with the address bar showing; the scene may run past its bottom edge when the bar hides */
 .tear-hero .stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow-x: clip; overflow-y: visible; }
+/* the gesture bar's height, read by the script so the scene stays clear of it (the stage's children are all placed) */
+.tear-hero .stage { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .tear-hero .copy {
   position: absolute; inset: 0 0 auto 0; z-index: 3;
   padding: clamp(92px, 13vh, 128px) 16px 0;
@@ -108,20 +110,14 @@ a { color: inherit; }
 .tear-hero .copy .lead { margin: 0; }
 .tear-hero .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 
-/* the hands span the screen edge to edge, each wrist off its own side, at a fixed hand size */
-.tear-hero .hands-wrap { --hand: min(20vw, 24vh); position: absolute; z-index: 2; left: 0; width: 100%; top: 50%; height: var(--hand); } /* above the shapes */
+/* the scene's frame spans the screen edge to edge, centred on it; the ticket and the shreds are placed from its middle */
+.tear-hero .scene-wrap { --frame: min(20vw, 24vh); position: absolute; z-index: 2; left: 0; width: 100%; top: 50%; height: var(--frame); } /* above the shapes */
 /* the scene waits for its script to place it, so it never flashes in its final layout first */
-.tear-hero:not([data-ready]) .hands-wrap { visibility: hidden; }
+.tear-hero:not([data-ready]) .scene-wrap { visibility: hidden; }
 .tear-hero .scene { position: relative; width: 100%; height: 100%; }
-.tear-hero .hand-agent, .tear-hero .hand-client, .tear-hero .ticket-hold { position: absolute; }
-.tear-hero .scene img { display: block; width: 100%; height: auto; user-select: none; }
-/* The Creation of Adam: the agent's open palm reaches up from the left, the client's hand reaches down from
-   the right. Both images point right; the client's is mirrored. Their x positions come from the script. */
-.tear-hero .hand-agent { left: 0; top: 8%; width: var(--hand); z-index: 1; transform-origin: 0% 60%; }
-.tear-hero .hand-client { right: 0; top: -20%; width: var(--hand); z-index: 3; transform-origin: 100% 40%; }
-.tear-hero .hand-client img { transform: scaleX(-1); }
-/* before scrolling the ticket is the hero's big card, as wide as the page's content; the script scales it
-   down to this size between the hands. It sits above both hands so its halves stay visible as they part. */
+.tear-hero .ticket-hold { position: absolute; }
+/* the ticket's layout size; the script scales it up to the hero's big card, as wide as the page's content, which
+   it stays as it settles and tears. It sits above the shapes and the shreds' frame. */
 .tear-hero .ticket-hold {
   --tw: clamp(230px, 26vw, 380px);
   left: 50%; top: 50%; width: var(--tw); z-index: 4;
@@ -140,7 +136,7 @@ a { color: inherit; }
 .tear-hero .handover span { display: block; white-space: nowrap; }
 
 /* shreds of ticket, flung from the perforation as it tears */
-.tear-hero .shreds { position: absolute; left: 0; width: 100%; top: 50%; height: var(--hand); translate: 0 -50%; z-index: 4; pointer-events: none; }
+.tear-hero .shreds { position: absolute; left: 0; width: 100%; top: 50%; height: var(--frame); translate: 0 -50%; z-index: 4; pointer-events: none; }
 .tear-hero .shred {
   position: absolute; left: 50%; top: 50%; width: 7px; height: 11px; margin: -5px 0 0 -3px;
   border-radius: 1.5px; background: var(--cream); opacity: 0;
@@ -168,21 +164,22 @@ a { color: inherit; }
 .tear-hero .shape.sparkle.sky { fill: var(--blue); }
 
 @media (max-width: 760px) {
-  .tear-hero .track { height: 420vh; } /* the upright scene settles the ticket before it tears: 50vh more */
-  .tear-hero .hands-wrap { --hand: 24vw; }
-  /* upright, the ticket keeps one size from the first screen to the end, as large as lets its torn halves, the
-     hands and the band between them fit the screen's height (1.29 ticket lengths, 1.16 hand sizes and 202px) */
-  .tear-hero .ticket-hold { --tw: min(110vw, calc((100svh - 202px - 27.84vw) / 1.29)); }
-  .tear-hero .shape:is(.ring, .sparkle.sky) { display: none; } /* too close to the hands on a narrow screen */
+  .tear-hero .track { height: 460vh; } /* the upright scene drops the stub after the tear: 40vh more */
+  .tear-hero .scene-wrap { --frame: 24vw; }
+  /* upright, the ticket keeps one size from the first screen to the end: nearly as wide as the screen (its width
+     is 0.48 of its length), or as long as fits whole between the header and the bottom of the screen */
+  .tear-hero .ticket-hold { --tw: min(190vw, calc(100svh - 112px - env(safe-area-inset-bottom, 0px))); }
+  .tear-hero .shape:is(.ring, .sparkle.sky) { display: none; } /* too close to the ticket on a narrow screen */
   /* the upright ticket's halves part up and down, and the line fills the band between them */
   .tear-hero .handover { font-size: min(2rem, 7.4vw); }
 }
 
-/* reduced motion: no pinned scroll; the ticket waits between the hands in its resting layout */
+/* reduced motion: no pinned scroll; the ticket sits whole under the copy, flat and as wide as fits */
 .tear-hero[data-motion="reduced"] .track { height: auto; }
 .tear-hero[data-motion="reduced"] .stage { position: relative; height: auto; display: grid; }
 .tear-hero[data-motion="reduced"] .copy { position: relative; padding-bottom: 32px; }
-.tear-hero[data-motion="reduced"] .hands-wrap { position: relative; top: auto; margin: 24px 0 64px; }
+.tear-hero[data-motion="reduced"] .scene-wrap { position: relative; top: auto; height: auto; margin: 24px 0 64px; }
+.tear-hero[data-motion="reduced"] .ticket-hold { --tw: min(380px, 84vw); position: relative; left: auto; top: auto; margin: 0 auto; }
 .tear-hero[data-motion="reduced"] .handover,
 .tear-hero[data-motion="reduced"] .shreds,
 .tear-hero[data-motion="reduced"] .shapes { display: none; }
@@ -541,7 +538,7 @@ a { color: inherit; }
 .closing[data-pulling] .rejoin .stub, .closing[data-pulling] { cursor: grabbing; }
 
 .site-foot {
-  width: 100%; max-width: 72rem; margin: clamp(48px, 9vh, 96px) auto 0; padding: 24px 0 28px;
+  width: 100%; max-width: 72rem; margin: clamp(48px, 9vh, 96px) auto 0; padding: 24px 0 calc(28px + env(safe-area-inset-bottom, 0px));
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;
   border-top: 1px solid var(--line); font-size: 14px; color: var(--ink-3);
 }

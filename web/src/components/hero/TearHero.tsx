@@ -4,9 +4,8 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { startSmoothScroll } from '#/lib/smooth-scroll'
 import { Ticket } from './Ticket'
 import { createTear } from './tear'
-export type EmojiSet = 'noto' | 'fluent'
 
-// where each shred of paper flies from the tear: x as a share of the scene's width, y of the hand size, and its spin
+// where each shred of paper flies from the tear: x as a share of the scene's width, y of its frame's height, and its spin
 const SHREDS = [
   { x: 0.16, y: -0.9, r: 220 }, { x: -0.12, y: -1.1, r: -160 }, { x: 0.22, y: 0.7, r: 300 },
   { x: -0.2, y: 0.8, r: -240 }, { x: 0.08, y: -1.4, r: 140 }, { x: -0.05, y: 1.2, r: -320 },
@@ -26,11 +25,11 @@ function Sparkle({ className, left, top }: { className: string; left: string; to
   )
 }
 
-// The hero: the valet ticket starts as the page's big card under the headline. On scroll it shrinks into the
-// middle, two yellow emoji hands slide in from the sides (posed after The Creation of Adam) and stop short of it,
-// then draw apart, and only then does it tear: the red body comes to hover above the agent's open palm and the
-// stub to hang below the client's fingers. Hands: Google's Noto (Apache 2.0) by default, Microsoft's Fluent 3D (MIT) as an option.
-export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
+// The hero: the valet ticket starts as the page's big card under the headline. On scroll it settles into the
+// middle at the same size and tears along its perforation: the red body moves straight away from the stub, and the
+// line appears in the gap. Lying flat, the body slides left and the stub stays; upright, on a phone, the body rises,
+// the stub swings open, and last it falls away.
+export function TearHero() {
   const rootRef = useRef<HTMLDivElement>(null)
   const ticketRef = useRef<SVGSVGElement>(null)
 
@@ -54,160 +53,113 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
       if (!ctx.conditions?.motion) return
       const upright = Boolean(ctx.conditions.upright)
       const stopScroll = startSmoothScroll()
-      const hands = q('.hands-wrap')[0] as HTMLElement
+      const frame = q('.scene-wrap')[0] as HTMLElement
       const hold = q('.ticket-hold')[0] as HTMLElement
-      const W = () => hands.offsetWidth
+      const W = () => frame.offsetWidth
       // the stage's height: the screen with the address bar showing, which holds still as the bar hides and shows
       const SH = () => (q('.stage')[0] as HTMLElement).offsetHeight
-      const H = () => hands.offsetHeight // the hand size
+      // the strip the phone's gesture bar covers at the bottom, if the page runs on under it
+      const BAR = () => parseFloat(getComputedStyle(q('.stage')[0]).paddingBottom) || 0
+      const H = () => frame.offsetHeight // the scene's frame, which the shreds fly out to
       const tw = () => hold.offsetWidth
-      // On a narrow screen the ticket stands upright, turned a quarter clockwise: the red body on top, the stub
-      // below. It then tears the other way round: the body to the client's hand on the right, the stub to the
-      // agent's on the left.
+      // On a narrow screen the ticket stands upright, turned a quarter clockwise: the red body on top, the stub below.
       const vertical = () => upright
-      // Lying flat, the ticket starts tearing on the first scroll. Upright, the big card is mostly below the fold,
-      // so it first settles into the middle, whole and in view, and only then do the hands pull it apart.
-      const T0 = upright ? 0.45 : 0
-      const half = () => (vertical() ? tw() * 0.24 : tw() / 2) // half the ticket's width on screen
-      // how far each hand reaches in: fingertips stop just short of the ticket's sides, never touching it
-      const reach = () => W() / 2 - half() - 14 - H() * 0.95
-      const PULL = 0.12 // how far, in hand sizes, each hand draws back as it tears the ticket
-      // Before scrolling the hands sit in a row between the buttons and the big ticket, at the size they keep.
-      // Measured on the images: once the client's hand is brought level, the row runs 0.62 of a hand size tall
-      // and its lower edge sits 0.86 of a hand size below the top of the hands' frame.
-      const row = () => H() * 0.62
+      // The big card first settles into the middle, whole and in view, and only then does it tear
+      const T0 = 0.5
       // Measured from the layout, never the screen: the page can load (or refresh) scrolled anywhere, and the copy
-      // carries a transform mid-scroll. The copy and the hands both sit in the pinned stage, which starts at the top.
+      // carries a transform mid-scroll. The copy and the scene both sit in the pinned stage, which starts at the top.
       const copy = q('.copy')[0] as HTMLElement
       const copyBottom = () => copy.offsetTop + copy.offsetHeight
-      // where the big ticket's top edge sits before scrolling: low, mostly below the fold, with room above it
-      // for the hands' row and a clear gap either side of that row
-      // upright, only a strip of it shows at the bottom, as the card is too tall to fit on the first screen
-      const cardTop = () => Math.max(copyBottom() + 72 + row() + 64, SH() * (upright ? 0.9 : 0.82))
+      // where the big ticket's top edge sits before scrolling: just under the buttons, running on below the fold
+      const cardTop = () => copyBottom() + 48
 
-      gsap.set(hands, { yPercent: -50 })
+      gsap.set(frame, { yPercent: -50 })
       gsap.set(q('.handover, .shape'), { xPercent: -50, yPercent: -50 })
       gsap.set(q('.shape'), { opacity: 1, rotate: (i) => SHAPE_TURN[i] })
       const tl = gsap.timeline({
         defaults: { ease: 'none' },
-        scrollTrigger: { trigger: q('.track')[0], start: 'top top', end: upright ? '+=200%' : '+=150%', scrub: 0.8, invalidateOnRefresh: true },
+        scrollTrigger: { trigger: q('.track')[0], start: 'top top', end: upright ? '+=240%' : '+=200%', scrub: 0.8, invalidateOnRefresh: true },
       })
 
-      const big = () => {
-        const wrap = { top: hands.offsetTop - H() / 2, height: H() } // the hands' frame is pulled up by half its height
-        // as wide as the page's content; upright, it is already its full size, which it keeps throughout
-        const scale = vertical() ? 1 : Math.min(innerWidth - 32, innerWidth * 0.84) / tw()
-        const height = tw() * (vertical() ? 1 : 0.48) * scale
-        const centre = wrap.top + wrap.height / 2 // ticket centre sits at the wrap's centre at scale 1
-        // the row sits centred in the space between the buttons and the ticket
-        const rowBottom = (copyBottom() + cardTop()) / 2 + row() / 2
-        const handsY = rowBottom - (wrap.top + H() * 0.86)
-        return { scale, y: cardTop() + height / 2 - centre, handsY }
+      // The ticket keeps one size throughout: upright, its full size; lying flat, as wide as the page's content, or
+      // as large as fits between the header and the bottom of the screen
+      const scale = () => (vertical() ? 1 : Math.min(Math.min(innerWidth - 32, innerWidth * 0.84) / tw(), (SH() - 104) / (tw() * 0.48)))
+      // where it settles, in the middle of the space between the header and the bottom of the screen; y is from the
+      // middle of the screen
+      const settleY = () => (88 - 16 - BAR()) / 2
+      const startY = () => {
+        const centre = frame.offsetTop // the scene's frame is pulled up by half its height, so its top is its centre
+        return cardTop() + (tw() * (vertical() ? 1 : 0.48) * scale()) / 2 - centre
       }
-      // at rest the hands sit side by side in the middle of the row, fingertips just short of touching
-      const restX = () => W() / 2 - 12 - H() * 0.95
-
-      // 1. lying flat, everything moves at once from the first scroll: the copy lifts away, the big ticket shrinks into
-      //    the middle, the hands come down level with it and draw apart, and the ticket starts tearing.
-      //    The tear runs on into the halves travelling, in one motion: the red body comes to hover above the
-      //    agent's open palm and the stub to hang below the client's fingers, never touching either hand.
-      const agentX = () => reach() - H() * PULL // each hand's left edge once drawn back
-      const clientX = () => W() - H() - reach() + H() * PULL
-      // Upright, the halves keep their full size, so the torn scene is laid out as a column measured from the ticket:
-      // the client's hand, the body hanging from its fingers, a band for the line, the stub, and the agent's palm
-      // under it. Tilted as they come to rest, the body stands about 0.75 of the ticket's length tall and the stub
-      // 0.54, and the agent's palm runs 0.66 of a hand size (and a 6px gap) below the stub. x is across the scene; y is
-      // from the middle of the screen, where the ticket rested whole.
-      const BAND = 42 // half the height of the band the line opens into: its two lines, with a little air
-      const column = () => {
-        const L = tw()
-        const height = H() * 0.5 + L * 0.75 + BAND * 2 + L * 0.54 + H() * 0.66 + 6
-        const top = 88 + Math.max(0, (SH() - 88 - 16 - height) / 2) - SH() / 2
-        const band = top + H() * 0.5 + L * 0.75 + BAND
-        return {
-          body: { x: W() - 20 - L * 0.26, y: top + H() * 0.5 + L * 0.375 },
-          band,
-          stub: { x: 20 + L * 0.3, y: band + BAND + L * 0.27 },
-        }
-      }
-      // each hand's place in the column, in its own frame's terms: the client's fingers bottom out near 0.3 of the
-      // hand, 0.34 in from its left edge; the agent's thumb tops out near 0.35, its palm 0.58 in
-      const clientUp = () => {
-        const { body } = column()
-        return { x: body.x - H() * 0.34 - (W() - H()), y: H() / 2 + body.y - tw() * 0.375 - 14 - H() * 0.3 }
-      }
-      const agentUp = () => {
-        const { stub } = column()
-        return { x: stub.x - H() * 0.58, y: H() / 2 + stub.y + tw() * 0.27 + 6 - H() * 0.35 }
-      }
-
-      const to = () => {
-        const mid = H() * 0.5 // the ticket's centre line
-        if (vertical()) {
-          // from each half's place in the upright ticket, where the body's centre sits 0.155 of the ticket's
-          // length above the middle and the stub's 0.345 below; the tear moves them in the ticket's own frame,
-          // which is turned a quarter clockwise
-          const { body, stub } = column()
-          const local = (o: { x: number; y: number }) => ({ x: o.y, y: -o.x })
-          return {
-            body: local({ x: body.x - W() / 2, y: body.y + tw() * 0.155 }),
-            stub: local({ x: stub.x - W() / 2, y: stub.y - tw() * 0.345 }),
-          }
-        }
-        return {
-          // the agent's thumb tops out near 0.35 of the hand; the body's lower edge stays clear of it
-          body: { x: agentX() + H() * 0.58 - (W() / 2 - tw() * 0.155), y: H() * 0.3 - tw() * 0.19 - mid },
-          // the client's fingers bottom out near 0.3; the stub hangs below them, inside the thumb
-          stub: { x: clientX() + H() * 0.34 - (W() / 2 + tw() * 0.345), y: H() * 0.3 + tw() * 0.22 + 14 - mid },
-        }
-      }
+      // Then it tears, and the red body moves straight away from the stub, which stays: up when it stands upright,
+      // left when it lies flat. The line appears in the gap. Upright, the stub then falls away.
+      const handover = q('.handover')[0] as HTMLElement
+      // the gap: room for the line, with air around it, and upright around the corner of the swung stub
+      const gap = () => (vertical() ? handover.offsetHeight + 104 : handover.offsetWidth + 64)
+      // the perforation's place on screen, against the ticket's centre: 0.19 of its length towards the stub
+      const perf = () => tw() * 0.19 * scale()
+      const fall = { p: 0 }
+      const to = () =>
+        // in the ticket's own frame and size: upright, it is turned a quarter clockwise, so screen up is its -x
+        vertical()
+          ? { body: { x: -gap(), y: 0 }, stub: { x: fall.p * SH(), y: fall.p * W() * 0.12 } }
+          : { body: { x: -gap() / scale(), y: 0 }, stub: { x: 0, y: 0 } }
       const smooth = (a: number, b: number, v: number) => {
         const t = Math.min(1, Math.max(0, (v - a) / (b - a)))
         return t * t * (3 - 2 * t)
       }
       const ticket = { p: 0 }
-      const draw = () => tear(smooth(0, 0.62, ticket.p), smooth(0.4, 1, ticket.p), to(), upright ? 0 : 0.22)
+      // The line rides on the red body's trailing edge, just below it upright and just right of it lying flat, and
+      // shows only as much of itself as the gap has room for, so it never covers either half
+      const AIR = 20 // between the line and each half
+      const placeLine = (t: number, part: number) => {
+        // how far the body's edge has moved from the perforation, on screen: lying flat it first draws back a little
+        // as the fibres stretch (16 of the ticket's 200 units), then travels with the halves
+        const pull = vertical() ? 0 : 16 * t * t * (tw() / 200) * scale()
+        const shift = pull * (1 - part) + part * gap()
+        if (vertical()) {
+          const corner = 44 * t // the swung stub's corner rises into the gap
+          const shown = Math.min(handover.offsetHeight, Math.max(0, shift - AIR * 2 - corner))
+          gsap.set(handover, {
+            opacity: shown > 0 ? 1 : 0,
+            x: 0,
+            y: settleY() + perf() - shift + AIR + handover.offsetHeight / 2,
+            clipPath: `inset(-20% -10% ${handover.offsetHeight - shown}px -10%)`,
+          })
+        } else {
+          const shown = Math.min(handover.offsetWidth, Math.max(0, shift - AIR * 2))
+          gsap.set(handover, {
+            opacity: shown > 0 ? 1 : 0,
+            x: perf() - shift + AIR + handover.offsetWidth / 2,
+            y: settleY(),
+            clipPath: `inset(-20% ${handover.offsetWidth - shown}px -20% -10%)`,
+          })
+        }
+      }
+      // upright the stub swings open from the perforation; lying flat, nothing turns and the body pulls straight away
+      const draw = () => {
+        const t = smooth(0, 0.62, ticket.p)
+        const part = smooth(0.4, 1, ticket.p)
+        tear(t, part, to(), 0, 0, upright)
+        placeLine(t, part)
+      }
       // a refresh re-renders the timeline without firing onUpdate, so redraw the tear after every one
       ScrollTrigger.addEventListener('refresh', draw)
       const move = { duration: 0.5, ease: 'power2.inOut' }
-      const part = { duration: 0.34, ease: 'power2.inOut' } // the hands draw apart quicker than the ticket settles
       tl.to(q('.copy'), { y: -140, opacity: 0, duration: 0.25 }, 0)
         .fromTo(
           hold,
-          { scale: () => big().scale, y: () => big().y, rotate: () => (vertical() ? 90 : 0) },
-          { scale: 1, y: 0, rotate: () => (vertical() ? 90 : 0), ...move },
+          { scale: () => scale(), y: () => startY(), rotate: () => (vertical() ? 90 : 0) },
+          { scale: () => scale(), y: () => settleY(), rotate: () => (vertical() ? 90 : 0), ...move },
           0,
         )
-      // the client's hand hangs higher in its frame, so it comes down a further 0.24 to share the row
-      const agentFrom = { x: () => restX(), y: () => big().handsY }
-      const clientFrom = { x: () => -restX(), y: () => big().handsY + H() * 0.24 }
-      if (upright) {
-        // the hands come in beside the settling ticket, then draw apart as it tears
-        tl.fromTo(q('.hand-agent'), agentFrom, { x: () => reach(), y: 0, ...move, duration: T0 }, 0)
-          .fromTo(q('.hand-client'), clientFrom, { x: () => -reach(), y: 0, ...move, duration: T0 }, 0)
-          .to(q('.hand-agent'), { x: () => agentUp().x, y: () => agentUp().y, ...part }, T0)
-          .to(q('.hand-client'), { x: () => clientUp().x, y: () => clientUp().y, ...part }, T0)
-      } else {
-        tl.fromTo(q('.hand-agent'), agentFrom, { x: () => agentX(), y: 0, ...part }, 0)
-          .fromTo(q('.hand-client'), clientFrom, { x: () => -agentX(), y: 0, ...part }, 0)
-      }
-      tl.to(ticket, { p: 1, duration: 0.75, onUpdate: draw }, T0)
-        // the line opens out of the gap as the two halves part: from the tear line outwards, sideways when the
-        // ticket lies flat and up and down when it stands upright
-        .fromTo(
-          q('.handover'),
-          {
-            opacity: 0,
-            y: () => (upright ? column().band : 0),
-            clipPath: () => (upright ? 'inset(50% -10% 50% -10%)' : 'inset(-20% 50% -20% 50%)'),
-          },
-          { opacity: 1, y: () => (upright ? column().band : 0), clipPath: 'inset(-20% -10% -20% -10%)', duration: 0.3, ease: 'power2.out' },
-          T0 + 0.45,
-        )
+        .to(ticket, { p: 1, duration: 0.75, onUpdate: draw }, T0)
+      // upright, once the line is in full view the stub falls away out of the bottom of the screen
+      if (upright) tl.to(fall, { p: 1, duration: 0.35, ease: 'power2.in', onUpdate: draw }, T0 + 0.9)
 
       // the shapes scroll through the pinned scene as if the page were moving under it, each at its own depth:
       // in from below, easing into their places as the line comes up, then only drifting on, so they stay in
-      // frame until the next section slides over them. Durations are in screen heights of scroll: the pin lasts 2.7 (3.2 upright).
+      // frame until the next section slides over them. Durations are in screen heights of scroll: the pin lasts 3.2 (3.6 upright).
       gsap
         .timeline({
           scrollTrigger: { trigger: q('.track')[0], start: 'top top', end: 'bottom bottom', scrub: true, invalidateOnRefresh: true },
@@ -218,15 +170,16 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
       // shreds of paper burst from the perforation while it tears, and settle out of sight
       tl.fromTo(
         q('.shred'),
-        { x: 0, y: 0, rotate: 0, opacity: 0, scale: 0.4 },
+        // from the perforation: below the middle when upright, right of it lying flat
+        { x: () => (vertical() ? 0 : perf()), y: () => settleY() + (vertical() ? perf() : 0), rotate: 0, opacity: 0, scale: 0.4 },
         {
           keyframes: {
             '0%': { opacity: 0 },
             '15%': { opacity: 1, scale: 1 },
             '100%': { opacity: 0 },
           },
-          x: (i) => SHREDS[i].x * W(),
-          y: (i) => SHREDS[i].y * H(),
+          x: (i) => (vertical() ? 0 : perf()) + SHREDS[i].x * W(),
+          y: (i) => settleY() + (vertical() ? perf() : 0) + SHREDS[i].y * H(),
           rotate: (i) => SHREDS[i].r,
           duration: 0.32,
           stagger: 0.012,
@@ -235,7 +188,7 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
         T0 + 0.18,
       )
 
-      // the hands and the big ticket are placed under the copy, so measure again whenever its height changes,
+      // the big ticket is placed under the copy, so measure again whenever its height changes,
       // as it does once the web fonts arrive
       let copyHeight = 0
       const watchCopy = new ResizeObserver(([entry]) => {
@@ -249,6 +202,7 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
         watchCopy.disconnect()
         ScrollTrigger.removeEventListener('refresh', draw)
         stopScroll()
+        fall.p = 0
         tear(0, 0, { body: { x: 0, y: 0 }, stub: { x: 0, y: 0 } })
       }
     })
@@ -278,20 +232,14 @@ export function TearHero({ set = 'noto' }: { set?: EmojiSet }) {
             </div>
           </div>
 
-          <div className="hands-wrap">
+          <div className="scene-wrap">
             <div
               className="scene"
               role="img"
-              aria-label="Two hands reaching in from opposite sides toward a valet ticket, posed like The Creation of Adam"
+              aria-label="A valet ticket tearing in two along its perforation"
             >
-              <div className="hand-agent">
-                <img src={`/emoji/${set}/palm-up.png`} alt="" draggable={false} />
-              </div>
               <div className="ticket-hold">
                 <Ticket ref={ticketRef} />
-              </div>
-              <div className="hand-client">
-                <img src={`/emoji/${set}/palm-down.png`} alt="" draggable={false} />
               </div>
             </div>
           </div>
