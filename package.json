@@ -9,6 +9,7 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "fake-client": "node tools/fake-client.ts"
+    "fake-client": "node tools/fake-client.ts",
+    "fake-agent": "node tools/fake-agent.ts"
   }
 }
