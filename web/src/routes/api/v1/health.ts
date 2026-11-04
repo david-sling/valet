@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { getRedis } from '#/server/redis'
-import { handle, json } from '#/server/http'
+import { handle, json, refuse } from '#/server/http'
 
 export const Route = createFileRoute('/api/v1/health')({
   server: {
@@ -10,6 +10,7 @@ export const Route = createFileRoute('/api/v1/health')({
         await redis.ping()
         return json({ ok: true })
       }),
+      ...refuse('GET'),
     },
   },
 })

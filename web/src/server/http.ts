@@ -89,3 +89,15 @@ export function readWait(request: Request) {
 }
 
 export const notFound = (message: string, hint?: string) => new ApiError(404, 'not_found', message, hint)
+
+const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const
+
+export function refuse(...allowed: (typeof METHODS)[number][]) {
+  const reply = ({ request }: { request: Request }) =>
+    toErrorResponse(
+      new ApiError(405, 'method_not_allowed', `${new URL(request.url).pathname} does not take ${request.method}.`, `It takes ${allowed.join(', ')}.`, {
+        Allow: allowed.join(', '),
+      }),
+    )
+  return Object.fromEntries(METHODS.filter((m) => !allowed.includes(m)).map((m) => [m, reply]))
+}
