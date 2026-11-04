@@ -38,13 +38,13 @@ To propose starting permissions, add a `template` array to the body. The person 
 
 ```json
 {"kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp/**", "risk": "low"}
-{"kind": "Programs", "access": "run", "scope": "/usr/bin/log", "risk": "medium"}
+{"kind": "Programs", "access": "run", "scope": "/usr/sbin/system_profiler", "risk": "medium"}
 {"kind": "Processes", "access": "list", "scope": "all", "risk": "low"}
 ```
 
-Kinds are `Files` (read, write, execute), `Programs` (run, by absolute path), `Network` (connect, as `host:port`), `Environment` (read, by variable name), `Processes` (list, signal; scope `all` or a process name). A file scope is one file; a folder ending in `/**` covers everything inside it but nothing beside it; `~` is the person's home folder. A `Programs` permission covers the program with any arguments. Risk is `low` for reading, `medium` for running a program or changing a file, `high` for network access or deleting. Ask for the least that does the job.
+Kinds are `Files` (read, write), `Programs` (run, by absolute path), `Network` (connect, scope `*`: the person's Mac can't limit it to one host yet), `Environment` (read, by variable name or `*`), `Processes` (list, scope `all`). A file scope is one file; a folder ending in `/**` covers everything inside it but nothing beside it; `~` is the person's home folder. A `Programs` permission covers the program with any arguments. Risk is `low` for reading, `medium` for running a program or changing a file, `high` for network access or deleting. Ask for the least that does the job.
 
-Some places are never covered by starting permissions, whatever you propose: SSH keys, keychains, browser profiles and password managers. Reaching one always asks.
+Some places are never covered by starting permissions, whatever you propose: SSH keys, cloud and tool credentials, keychains, browser data, password managers, mail, messages and `.env` files. Reaching one always asks.
 
 ## 2. Hand over the code
 
@@ -88,7 +88,7 @@ jq '{action_id, status, output, error, session_state, events}' "$W/result.json"
 
 | tool | args | output on success |
 |---|---|---|
-| `run_command` | `{command: ["/usr/bin/log", "show", "--last", "1h"], cwd?: "~"}` | `{exit_code, stdout, stderr, truncated}` |
+| `run_command` | `{command: ["/usr/sbin/system_profiler", "SPSoftwareDataType"], cwd?}` | `{exit_code, stdout, stderr, truncated}` |
 | `read_file` | `{path, max_bytes?}` | `{content, hash, truncated}` |
 | `write_file` | `{path, content, base_hash}` | `{hash, bytes}` |
 | `list_dir` | `{path}` | `{entries: [{name, type, size}]}` |
@@ -96,7 +96,8 @@ jq '{action_id, status, output, error, session_state, events}' "$W/result.json"
 | `list_processes` | none | `{processes: [{pid, name}]}` |
 
 - `command` is an argument list, not a shell string. For a pipeline send `["/bin/sh", "-c", "…"]`; the person sees it as exactly that, and it needs `/bin/sh` allowed.
-- Read a file before you change it. `write_file` must carry the `hash` from your latest read of that file; if the file changed since, the edit is turned back and you read it again. Put long content in a local file and use `jq --rawfile content FILE`.
+- Commands run in a sandbox: they can read only the files, and start only the programs, the person allowed. `~` and `$VARS` are not expanded in arguments, so use absolute paths. A `cwd` asks to read that folder. macOS's `log` refuses to run in a sandbox; read log files with `tail_log`.
+- Read a file before you change it. `write_file` must carry the `hash` from your latest read of that file; if the file changed since, the edit is turned back and you read it again. Put long content in a local file and use `jq --rawfile content FILE`. To create a file, send the hash of empty content: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
 
 ### Statuses
 

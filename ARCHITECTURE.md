@@ -84,7 +84,7 @@ Tauri v2. Two halves with a deliberate trust boundary between them:
 
 | Half | Holds | Does |
 |---|---|---|
-| **Rust core** (trusted) | Tokens (in the Keychain), grants per session, file hashes, the log signing key | Polls the relay; resolves programs and paths; runs `decide`; asks the webview to prompt; verifies Touch ID; builds the sandbox profile; spawns and kills processes; signs log entries; posts results |
+| **Rust core** (trusted) | Tokens (in memory only), grants per session, file hashes, the log signing key | Polls the relay; resolves programs and paths; runs `decide`; asks the webview to prompt; verifies Touch ID; builds the sandbox profile; spawns and kills processes; signs log entries; posts results |
 | **Webview** (untrusted for decisions) | Display state only | Renders the mockup's screens (Home, Join, Review, Live, Session record, Approval prompt); sends the person's choices to Rust as commands |
 
 The webview renders text the agent wrote (reasons, purposes, command literals, output). If that text ever ran script in the webview, it must not be able to approve anything. Therefore:
@@ -135,7 +135,7 @@ There are no accounts. Every credential is minted per session and dies with it.
 | Session ID | 16 random bytes, base64url | Both | Itself (identifies, never authorises) |
 | Join code | 6 characters from `ACDEFGHJKMNPQRTUVWXY34679`, shown `XXX-XXX` | Sent by the agent's user to the client | Key `valet:code:{CODE}`, deleted on first use |
 | `agent_token` | 32 random bytes, base64url | The agent's state directory | sha256 hex in the session hash |
-| `client_token` | 32 random bytes, base64url | Client app, in the Keychain | sha256 hex in the session hash |
+| `client_token` | 32 random bytes, base64url | Client app, in memory only | sha256 hex in the session hash |
 | Action ID | `a_` + 9 random bytes, base64url | Both | Itself |
 
 Rules:
@@ -296,7 +296,7 @@ For each action, Rust:
 
 1. Resolves the program to an absolute path using the session's cleared environment. It resolves paths, expands `~`, follows symlinks and rejects `..` escapes.
 2. Computes the action's needs (kind, access, scope, risk) from what will actually run, never from `reason`.
-3. Flags protected locations: `~/.ssh`, keychains, browser profiles, password manager data, and `.env` files outside a granted scope. These are covered only by grants the person allowed from a prompt.
+3. Flags protected locations: `~/.ssh` and other credential folders (`~/.aws`, `~/.kube`, `~/.config/gh`, …), keychains, browser data, password managers, Mail, Messages and any `.env` file. These are covered only by grants the person allowed from a prompt, and the sandbox profile denies them after every broad allow.
 4. For `write_file`, compares `base_hash` with the file's current sha256; on a mismatch it returns `rejected` without asking. It checks again after an approval, before writing.
 5. Runs `decide`. If nothing is needed, it runs the action. Otherwise it raises a prompt and holds the action until the person answers or the session ends.
 
@@ -312,6 +312,8 @@ For each action, Rust:
 - Process environment is cleared, except granted variables and a minimal `PATH`.
 - Each session's processes run in their own process group with resource limits (CPU time, memory, process count). Output is capped and marked truncated.
 - Structured tools (`read_file`, `write_file`, `list_dir`, `tail_log`, `list_processes`) are carried out by Rust directly after the policy check, with paths re-resolved immediately before the operation.
+- Network access is allowed in the profile only by a grant the person approved from a prompt, never by a starting grant alone.
+- Some programs refuse to run under any sandbox (`/usr/bin/log` exits with "Cannot run while sandboxed") or cannot be started inside one (setuid programs such as `/bin/ps`). `list_processes` and `tail_log` cover the common cases.
 - A sandbox denial inside a running command surfaces as an `EPERM` error. The action returns `denied` with `reason: "sandbox"` and the stderr, and the agent can ask for the specific grant through a structured tool.
 
 ### 9.3 Approvals
@@ -330,9 +332,9 @@ Triggered by the person, the time limit, the agent's end event, or the relay rep
 2. Send SIGTERM to each session process group, then SIGKILL after 2 s.
 3. Drop the session's grants and hashes from memory.
 4. Append the end entry, seal the log, upload it, and keep a local copy.
-5. Delete the `client_token` from the Keychain.
+5. Drop the `client_token` from memory.
 
-If the app quits or crashes, it treats every session as ended on its next launch and tells the relay.
+When the app quits it ends every open session first. Tokens are never written to disk, so after a crash the app cannot reach those sessions again: the agent sees `client_connected: false` after 90 s, and the relay ends each session at its time limit.
 
 ## 10. Limits
 
