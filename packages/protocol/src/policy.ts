@@ -8,7 +8,8 @@ export function covers(g: Grant, n: Need, now: number) {
   if (g.expiresAt && g.expiresAt < now) return false
   if (n.protectedLabel && g.source !== 'approved') return false
   if (g.scope === n.scope || g.scope === '*') return true
-  return g.scope.endsWith('/**') && n.scope.startsWith(g.scope.slice(0, -2))
+  if (!g.scope.endsWith('/**')) return false
+  return n.scope === g.scope.slice(0, -3) || n.scope.startsWith(g.scope.slice(0, -2))
 }
 
 export type Decision = { ask: false } | { ask: true; needs: Need[] }

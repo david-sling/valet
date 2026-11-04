@@ -1,0 +1,132 @@
+{
+  "now": 1800000000000,
+  "decide": [
+    {
+      "name": "runs an action a starting grant covers",
+      "action": { "risk": "low", "needs": [{ "kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp/main.log", "risk": "low" }] },
+      "grants": [{ "id": "g", "on": true, "source": "proposed", "kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp/**", "risk": "low" }],
+      "expect": { "ask": false }
+    },
+    {
+      "name": "covers the folder a folder grant names",
+      "action": { "risk": "low", "needs": [{ "kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp", "risk": "low" }] },
+      "grants": [{ "id": "g", "on": true, "source": "proposed", "kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp/**", "risk": "low" }],
+      "expect": { "ask": false }
+    },
+    {
+      "name": "asks when the grant is switched off",
+      "action": { "risk": "low", "needs": [{ "kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp/main.log", "risk": "low" }] },
+      "grants": [{ "id": "g", "on": false, "source": "proposed", "kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp/**", "risk": "low" }],
+      "expect": { "ask": true, "needs": [{ "kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp/main.log", "risk": "low" }] }
+    },
+    {
+      "name": "asks when the grant has run out",
+      "action": { "risk": "low", "needs": [{ "kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp/main.log", "risk": "low" }] },
+      "grants": [{ "id": "g", "on": true, "source": "approved", "kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp/**", "risk": "low", "expiresAt": 1799999999999 }],
+      "expect": { "ask": true, "needs": [{ "kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp/main.log", "risk": "low" }] }
+    },
+    {
+      "name": "never lets a folder grant reach its parent",
+      "action": { "risk": "low", "needs": [{ "kind": "Files", "access": "read", "scope": "~/Projects/notes.md", "risk": "low" }] },
+      "grants": [{ "id": "g", "on": true, "source": "proposed", "kind": "Files", "access": "read", "scope": "~/Projects/acme/**", "risk": "low" }],
+      "expect": { "ask": true, "needs": [{ "kind": "Files", "access": "read", "scope": "~/Projects/notes.md", "risk": "low" }] }
+    },
+    {
+      "name": "never lets a folder grant reach a sibling with the same prefix",
+      "action": { "risk": "low", "needs": [{ "kind": "Files", "access": "read", "scope": "~/Projects/acme-secrets/key", "risk": "low" }] },
+      "grants": [{ "id": "g", "on": true, "source": "proposed", "kind": "Files", "access": "read", "scope": "~/Projects/acme/**", "risk": "low" }],
+      "expect": { "ask": true, "needs": [{ "kind": "Files", "access": "read", "scope": "~/Projects/acme-secrets/key", "risk": "low" }] }
+    },
+    {
+      "name": "does not let read stand in for write",
+      "action": { "risk": "medium", "needs": [{ "kind": "Files", "access": "write", "scope": "~/Projects/acme/a.txt", "risk": "medium" }] },
+      "grants": [{ "id": "g", "on": true, "source": "proposed", "kind": "Files", "access": "read", "scope": "~/Projects/acme/**", "risk": "low" }],
+      "expect": { "ask": true, "needs": [{ "kind": "Files", "access": "write", "scope": "~/Projects/acme/a.txt", "risk": "medium" }] }
+    },
+    {
+      "name": "asks for a protected location even under a starting grant for everything",
+      "action": { "risk": "high", "needs": [{ "kind": "Files", "access": "read", "scope": "~/.ssh/id_rsa", "risk": "high", "protectedLabel": "SSH keys" }] },
+      "grants": [{ "id": "g", "on": true, "source": "proposed", "kind": "Files", "access": "read", "scope": "*", "risk": "medium" }],
+      "expect": { "ask": true, "needs": [{ "kind": "Files", "access": "read", "scope": "~/.ssh/id_rsa", "risk": "high", "protectedLabel": "SSH keys" }] }
+    },
+    {
+      "name": "asks for high risk until the client has allowed it from a prompt",
+      "action": { "risk": "high", "needs": [{ "kind": "Network", "access": "connect", "scope": "*", "risk": "high" }] },
+      "grants": [{ "id": "g", "on": true, "source": "proposed", "kind": "Network", "access": "connect", "scope": "*", "risk": "high" }],
+      "expect": { "ask": true, "needs": [{ "kind": "Network", "access": "connect", "scope": "*", "risk": "high" }] }
+    },
+    {
+      "name": "runs high risk the client allowed from a prompt",
+      "action": { "risk": "high", "needs": [{ "kind": "Network", "access": "connect", "scope": "*", "risk": "high" }] },
+      "grants": [{ "id": "g", "on": true, "source": "approved", "kind": "Network", "access": "connect", "scope": "*", "risk": "high" }],
+      "expect": { "ask": false }
+    },
+    {
+      "name": "asks only for the needs nothing covers",
+      "action": {
+        "risk": "medium",
+        "needs": [
+          { "kind": "Programs", "access": "run", "scope": "/usr/bin/log", "risk": "medium" },
+          { "kind": "Files", "access": "read", "scope": "~/Projects/acme/**", "risk": "low" }
+        ]
+      },
+      "grants": [{ "id": "g", "on": true, "source": "proposed", "kind": "Programs", "access": "run", "scope": "/usr/bin/log", "risk": "medium" }],
+      "expect": { "ask": true, "needs": [{ "kind": "Files", "access": "read", "scope": "~/Projects/acme/**", "risk": "low" }] }
+    },
+    {
+      "name": "always asks for critical risk",
+      "action": { "risk": "critical", "needs": [{ "kind": "Admin rights", "access": "elevate", "scope": "/usr/bin/sudo", "risk": "critical" }] },
+      "grants": [{ "id": "g", "on": true, "source": "approved", "kind": "Admin rights", "access": "elevate", "scope": "/usr/bin/sudo", "risk": "critical" }],
+      "expect": { "ask": true, "needs": [{ "kind": "Admin rights", "access": "elevate", "scope": "/usr/bin/sudo", "risk": "critical" }] }
+    }
+  ],
+  "scopesFor": [
+    {
+      "name": "critical can only be allowed once",
+      "action": { "risk": "critical", "needs": [{ "kind": "Admin rights", "access": "elevate", "scope": "/usr/bin/sudo", "risk": "critical" }] },
+      "expect": ["once"]
+    },
+    {
+      "name": "a file need can be widened to its folder",
+      "action": { "risk": "low", "needs": [{ "kind": "Files", "access": "read", "scope": "~/a.txt", "risk": "low" }] },
+      "expect": ["once", "session", "15m", "folder"]
+    },
+    {
+      "name": "a program has no folder",
+      "action": { "risk": "medium", "needs": [{ "kind": "Programs", "access": "run", "scope": "/usr/bin/log", "risk": "medium" }] },
+      "expect": ["once", "session", "15m"]
+    }
+  ],
+  "grantsFrom": [
+    {
+      "name": "leaves nothing behind for a one-off approval",
+      "needs": [{ "kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp/main.log", "risk": "low" }],
+      "scope": "once",
+      "expect": []
+    },
+    {
+      "name": "widens a file to its folder, and only a file",
+      "needs": [
+        { "kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp/main.log", "risk": "low" },
+        { "kind": "Network", "access": "connect", "scope": "*", "risk": "high" }
+      ],
+      "scope": "folder",
+      "expect": [
+        { "kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp/**", "risk": "low" },
+        { "kind": "Network", "access": "connect", "scope": "*", "risk": "high" }
+      ]
+    },
+    {
+      "name": "gives a 15-minute approval its end time",
+      "needs": [{ "kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp/main.log", "risk": "low" }],
+      "scope": "15m",
+      "expect": [{ "kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp/main.log", "risk": "low", "expiresAt": 1800000900000 }]
+    },
+    {
+      "name": "keeps a session approval for the rest of the session",
+      "needs": [{ "kind": "Programs", "access": "run", "scope": "/usr/bin/log", "risk": "medium" }],
+      "scope": "session",
+      "expect": [{ "kind": "Programs", "access": "run", "scope": "/usr/bin/log", "risk": "medium" }]
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 {
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "vectors/*.json"],
   "compilerOptions": {
+    "resolveJsonModule": true,
     "target": "ES2022",
     "module": "ESNext",
     "lib": ["ES2022"],
