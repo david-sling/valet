@@ -11,7 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MockupRouteImport } from './routes/mockup'
+import { Route as AgentSkillDotmdRouteImport } from './routes/agent/skill[.]md'
 import { Route as ApiSplatRouteImport } from './routes/api/$'
+import { Route as JCodeRouteImport } from './routes/j/$code'
 import { Route as ApiCronSweepRouteImport } from './routes/api/cron/sweep'
 import { Route as ApiV1HealthRouteImport } from './routes/api/v1/health'
 import { Route as ApiV1JoinRouteImport } from './routes/api/v1/join'
@@ -39,9 +41,19 @@ const MockupRoute = MockupRouteImport.update({
   path: '/mockup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AgentSkillDotmdRoute = AgentSkillDotmdRouteImport.update({
+  id: '/agent/skill.md',
+  path: '/agent/skill.md',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSplatRoute = ApiSplatRouteImport.update({
   id: '/api/$',
   path: '/api/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JCodeRoute = JCodeRouteImport.update({
+  id: '/j/$code',
+  path: '/j/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCronSweepRoute = ApiCronSweepRouteImport.update({
@@ -130,7 +142,9 @@ const ApiV1SessionsIdActionsAidResultRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/mockup': typeof MockupRoute
+  '/agent/skill.md': typeof AgentSkillDotmdRoute
   '/api/$': typeof ApiSplatRoute
+  '/j/$code': typeof JCodeRoute
   '/api/cron/sweep': typeof ApiCronSweepRoute
   '/api/v1/health': typeof ApiV1HealthRoute
   '/api/v1/join': typeof ApiV1JoinRoute
@@ -151,7 +165,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/mockup': typeof MockupRoute
+  '/agent/skill.md': typeof AgentSkillDotmdRoute
   '/api/$': typeof ApiSplatRoute
+  '/j/$code': typeof JCodeRoute
   '/api/cron/sweep': typeof ApiCronSweepRoute
   '/api/v1/health': typeof ApiV1HealthRoute
   '/api/v1/join': typeof ApiV1JoinRoute
@@ -173,7 +189,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/mockup': typeof MockupRoute
+  '/agent/skill.md': typeof AgentSkillDotmdRoute
   '/api/$': typeof ApiSplatRoute
+  '/j/$code': typeof JCodeRoute
   '/api/cron/sweep': typeof ApiCronSweepRoute
   '/api/v1/health': typeof ApiV1HealthRoute
   '/api/v1/join': typeof ApiV1JoinRoute
@@ -196,7 +214,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/mockup'
+    | '/agent/skill.md'
     | '/api/$'
+    | '/j/$code'
     | '/api/cron/sweep'
     | '/api/v1/health'
     | '/api/v1/join'
@@ -217,7 +237,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/mockup'
+    | '/agent/skill.md'
     | '/api/$'
+    | '/j/$code'
     | '/api/cron/sweep'
     | '/api/v1/health'
     | '/api/v1/join'
@@ -238,7 +260,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/mockup'
+    | '/agent/skill.md'
     | '/api/$'
+    | '/j/$code'
     | '/api/cron/sweep'
     | '/api/v1/health'
     | '/api/v1/join'
@@ -260,7 +284,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   MockupRoute: typeof MockupRoute
+  AgentSkillDotmdRoute: typeof AgentSkillDotmdRoute
   ApiSplatRoute: typeof ApiSplatRoute
+  JCodeRoute: typeof JCodeRoute
   ApiCronSweepRoute: typeof ApiCronSweepRoute
   ApiV1HealthRoute: typeof ApiV1HealthRoute
   ApiV1JoinRoute: typeof ApiV1JoinRoute
@@ -283,11 +309,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MockupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/agent/skill.md': {
+      id: '/agent/skill.md'
+      path: '/agent/skill.md'
+      fullPath: '/agent/skill.md'
+      preLoaderRoute: typeof AgentSkillDotmdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/$': {
       id: '/api/$'
       path: '/api/$'
       fullPath: '/api/$'
       preLoaderRoute: typeof ApiSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/j/$code': {
+      id: '/j/$code'
+      path: '/j/$code'
+      fullPath: '/j/$code'
+      preLoaderRoute: typeof JCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/cron/sweep': {
@@ -476,7 +516,9 @@ const ApiV1SessionsRouteWithChildren = ApiV1SessionsRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   MockupRoute: MockupRoute,
+  AgentSkillDotmdRoute: AgentSkillDotmdRoute,
   ApiSplatRoute: ApiSplatRoute,
+  JCodeRoute: JCodeRoute,
   ApiCronSweepRoute: ApiCronSweepRoute,
   ApiV1HealthRoute: ApiV1HealthRoute,
   ApiV1JoinRoute: ApiV1JoinRoute,

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { normaliseCode } from '@valet/protocol'
+import { normaliseCode } from '@valet/protocol/codes'
 
 export function App() {
   const [code, setCode] = useState('')
