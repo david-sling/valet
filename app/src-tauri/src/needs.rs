@@ -176,9 +176,10 @@ fn file_need(p: &Path, access: &str, folder: bool) -> Need {
     let h = home();
     let label = protected_label(p);
     let broad = p == h || !p.starts_with(&h) && h.starts_with(p);
+    let scratch = std::fs::canonicalize(std::env::temp_dir()).is_ok_and(|t| p.starts_with(t)) || p.starts_with("/private/tmp");
     let risk = match (access, label) {
         (_, Some(_)) => Risk::High,
-        ("write", _) if !p.starts_with(&h) => Risk::High,
+        ("write", _) if !p.starts_with(&h) && !scratch => Risk::High,
         ("write", _) => Risk::Medium,
         _ if broad => Risk::Medium,
         _ => Risk::Low,

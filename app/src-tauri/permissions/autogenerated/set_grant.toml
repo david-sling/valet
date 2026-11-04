@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-grant"
+description = "Enables the set_grant command without any pre-configured scope."
+commands.allow = ["set_grant"]
+
+[[permission]]
+identifier = "deny-set-grant"
+description = "Denies the set_grant command without any pre-configured scope."
+commands.deny = ["set_grant"]
