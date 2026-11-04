@@ -28,7 +28,7 @@ function Sparkle({ className, left, top }: { className: string; left: string; to
 // The hero: the valet ticket starts as the page's big card under the headline. On scroll it settles into the
 // middle at the same size and tears along its perforation: the red body moves straight away from the stub, and the
 // line appears in the gap. Lying flat, the body slides left and the stub stays; upright, on a phone, the body rises,
-// the stub swings open, and last it falls away.
+// the stub swings open. Last, on both, the stub falls away to the bottom right.
 export function TearHero() {
   const rootRef = useRef<HTMLDivElement>(null)
   const ticketRef = useRef<SVGSVGElement>(null)
@@ -66,6 +66,11 @@ export function TearHero() {
       const vertical = () => upright
       // The big card first settles into the middle, whole and in view, and only then does it tear
       const T0 = 0.5
+      // the timeline's landmarks: where the halves start to part, and where it ends, the next section having covered
+      // the scene; the halves used to stop at T0 + 0.75, U_GAP of the way through the body's drift
+      const PARTS = T0 + 0.75 * 0.4
+      const END = 2.2
+      const U_GAP = (T0 + 0.75 - PARTS) / (END - PARTS)
       // Measured from the layout, never the screen: the page can load (or refresh) scrolled anywhere, and the copy
       // carries a transform mid-scroll. The copy and the scene both sit in the pinned stage, which starts at the top.
       const copy = q('.copy')[0] as HTMLElement
@@ -78,7 +83,8 @@ export function TearHero() {
       gsap.set(q('.shape'), { opacity: 1, rotate: (i) => SHAPE_TURN[i] })
       const tl = gsap.timeline({
         defaults: { ease: 'none' },
-        scrollTrigger: { trigger: q('.track')[0], start: 'top top', end: upright ? '+=240%' : '+=200%', scrub: 0.8, invalidateOnRefresh: true },
+        // the scene runs until the next section has fully covered it (see .track in styles.css)
+        scrollTrigger: { trigger: q('.track')[0], start: 'top top', end: '+=300%', scrub: 0.8, invalidateOnRefresh: true },
       })
 
       // The ticket keeps one size throughout: upright, its full size; lying flat, as wide as the page's content, or
@@ -92,18 +98,29 @@ export function TearHero() {
         return cardTop() + (tw() * (vertical() ? 1 : 0.48) * scale()) / 2 - centre
       }
       // Then it tears, and the red body moves straight away from the stub, which stays: up when it stands upright,
-      // left when it lies flat. The line appears in the gap. Upright, the stub then falls away.
+      // left when it lies flat. The line appears in the gap. Then the stub falls away to the bottom right, before
+      // the next section comes up.
       const handover = q('.handover')[0] as HTMLElement
       // the gap: room for the line, with air around it, and upright around the corner of the swung stub
       const gap = () => (vertical() ? handover.offsetHeight + 104 : handover.offsetWidth + 64)
       // the perforation's place on screen, against the ticket's centre: 0.19 of its length towards the stub
       const perf = () => tw() * 0.19 * scale()
       const fall = { p: 0 }
+      // The body never stops: it gathers speed as it parts from the stub, then slows exponentially, drifting on until
+      // the next section has covered the scene. u runs 0 to 1 over that time; the curve starts at rest, and has
+      // opened the full gap by U_GAP, where the halves used to come to a stop.
+      const drift = { u: 0 }
+      const TAU = 0.12
+      const curve = (u: number) => 1 - (1 + u / TAU) * Math.exp(-u / TAU)
+      const shift = () => (gap() * curve(drift.u)) / curve(U_GAP) // on screen, from the perforation
       const to = () =>
         // in the ticket's own frame and size: upright, it is turned a quarter clockwise, so screen up is its -x
         vertical()
-          ? { body: { x: -gap(), y: 0 }, stub: { x: fall.p * SH(), y: fall.p * W() * 0.12 } }
-          : { body: { x: -gap() / scale(), y: 0 }, stub: { x: 0, y: 0 } }
+          ? { body: { x: -shift(), y: 0, at: 1 }, stub: { x: fall.p * SH(), y: -fall.p * W() * 0.3, turn: fall.p * 50 } }
+          : {
+              body: { x: -shift() / scale(), y: 0, at: 1 },
+              stub: { x: (fall.p * W() * 0.2) / scale(), y: (fall.p * SH()) / scale(), turn: fall.p * 50 },
+            }
       const smooth = (a: number, b: number, v: number) => {
         const t = Math.min(1, Math.max(0, (v - a) / (b - a)))
         return t * t * (3 - 2 * t)
@@ -114,23 +131,23 @@ export function TearHero() {
       const AIR = 20 // between the line and each half
       const placeLine = (t: number, part: number) => {
         // how far the body's edge has moved from the perforation, on screen: lying flat it first draws back a little
-        // as the fibres stretch (16 of the ticket's 200 units), then travels with the halves
+        // as the fibres stretch (16 of the ticket's 200 units), then travels on
         const pull = vertical() ? 0 : 16 * t * t * (tw() / 200) * scale()
-        const shift = pull * (1 - part) + part * gap()
+        const away = pull * (1 - part) + shift()
         if (vertical()) {
           const corner = 44 * t // the swung stub's corner rises into the gap
-          const shown = Math.min(handover.offsetHeight, Math.max(0, shift - AIR * 2 - corner))
+          const shown = Math.min(handover.offsetHeight, Math.max(0, away - AIR * 2 - corner))
           gsap.set(handover, {
             opacity: shown > 0 ? 1 : 0,
             x: 0,
-            y: settleY() + perf() - shift + AIR + handover.offsetHeight / 2,
+            y: settleY() + perf() - away + AIR + handover.offsetHeight / 2,
             clipPath: `inset(-20% -10% ${handover.offsetHeight - shown}px -10%)`,
           })
         } else {
-          const shown = Math.min(handover.offsetWidth, Math.max(0, shift - AIR * 2))
+          const shown = Math.min(handover.offsetWidth, Math.max(0, away - AIR * 2))
           gsap.set(handover, {
             opacity: shown > 0 ? 1 : 0,
-            x: perf() - shift + AIR + handover.offsetWidth / 2,
+            x: perf() - away + AIR + handover.offsetWidth / 2,
             y: settleY(),
             clipPath: `inset(-20% ${handover.offsetWidth - shown}px -20% -10%)`,
           })
@@ -154,12 +171,14 @@ export function TearHero() {
           0,
         )
         .to(ticket, { p: 1, duration: 0.75, onUpdate: draw }, T0)
-      // upright, once the line is in full view the stub falls away out of the bottom of the screen
-      if (upright) tl.to(fall, { p: 1, duration: 0.35, ease: 'power2.in', onUpdate: draw }, T0 + 0.9)
+      // once the line is in full view the stub falls away out of the bottom of the screen
+      tl.to(fall, { p: 1, duration: 0.35, ease: 'power2.in', onUpdate: draw }, T0 + 0.9)
+        // the body drifts from the moment it parts until the scene ends, under the next section
+        .fromTo(drift, { u: 0 }, { u: 1, duration: END - PARTS, onUpdate: draw }, PARTS)
 
       // the shapes scroll through the pinned scene as if the page were moving under it, each at its own depth:
       // in from below, easing into their places as the line comes up, then only drifting on, so they stay in
-      // frame until the next section slides over them. Durations are in screen heights of scroll: the pin lasts 3.2 (3.6 upright).
+      // frame until the next section slides over them. Durations are in screen heights of scroll: the pin lasts 3.6.
       gsap
         .timeline({
           scrollTrigger: { trigger: q('.track')[0], start: 'top top', end: 'bottom bottom', scrub: true, invalidateOnRefresh: true },

@@ -94,9 +94,10 @@ a { color: inherit; }
 @media (max-width: 520px) { .h2 { font-size: min(2rem, 6.8vw); } }
 
 /* hero: the tearing ticket */
-/* the track pins the stage for the scrubbed scene (200vh), a short hold (20vh), and the next section
-   sliding up over it (100vh): the stage stays put underneath until it is fully covered */
-.tear-hero .track { position: relative; height: 420vh; }
+/* the track pins the stage for the scrubbed scene (300vh) and the next section sliding up over its end (the last
+   100vh), from just after the stub starts to fall, while the red body is still drifting. The stage stays put
+   underneath until it is fully covered. */
+.tear-hero .track { position: relative; height: 400vh; }
 /* the stage is the screen with the address bar showing; the scene may run past its bottom edge when the bar hides */
 .tear-hero .stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow-x: clip; overflow-y: visible; }
 /* the gesture bar's height, read by the script so the scene stays clear of it (the stage's children are all placed) */
@@ -163,8 +164,15 @@ a { color: inherit; }
 .tear-hero .shape.sparkle.pink { fill: var(--pink); }
 .tear-hero .shape.sparkle.sky { fill: var(--blue); }
 
+/* lying flat, the hero's ticket is drawn several times its size, so its words are set smaller: each half's words
+   shrink towards the middle of where they sit (the body's from its left edge) */
+@media (min-width: 761px) {
+  .tear-hero .ticket .words { transform: scale(0.72); transform-box: fill-box; }
+  .tear-hero .ticket .body .words { transform-origin: 0% 50%; }
+  .tear-hero .ticket .stub .words { transform-origin: 50% 50%; }
+}
+
 @media (max-width: 760px) {
-  .tear-hero .track { height: 460vh; } /* the upright scene drops the stub after the tear: 40vh more */
   .tear-hero .scene-wrap { --frame: 24vw; }
   /* upright, the ticket keeps one size from the first screen to the end: nearly as wide as the screen (its width
      is 0.48 of its length), or as long as fits whole between the header and the bottom of the screen */

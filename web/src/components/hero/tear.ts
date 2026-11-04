@@ -8,9 +8,9 @@ export const TICKET = (() => {
   const w = 200
   const h = 96
   const x = 138
-  const notch = 6
-  const hole = 4.4
-  const holes = 9
+  const notch = 9
+  const hole = 7
+  const holes = 6
   const span = h - 2 * notch
   const bridge = (span - holes * hole) / (holes + 1)
   const bridges: Bridge[] = []
@@ -32,7 +32,9 @@ export const TICKET = (() => {
 })()
 
 type Offset = { x: number; y: number }
-export type TearTargets = { body: Offset; stub: Offset }
+// the stub can also take a turn of its own, in degrees, on top of the tear's, as when it falls away
+// and the body can travel on its own schedule: `at` is how far along its way it is, if not in step with `part`
+export type TearTargets = { body: Offset & { at?: number }; stub: Offset & { turn?: number } }
 
 const f = (n: number) => n.toFixed(2)
 
@@ -61,7 +63,7 @@ export function createTear(svg: SVGSVGElement) {
     const sc = (cx: number, cy: number) => `translate(${cx} ${cy}) scale(${f(shrink)}) translate(${-cx} ${-cy})`
 
     // the stub turns about the hinge, so its centre drifts; aim the centre, not the hinge, at its target
-    const turn = th + (swing ? (part * 12 * Math.PI) / 180 : 0)
+    const turn = th + ((swing ? part * 12 : 0) + (to.stub.turn ?? 0)) * (Math.PI / 180)
     const cx = (T.x + T.w) / 2 - T.hinge.x
     const cy = T.h / 2 - T.hinge.y
     const aimX = cx - (cx * Math.cos(turn) - cy * Math.sin(turn)) + to.stub.x / k
@@ -72,9 +74,10 @@ export function createTear(svg: SVGSVGElement) {
       'transform',
       `translate(${f(sx)} ${f(sy)}) rotate(${f((turn * 180) / Math.PI)} ${T.hinge.x} ${T.hinge.y}) ${sc((T.x + T.w) / 2, T.h / 2)}`,
     )
+    const at = to.body.at ?? part
     body.setAttribute(
       'transform',
-      `translate(${f(pull * (1 - part) + (part * to.body.x) / k)} ${f((part * to.body.y) / k)}) rotate(${f(part * -tilt)} ${T.x / 2} ${T.h / 2}) ${sc(T.x / 2, T.h / 2)}`,
+      `translate(${f(pull * (1 - part) + (at * to.body.x) / k)} ${f((at * to.body.y) / k)}) rotate(${f(part * -tilt)} ${T.x / 2} ${T.h / 2}) ${sc(T.x / 2, T.h / 2)}`,
     )
 
     const fade = Math.max(0, 1 - part * 5) // any last fibres let go as the halves start to travel
