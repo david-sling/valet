@@ -43,7 +43,7 @@ function fileContent(path: string) {
 }
 
 function answer(a: Action): Record<string, unknown> {
-  if (deny.has(a.tool)) return { status: 'denied', method: 'click' }
+  if (deny.has(a.tool)) return { status: 'denied', method: 'click', error: 'The person denied it.' }
   const path = String(a.args.path ?? '')
   switch (a.tool) {
     case 'list_processes':
