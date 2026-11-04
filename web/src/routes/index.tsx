@@ -6,6 +6,7 @@ import { AsksFirst } from '#/components/asks/AsksFirst'
 import { ClientsSay } from '#/components/clients/ClientsSay'
 import { ForVendors } from '#/components/vendors/ForVendors'
 import { SandboxEnforces } from '#/components/security/SandboxEnforces'
+import { NotRemoteDesktop } from '#/components/compare/NotRemoteDesktop'
 import { useStackedSections } from '#/lib/stack-sections'
 
 export const Route = createFileRoute('/')({
@@ -28,6 +29,7 @@ function Home() {
         <ClientsSay />
         <ForVendors />
         <SandboxEnforces />
+        <NotRemoteDesktop />
       </main>
     </>
   )
