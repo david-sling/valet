@@ -47,7 +47,7 @@ async fn answer(m: State<'_, Manager>, prompt: String, allow: bool, scope: Optio
 }
 
 #[tauri::command]
-fn set_grant(m: State<'_, Manager>, id: String, grant: String, on: bool) -> Result<(), String> {
+async fn set_grant(m: State<'_, Manager>, id: String, grant: String, on: bool) -> Result<(), String> {
     m.set_grant(&id, &grant, on)
 }
 
