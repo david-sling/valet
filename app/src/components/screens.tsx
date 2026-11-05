@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { Grant } from '@valet/protocol'
 import { KINDS, SESSION_MINUTES, hhmm, clock, day, describe, minutes } from '../format'
 import { RiskBars } from './RiskBars'
@@ -443,11 +443,26 @@ export function Live({
   grants: Grant[]
   onToggle: (id: string) => void
 }) {
+  const activity = useRef<HTMLElement>(null)
+  const pinned = useRef(true)
+
+  useLayoutEffect(() => {
+    const el = activity.current
+    if (el && pinned.current) el.scrollTop = el.scrollHeight
+  }, [feed.length, requests.length])
+
   return (
     <div className="page live">
       <PageHead vendor={vendor} meta={`Live since ${hhmm(startedAt)}${verified ? '' : ' · name not verified'}`} />
       <div className="page-split">
-        <section className="page-sec">
+        <section
+          ref={activity}
+          className="page-sec"
+          onScroll={(e) => {
+            const el = e.currentTarget
+            pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48
+          }}
+        >
           <h2 className="m-label">Activity</h2>
           <Feed items={feed} initial={vendor[0]}>
             {requests}
