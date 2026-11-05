@@ -133,8 +133,8 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
       }))
       return null
     case 'plugin:event|listen':
-      listeners.push(args.handler as number)
-      return listeners.length
+      if (args.event === 'sessions') listeners.push(args.handler as number)
+      return args.handler
     default:
       return null
   }
