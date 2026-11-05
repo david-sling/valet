@@ -32,7 +32,7 @@ const STEPS: [string, Record<string, unknown>, string][] = [
   ['read_file', { path: '/etc/hosts' }, 'Allowed by the template'],
   ['run_command', { command: ['/usr/bin/sw_vers'] }, 'Allowed by the template'],
   ['list_dir', { path: '~/Library/Logs' }, 'Asks: low risk, one click'],
-  ['write_file', { path: '/tmp/valet-demo.txt', content: 'written by the fake agent\n', base_hash: EMPTY }, 'Asks: medium risk, with a diff'],
+  ['write_file', { path: `/tmp/valet-demo-${randomBytes(3).toString('hex')}.txt`, content: 'written by the fake agent\n', base_hash: EMPTY }, 'Asks: medium risk, with a diff'],
   ['run_command', { command: ['/usr/bin/curl', '-sS', '-o', '/dev/null', '-w', '%{http_code}', 'https://example.com'] }, 'Asks: network, Touch ID'],
   ['list_dir', { path: '~/.ssh' }, 'Asks: protected place, Touch ID'],
 ]
