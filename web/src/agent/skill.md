@@ -48,18 +48,26 @@ Some places are never covered by starting permissions, whatever you propose: SSH
 
 ## 2. Hand over the code
 
-Give your user the `code` and `join_url` and ask them to send it to the person whose computer it is. That person needs the Valet app. Then go straight on to step 3 and keep waiting; don't end your turn. The code works once and expires after 10 minutes, after which the state becomes `expired`.
+Give your user the `code` and `join_url` and ask them to send it to the person whose computer it is. That person needs the Valet app. The code works once and expires after 10 minutes, after which the state becomes `expired`.
+
+Start step 3 in the same reply. Don't ask your user to tell you when the person has joined, and don't end your turn to wait for them: the wait in step 3 finds out on its own.
 
 Only the person at that computer can let you in. Never ask your user to approve anything on their behalf.
 
 ## 3. Wait for the session to go live
 
+This blocks until the person has joined and started the session, or the session is over. It can take up to the 10 minutes the code lasts. If your shell can run a command in the background and tell you when it exits, run it that way; otherwise give it a timeout of at least 11 minutes, and if it is cut off anyway, run it again.
+
 ```sh
-curl -sS --http1.1 "$BASE/sessions/$(cat "$W/id")?wait=50" -H "Authorization: Bearer $(cat "$W/token")" \
-  | tee "$W/status.json" | jq '{state, grants, ends_at, client_connected}'
+L=; while :; do
+  curl -sS --http1.1 "$BASE/sessions/$(cat "$W/id")?wait=50" -H "Authorization: Bearer $(cat "$W/token")" -o "$W/status.json" || { sleep 3; continue; }
+  S=$(jq -r '.state // empty' "$W/status.json")
+  case "$S" in invited|joined) [ "$S" = "$L" ] || echo "state: $S"; L=$S ;; *) break ;; esac
+done
+jq '.error // {state, grants, ends_at, client_connected}' "$W/status.json"
 ```
 
-Run it again while `state` is `invited` (no one has entered the code) or `joined` (the person is reviewing). Tell your user which it is while you wait. Stop at:
+`invited` means no one has entered the code yet; `joined` means the person is reviewing what you asked for. It stops at:
 
 - `live`: go on. `grants` is what you may do without asking; anything else asks the person first.
 - `declined`, `expired` or `ended`: the session is over. Tell your user; start a new one only if they ask.
