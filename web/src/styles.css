@@ -76,6 +76,19 @@ a { color: inherit; }
   transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out), background-color 180ms;
 }
 .btn-sm { height: 40px; padding: 0 16px; font-size: 14px; }
+.btn .mark { width: 16px; height: 16px; margin-top: -2px; fill: currentColor; flex: none; }
+.nav-end { display: flex; align-items: center; gap: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 999px;
+  font: 600 14px/1 var(--sans); color: var(--ink); text-decoration: none;
+  background: rgba(255, 255, 255, 0.86); backdrop-filter: blur(14px); border: 1px solid rgba(21, 22, 26, 0.08);
+  transition: border-color 180ms;
+}
+.chip:hover { border-color: #cfcfd6; }
+.chip .mark { width: 16px; height: 16px; fill: currentColor; flex: none; }
+.chip-count { color: var(--ink-3); font-weight: 500; font-variant-numeric: tabular-nums; }
+.nav-star { display: none; }
+@media (min-width: 860px) { .nav-star { display: inline-flex; } }
 .btn-ink { background: var(--ink); color: #fff; }
 .btn-ink:hover { transform: translateY(-1px); box-shadow: 0 10px 24px -12px rgba(21, 22, 26, 0.5); }
 .btn-ghost { background: #fff; color: var(--ink); border-color: var(--line); }
@@ -542,9 +555,7 @@ a { color: inherit; }
 .closing-inner { align-self: center; display: grid; justify-items: center; gap: 18px; text-align: center; }
 .closing-inner .lead { margin: 0 0 8px; max-width: 44ch; }
 .rejoin { width: min(440px, 78vw); margin-bottom: clamp(24px, 5vh, 48px); }
-/* the Tally form sits straight on the paper: its own background is transparent and its title hidden */
-.early-form { width: min(100%, 30rem); text-align: left; }
-.early-form iframe { display: block; width: 100%; border: 0; }
+.closing-note { margin: 0; font-size: 13px; color: var(--ink-3); }
 .rejoin .ticket { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 16px 26px rgba(21, 22, 26, 0.18)); }
 /* on a phone the ticket's words are set smaller, each half's shrinking towards where it sits (the red half's from
    its left edge, by the slot) */

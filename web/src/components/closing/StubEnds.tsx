@@ -3,62 +3,14 @@ import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { Ticket } from '../hero/Ticket'
 import { createTear } from '../hero/tear'
-import { EARLY_ACCESS_FORM } from '#/lib/links'
-
-declare global {
-  interface Window {
-    Tally?: { loadEmbeds: () => void }
-  }
-}
-
-const TALLY_WIDGET = 'https://tally.so/widgets/embed.js'
-
-// The early-access form, embedded from Tally. Tally's widget script loads the frame and keeps its height matched
-// to the form; if the script can't load, the frame is loaded directly at its starting height instead.
-function EarlyAccessForm() {
-  const frameRef = useRef<HTMLIFrameElement>(null)
-
-  useEffect(() => {
-    const frame = frameRef.current
-    if (!frame) return
-    const fallback = () => {
-      if (!frame.src) frame.src = frame.dataset.tallySrc ?? ''
-    }
-    if (window.Tally) return window.Tally.loadEmbeds()
-    let script = document.querySelector<HTMLScriptElement>(`script[src="${TALLY_WIDGET}"]`)
-    if (!script) {
-      script = document.createElement('script')
-      script.src = TALLY_WIDGET
-      script.async = true
-      document.body.appendChild(script)
-    }
-    const load = () => (window.Tally ? window.Tally.loadEmbeds() : fallback())
-    script.addEventListener('load', load)
-    script.addEventListener('error', fallback)
-    return () => {
-      script.removeEventListener('load', load)
-      script.removeEventListener('error', fallback)
-    }
-  }, [])
-
-  return (
-    <div className="early-form">
-      <iframe ref={frameRef} data-tally-src={EARLY_ACCESS_FORM} loading="lazy" width="100%" height="300" title="Valet early access sign-up" />
-      <noscript>
-        <a className="btn btn-ink" href="https://tally.so/r/VpGgdv">
-          Get early access
-        </a>
-      </noscript>
-    </div>
-  )
-}
+import { DownloadButton, StarButton } from '../Links'
 
 // The closing: the ticket story ends where it began. The two halves come back in from either side and meet at the
 // perforation, the hero's tear run backwards, because at the end of a session both sides hold matching halves: the
-// same signed record. Then the one action the page asks for, the early-access form, and the footer.
+// same signed record. Then the one action the page asks for, the download, and the footer.
 // The markup is the finished state, the ticket whole, which is what shows without the scroll animation.
 
-export function StubEnds() {
+export function StubEnds({ stars }: { stars: number | null }) {
   const rootRef = useRef<HTMLElement>(null)
   const ticketRef = useRef<SVGSVGElement>(null)
 
@@ -144,7 +96,7 @@ export function StubEnds() {
   }, [])
 
   return (
-    <section className="closing" id="access" ref={rootRef}>
+    <section className="closing" id="download" ref={rootRef}>
       <div className="closing-inner">
         <div className="rejoin">
           <Ticket ref={ticketRef} />
@@ -153,7 +105,8 @@ export function StubEnds() {
         <p className="lead">
           When it’s over, the customer and your agent hold matching halves: the same signed record of every step.
         </p>
-        <EarlyAccessForm />
+        <DownloadButton />
+        <p className="closing-note">macOS 13 or later · Apple silicon and Intel</p>
       </div>
 
       <footer className="site-foot">
@@ -167,6 +120,7 @@ export function StubEnds() {
           <a href="#vendors">For vendors</a>
           <a href="#security">Security</a>
         </nav>
+        <StarButton stars={stars} />
         <p>© 2026 Valet</p>
       </footer>
     </section>

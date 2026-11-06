@@ -9,17 +9,20 @@ import { SandboxEnforces } from '#/components/security/SandboxEnforces'
 import { NotRemoteDesktop } from '#/components/compare/NotRemoteDesktop'
 import { StubEnds } from '#/components/closing/StubEnds'
 import { useStackedSections } from '#/lib/stack-sections'
+import { getStars } from '#/lib/github'
 
 export const Route = createFileRoute('/')({
+  loader: () => getStars(),
   component: Home,
 })
 
 function Home() {
+  const stars = Route.useLoaderData()
   const mainRef = useRef<HTMLElement>(null)
   useStackedSections(mainRef)
   return (
     <>
-      <Nav />
+      <Nav stars={stars} />
       <main ref={mainRef}>
         <TearHero />
         <AsksFirst />
@@ -27,7 +30,7 @@ function Home() {
         <ForVendors />
         <SandboxEnforces />
         <NotRemoteDesktop />
-        <StubEnds />
+        <StubEnds stars={stars} />
       </main>
     </>
   )

@@ -1,4 +1,6 @@
-export function Nav() {
+import { DownloadButton, StarButton } from './Links'
+
+export function Nav({ stars }: { stars: number | null }) {
   return (
     <nav className="nav" aria-label="Main">
       <a className="brand" href="/">
@@ -10,9 +12,10 @@ export function Nav() {
         <a href="#security">Security</a>
         <a href="#clients">For clients</a>
       </div>
-      <a className="btn btn-ink btn-sm" href="#access">
-        Get early access
-      </a>
+      <div className="nav-end">
+        <StarButton stars={stars} label="Star" className="nav-star" />
+        <DownloadButton small />
+      </div>
     </nav>
   )
 }

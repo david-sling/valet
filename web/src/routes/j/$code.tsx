@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { CODE_CHARS, normaliseCode } from '@valet/protocol/codes'
+import { DOWNLOAD } from '#/lib/links'
 
 export const Route = createFileRoute('/j/$code')({
   head: () => ({ meta: [{ title: 'Valet · Join a session' }, { name: 'robots', content: 'noindex' }] }),
   component: JoinLink,
 })
 
-const DOWNLOAD = 'https://github.com/david-sling/valet/releases/latest/download/Valet.dmg'
 const VALID = new RegExp(`^[${CODE_CHARS}]{6}$`)
 
 function JoinLink() {

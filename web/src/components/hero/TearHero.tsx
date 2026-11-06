@@ -4,6 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { startSmoothScroll } from '#/lib/smooth-scroll'
 import { Ticket } from './Ticket'
 import { createTear } from './tear'
+import { DownloadButton } from '../Links'
 
 // where each shred of paper flies from the tear: x as a share of the scene's width, y of its frame's height, and its spin
 const SHREDS = [
@@ -262,9 +263,7 @@ export function TearHero() {
               machine, logged for both of you.
             </p>
             <div className="actions">
-              <a className="btn btn-ink" href="#access">
-                Get early access
-              </a>
+              <DownloadButton />
               <a className="btn btn-ghost" href="#security">
                 How it stays safe
               </a>
