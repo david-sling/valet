@@ -1,4 +1,5 @@
 mod approve;
+mod export;
 mod needs;
 mod policy;
 mod relay;
@@ -14,6 +15,7 @@ use std::time::Duration;
 use tauri::menu::{Menu, MenuItem};
 use tauri::{AppHandle, Emitter, Manager as _, RunEvent, State, Url};
 use tauri_plugin_deep_link::DeepLinkExt;
+use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_updater::UpdaterExt;
 
 use policy::Scope;
@@ -102,6 +104,25 @@ async fn restart(app: AppHandle, m: State<'_, Manager>) -> Result<(), String> {
     app.restart()
 }
 
+#[tauri::command]
+async fn export_json(app: AppHandle, m: State<'_, Manager>, id: String, name: String) -> Result<bool, String> {
+    let version = app.package_info().version.to_string();
+    let record = m.snapshot().iter().find(|s| s.id == id).and_then(|s| export::record(s, &version, types::now_ms()));
+    let record = record.ok_or("Only a finished session can be exported.")?;
+    let Some(path) = app.dialog().file().set_file_name(export::file_name(&name)).add_filter("JSON", &["json"]).blocking_save_file() else {
+        return Ok(false);
+    };
+    let path = path.into_path().map_err(|e| e.to_string())?;
+    let text = serde_json::to_string_pretty(&record).map_err(|e| e.to_string())?;
+    std::fs::write(path, text + "\n").map_err(|e| format!("Couldn't save the file: {e}"))?;
+    Ok(true)
+}
+
+#[tauri::command]
+fn print_report(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.print().map_err(|e| e.to_string())
+}
+
 async fn install_update(app: &AppHandle) -> Result<Option<String>, String> {
     let installed = app.state::<Installed>();
     let mut installed = installed.0.lock().await;
@@ -165,6 +186,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(JoinLink::default())
         .manage(Installed::default())
         .setup(move |app| {
@@ -185,7 +207,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, set_grant, extend, end, restart, check_update, take_join_link])
+        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, set_grant, extend, end, restart, check_update, export_json, print_report, take_join_link])
         .build(tauri::generate_context!())
         .expect("error while building Valet")
         .run(|app, event| {

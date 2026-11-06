@@ -4,6 +4,7 @@ import type { Scope } from '@valet/protocol'
 import { VERB, describe } from '../format'
 import { RiskBars } from './RiskBars'
 import { Diff, DiffStat } from './Diff'
+import { SplitButton } from './SplitButton'
 import type { Prompt } from '../api'
 
 const RIDGES = [
@@ -47,6 +48,14 @@ export function ApprovalPrompt({
     onAnswer(allow, allow ? scope : undefined).catch((e: unknown) => setError(typeof e === 'string' ? e : 'Not confirmed.'))
   }
 
+  const allowLabel = scope === 'once' ? 'Allow once' : `Allow for ${SCOPE_LABEL[scope].toLowerCase()}`
+  const fingerprint = (
+    <svg className="fingerprint" viewBox="0 0 24 24" aria-label="with Touch ID">
+      {RIDGES.map((d) => (
+        <path key={d} d={d} />
+      ))}
+    </svg>
+  )
   const extra = prompt.needs.filter((n) => n.scope !== prompt.program && !prompt.literal.includes(n.scope))
   const guarded = prompt.needs.find((n) => n.protectedLabel)?.protectedLabel
   const clock = <span className="request-clock">{waited < 1 ? 'Asked just now' : `Asked ${waited} min ago`}</span>
@@ -69,6 +78,10 @@ export function ApprovalPrompt({
           <RiskBars risk={prompt.risk} />
         </p>
 
+        <div className="reason">
+          <span>Their reason</span>
+          <p>{prompt.reason}</p>
+        </div>
         <div className="action-block">
           <div className="literal-row">
             <code className="literal">{prompt.literal}</code>
@@ -97,10 +110,6 @@ export function ApprovalPrompt({
           )}
         </div>
 
-        <div className="reason">
-          <span>Their reason</span>
-          <p>{prompt.reason}</p>
-        </div>
 
         {prompt.busy ? (
           <div className="touchid-wait" role="status">
@@ -116,20 +125,24 @@ export function ApprovalPrompt({
             <button ref={denyRef} className="mbtn mbtn-ghost mbtn-sm" onClick={() => answer(false)}>
               Deny
             </button>
-            {prompt.scopes.length > 1 && (
-              <span className="scope-pick">
-                <select aria-label="Allow for" value={scope} onChange={(e) => setScope(e.target.value as Scope)}>
-                  {prompt.scopes.map((s) => (
-                    <option key={s} value={s}>
-                      {SCOPE_LABEL[s]}
-                    </option>
-                  ))}
-                </select>
-              </span>
+            {prompt.scopes.length > 1 ? (
+              <SplitButton
+                ink
+                label={allowLabel}
+                icon={touch && fingerprint}
+                disabled={!armed}
+                menuLabel="Allow for"
+                options={prompt.scopes.map((k) => ({ key: k, label: SCOPE_LABEL[k] }))}
+                value={scope}
+                onRun={() => answer(true)}
+                onPick={setScope}
+              />
+            ) : (
+              <button className="mbtn mbtn-ink mbtn-sm" onClick={() => answer(true)} disabled={!armed}>
+                {touch && fingerprint}
+                {allowLabel}
+              </button>
             )}
-            <button className="mbtn mbtn-ink mbtn-sm" onClick={() => answer(true)} disabled={!armed}>
-              {touch ? 'Allow with Touch ID' : 'Allow'}
-            </button>
             {clock}
           </div>
         )}

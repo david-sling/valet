@@ -3,6 +3,7 @@ import type { Grant } from '@valet/protocol'
 import { api, message } from './api'
 import type { Session } from './api'
 import { ApprovalPrompt } from './components/ApprovalPrompt'
+import { PrintReport } from './components/PrintReport'
 import { Home, Join, Live, Review, SessionBar, SessionRecord, Sidebar } from './components/screens'
 import type { Checking, PastSession, Start } from './components/screens'
 
@@ -11,6 +12,8 @@ type Screen = 'home' | 'join' | 'review' | 'live' | 'past'
 const EXTEND_MS = 15 * 60_000
 const MAX_SESSION_MS = 3 * 60 * 60_000
 const ENDED_BY = { client: 'you', agent: 'vendor', time: 'time', closed: 'closed' } as const
+
+const isoDay = (t: number) => new Date(t).toLocaleDateString('en-CA')
 
 const minsLeft = (endsAt: number | null, now: number) => Math.max(0, Math.ceil(((endsAt ?? now) - now) / 60_000))
 const canExtend = (s: Session) => !!s.startedAt && !!s.endsAt && s.endsAt + EXTEND_MS <= s.startedAt + MAX_SESSION_MS
@@ -96,7 +99,7 @@ export function App() {
     if ((screen === 'join' || screen === 'review') && open?.phase !== 'joined') setScreen('home')
   }, [screen, open?.phase])
 
-  const attempt = (p: Promise<unknown>) => {
+  const attempt = <T,>(p: Promise<T>) => {
     setError('')
     return p.catch((e: unknown) => {
       setError(message(e))
@@ -175,6 +178,7 @@ export function App() {
     .map((s) => ({
       id: s.id,
       vendor: s.senderName,
+      purpose: s.purpose,
       startedAt: s.startedAt ?? s.createdAt,
       endedAt: s.endedAt ?? now,
       endedBy: ENDED_BY[s.endedBy ?? 'agent'],
@@ -183,99 +187,108 @@ export function App() {
   const record = screen === 'past' ? past.find((p) => p.id === openId) : undefined
 
   return (
-    <div className="app">
-      <div>
-        {update && (
-          <div className="update-bar" role="status">
-            <span>Valet {update} is ready.</span>
-            {live.length > 0 && <span className="m-meta">Restarting ends your live sessions.</span>}
-            <button onClick={() => attempt(api.restart()).catch(() => undefined)}>
-              Restart to update
-            </button>
+    <>
+      <div className="app">
+        <div>
+          {update && (
+            <div className="update-bar" role="status">
+              <span>Valet {update} is ready.</span>
+              {live.length > 0 && <span className="m-meta">Restarting ends your live sessions.</span>}
+              <button onClick={() => attempt(api.restart()).catch(() => undefined)}>
+                Restart to update
+              </button>
+            </div>
+          )}
+          {bar && <SessionBar {...bar} />}
+        </div>
+        <div className="win-main">
+          <Sidebar
+            joining={screen === 'home' || screen === 'join' || screen === 'review'}
+            ongoing={live.map((s) => ({ id: s.id, vendor: s.senderName, endsAt: s.endsAt ?? now, waiting: s.prompts.length }))}
+            openLive={shown?.id ?? null}
+            now={now}
+            past={past}
+            openPast={record?.id ?? null}
+            dark={dark}
+            onJoin={() => setScreen('home')}
+            onLive={(id) => {
+              setOpenId(id)
+              setScreen('live')
+            }}
+            onPast={(id) => {
+              setOpenId(id)
+              setScreen('past')
+            }}
+            onDark={() => setDark(!dark)}
+            version={version}
+            checking={checking}
+            downloading={downloading}
+            onCheckUpdate={checkUpdate}
+          />
+          <div className="win-body">
+            {error && (
+              <p className="m-error app-error" role="alert">
+                {error}
+              </p>
+            )}
+            {screen === 'home' && <Home key={linkCode} code={linkCode} onJoin={join} error={joinError} />}
+            {screen === 'join' && open && (
+              <Join
+                vendor={open.senderName}
+                verified={open.verified}
+                purpose={open.purpose}
+                createdAt={open.createdAt}
+                onContinue={() => setScreen('review')}
+                onDecline={() => attempt(api.decline(open.id)).finally(() => setScreen('home')).catch(() => undefined)}
+              />
+            )}
+            {screen === 'review' && open && (
+              <Review
+                vendor={open.senderName}
+                verified={open.verified}
+                start={start}
+                hasTemplate={open.template.length > 0}
+                grants={draft}
+                onStart={pickStart}
+                onToggle={(gid) => setDraft((gs) => gs.map((g) => (g.id === gid ? { ...g, on: !g.on } : g)))}
+                onBegin={begin}
+                onBack={() => setScreen('join')}
+              />
+            )}
+            {shown && (
+              <Live
+                key={shown.id}
+                vendor={shown.senderName}
+                verified={shown.verified}
+                startedAt={shown.startedAt ?? now}
+                feed={shown.feed}
+                grants={shown.grants}
+                onToggle={(gid) => {
+                  const g = shown.grants.find((x) => x.id === gid)
+                  if (g) attempt(api.setGrant(shown.id, gid, !g.on)).catch(() => undefined)
+                }}
+                requests={shown.prompts.map((p) => (
+                  <ApprovalPrompt
+                    key={p.id}
+                    vendor={shown.senderName}
+                    prompt={p}
+                    now={now}
+                    onAnswer={(allow, scope) => api.answer(p.id, allow, scope)}
+                  />
+                ))}
+              />
+            )}
+            {record && (
+              <SessionRecord
+                s={record}
+                onExportJson={() => attempt(api.exportJson(record.id, `Valet session - ${record.vendor} - ${isoDay(record.startedAt)}.json`))}
+                onExportPdf={() => attempt(api.printReport())}
+              />
+            )}
           </div>
-        )}
-        {bar && <SessionBar {...bar} />}
-      </div>
-      <div className="win-main">
-        <Sidebar
-          joining={screen === 'home' || screen === 'join' || screen === 'review'}
-          ongoing={live.map((s) => ({ id: s.id, vendor: s.senderName, endsAt: s.endsAt ?? now, waiting: s.prompts.length }))}
-          openLive={shown?.id ?? null}
-          now={now}
-          past={past}
-          openPast={record?.id ?? null}
-          dark={dark}
-          onJoin={() => setScreen('home')}
-          onLive={(id) => {
-            setOpenId(id)
-            setScreen('live')
-          }}
-          onPast={(id) => {
-            setOpenId(id)
-            setScreen('past')
-          }}
-          onDark={() => setDark(!dark)}
-          version={version}
-          checking={checking}
-          downloading={downloading}
-          onCheckUpdate={checkUpdate}
-        />
-        <div className="win-body">
-          {error && (
-            <p className="m-error app-error" role="alert">
-              {error}
-            </p>
-          )}
-          {screen === 'home' && <Home key={linkCode} code={linkCode} onJoin={join} error={joinError} />}
-          {screen === 'join' && open && (
-            <Join
-              vendor={open.senderName}
-              verified={open.verified}
-              purpose={open.purpose}
-              createdAt={open.createdAt}
-              onContinue={() => setScreen('review')}
-              onDecline={() => attempt(api.decline(open.id)).finally(() => setScreen('home')).catch(() => undefined)}
-            />
-          )}
-          {screen === 'review' && open && (
-            <Review
-              vendor={open.senderName}
-              verified={open.verified}
-              start={start}
-              hasTemplate={open.template.length > 0}
-              grants={draft}
-              onStart={pickStart}
-              onToggle={(gid) => setDraft((gs) => gs.map((g) => (g.id === gid ? { ...g, on: !g.on } : g)))}
-              onBegin={begin}
-              onBack={() => setScreen('join')}
-            />
-          )}
-          {shown && (
-            <Live
-              key={shown.id}
-              vendor={shown.senderName}
-              verified={shown.verified}
-              startedAt={shown.startedAt ?? now}
-              feed={shown.feed}
-              grants={shown.grants}
-              onToggle={(gid) => {
-                const g = shown.grants.find((x) => x.id === gid)
-                if (g) attempt(api.setGrant(shown.id, gid, !g.on)).catch(() => undefined)
-              }}
-              requests={shown.prompts.map((p) => (
-                <ApprovalPrompt
-                  key={p.id}
-                  vendor={shown.senderName}
-                  prompt={p}
-                  now={now}
-                  onAnswer={(allow, scope) => api.answer(p.id, allow, scope)}
-                />
-              ))}
-            />
-          )}
-          {record && <SessionRecord s={record} />}
         </div>
       </div>
-    </div>
+      {record && <PrintReport s={record} version={version} />}
+    </>
   )
 }

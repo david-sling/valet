@@ -68,6 +68,8 @@ export const api = {
   onSessions: (f: (s: Session[]) => void) => listen<Session[]>('sessions', (e) => f(e.payload)),
   onUpdate: (f: (version: string) => void) => listen<string>('update-ready', (e) => f(e.payload)),
   restart: () => invoke<void>('restart'),
+  exportJson: (id: string, name: string) => invoke<boolean>('export_json', { id, name }),
+  printReport: () => invoke<void>('print_report'),
   version: getVersion,
   checkUpdate: () => invoke<string | null>('check_update'),
   onCheckUpdate: (f: () => void) => listen('check-update', f),

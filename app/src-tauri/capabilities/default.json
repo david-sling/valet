@@ -16,6 +16,8 @@
     "core:app:allow-version",
     "allow-restart",
     "allow-check-update",
+    "allow-export-json",
+    "allow-print-report",
     "allow-take-join-link"
   ]
 }

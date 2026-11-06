@@ -150,6 +150,11 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
       return null
     case 'take_join_link':
       return null
+    case 'export_json':
+      return wait(400).then(() => true)
+    case 'print_report':
+      window.print()
+      return null
     case 'plugin:app|version':
       return '0.1.0'
     case 'check_update':

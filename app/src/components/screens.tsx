@@ -3,11 +3,14 @@ import type { Grant } from '@valet/protocol'
 import { KINDS, SESSION_MINUTES, hhmm, clock, day, describe, minutes } from '../format'
 import { RiskBars } from './RiskBars'
 import { Diff, DiffStat } from './Diff'
+import { ExportButton } from './ExportButton'
+import { OutcomeChart, type Slice } from './OutcomeChart'
 import type { FeedItem, Outcome } from '../api'
 
 export type PastSession = {
   id: string
   vendor: string
+  purpose: string
   startedAt: number
   endedAt: number
   endedBy: 'you' | 'vendor' | 'time' | 'closed'
@@ -545,9 +548,28 @@ function Feed({ items, initial, children }: { items: FeedItem[]; initial: string
   )
 }
 
+const OUTCOME: Record<Outcome, { tip: string; path: string }> = {
+  Allowed: { tip: 'Allowed by your permissions', path: 'M3.5 8.5l3 3 6-7' },
+  Approved: { tip: 'Approved by you', path: 'M8 14.5a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM5.2 8.2l2 2 3.8-4.3' },
+  Denied: { tip: 'Denied', path: 'M4 4l8 8M12 4l-8 8' },
+  Rejected: { tip: 'Turned back before you were asked', path: 'M8 14.5a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM3.4 3.4l9.2 9.2' },
+  Failed: { tip: 'Ran but failed', path: 'M8 2l6.5 11.5h-13zM8 6.5v3.2M8 11.6v.1' },
+}
+
+function OutcomeIcon({ outcome, method }: { outcome: Outcome; method?: string }) {
+  const o = OUTCOME[outcome]
+  const tip = method ? `${o.tip} ${method.toLowerCase() === 'click' ? 'with a click' : `with ${method}`}` : o.tip
+  return (
+    <span className={`outcome is-${outcome.toLowerCase()}`} role="img" aria-label={tip} data-tip={tip} tabIndex={0}>
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d={o.path} />
+      </svg>
+    </span>
+  )
+}
+
 function FeedRow({ item, initial }: { item: Extract<FeedItem, { type: 'action' }>; initial: string }) {
   const [open, setOpen] = useState(false)
-  const tone = item.outcome === 'Denied' || item.outcome === 'Rejected' ? 'no' : item.outcome === 'Failed' ? 'gone' : 'ok'
   return (
     <li className="feed-row">
       <span className="tile" aria-hidden="true">
@@ -556,9 +578,7 @@ function FeedRow({ item, initial }: { item: Extract<FeedItem, { type: 'action' }
       <div>
         <p className="feed-head">
           <b>{item.tool}</b>
-          <span className={`badge is-${tone}`} title={item.method ? `Confirmed with ${item.method}` : undefined}>
-            {item.outcome}
-          </span>
+          <OutcomeIcon outcome={item.outcome} method={item.method} />
           <time>{clock(item.at)}</time>
         </p>
         <code className="feed-literal">
@@ -591,30 +611,33 @@ const ENDED_BY = {
   closed: 'Valet closed before it ended',
 }
 
-export function SessionRecord({ s }: { s: PastSession }) {
+export function SessionRecord({
+  s,
+  onExportJson,
+  onExportPdf,
+}: {
+  s: PastSession
+  onExportJson: () => Promise<boolean>
+  onExportPdf: () => Promise<void>
+}) {
   const acts = s.feed.filter((f): f is Extract<FeedItem, { type: 'action' }> => f.type === 'action')
   const n = (o: Outcome) => acts.filter((a) => a.outcome === o).length
-  const stats: [string, number][] = [
-    ['Actions', acts.length],
-    ['Allowed by permissions', n('Allowed')],
-    ['Approved by you', n('Approved')],
-    ['Denied or turned back', n('Denied') + n('Rejected')],
+  const slices: Slice[] = [
+    { key: 'allowed', label: 'Allowed by permissions', value: n('Allowed') },
+    { key: 'approved', label: 'Approved by you', value: n('Approved') },
+    { key: 'denied', label: 'Denied or turned back', value: n('Denied') + n('Rejected') },
   ]
+  if (n('Failed')) slices.push({ key: 'failed', label: 'Ran but failed', value: n('Failed') })
   return (
     <div className="page">
       <PageHead
         vendor={s.vendor}
         meta={`${day(s.startedAt)}–${hhmm(s.endedAt)} · ${minutes(s.endedAt - s.startedAt)} · ${ENDED_BY[s.endedBy]}`}
-      />
+      >
+        <ExportButton onExport={(f) => (f === 'json' ? onExportJson() : onExportPdf().then(() => false))} />
+      </PageHead>
       <section className="page-sec">
-        <dl className="stats">
-          {stats.map(([label, value]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
+        <OutcomeChart total={acts.length} slices={slices} />
         {s.endedBy !== 'closed' && (
           <p className="seal">
             <Check /> All permissions were revoked and its programs stopped when it ended
