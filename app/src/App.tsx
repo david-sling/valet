@@ -282,7 +282,7 @@ export function App() {
               <SessionRecord
                 s={record}
                 onExportJson={() => attempt(api.exportJson(record.id, `Valet session - ${record.vendor} - ${isoDay(record.startedAt)}.json`))}
-                onExportPdf={() => attempt(api.printReport()).catch(() => undefined)}
+                onExportPdf={() => attempt(api.printReport())}
               />
             )}
           </div>

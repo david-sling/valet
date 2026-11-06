@@ -1,8 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { Grant } from '@valet/protocol'
 import { KINDS, SESSION_MINUTES, hhmm, clock, day, describe, minutes } from '../format'
 import { RiskBars } from './RiskBars'
 import { Diff, DiffStat } from './Diff'
+import { ExportButton } from './ExportButton'
 import { OutcomeChart, type Slice } from './OutcomeChart'
 import type { FeedItem, Outcome } from '../api'
 
@@ -600,14 +601,8 @@ export function SessionRecord({
 }: {
   s: PastSession
   onExportJson: () => Promise<boolean>
-  onExportPdf: () => void
+  onExportPdf: () => Promise<void>
 }) {
-  const [saved, setSaved] = useState(false)
-  useEffect(() => {
-    if (!saved) return
-    const t = setTimeout(() => setSaved(false), 3000)
-    return () => clearTimeout(t)
-  }, [saved])
   const acts = s.feed.filter((f): f is Extract<FeedItem, { type: 'action' }> => f.type === 'action')
   const n = (o: Outcome) => acts.filter((a) => a.outcome === o).length
   const slices: Slice[] = [
@@ -622,14 +617,7 @@ export function SessionRecord({
         vendor={s.vendor}
         meta={`${day(s.startedAt)}–${hhmm(s.endedAt)} · ${minutes(s.endedAt - s.startedAt)} · ${ENDED_BY[s.endedBy]}`}
       >
-        <div className="row-actions">
-          <button className="mbtn mbtn-ghost mbtn-sm" onClick={() => onExportJson().then(setSaved, () => undefined)}>
-            {saved ? 'Saved' : 'Export JSON'}
-          </button>
-          <button className="mbtn mbtn-ghost mbtn-sm" onClick={onExportPdf}>
-            Export PDF
-          </button>
-        </div>
+        <ExportButton onExport={(f) => (f === 'json' ? onExportJson() : onExportPdf().then(() => false))} />
       </PageHead>
       <section className="page-sec">
         <OutcomeChart total={acts.length} slices={slices} />
