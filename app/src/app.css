@@ -230,7 +230,7 @@ button:disabled { cursor: not-allowed; }
 .split.is-ink { background: var(--ink); border-color: var(--ink); color: var(--panel); }
 .split.is-ink > .split-more { border-left-color: var(--ink-divider); color: inherit; }
 .split.is-ink > button:not(:disabled):hover { background: var(--ink-divider); }
-.split-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; display: grid; min-width: 15rem; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: var(--soft); }
+.split-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; display: grid; min-width: 15rem; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); box-shadow: var(--soft); }
 .split-menu button { display: grid; gap: 1px; padding: 8px 10px 8px 30px; border: 0; border-radius: 8px; background: none; text-align: left; position: relative; }
 .split-menu button:hover { background: var(--hover); }
 .split-menu button[aria-checked="true"]::before { content: ""; position: absolute; left: 11px; top: 13px; width: 8px; height: 4px; border: solid var(--ink); border-width: 0 0 1.6px 1.6px; transform: rotate(-45deg); }
