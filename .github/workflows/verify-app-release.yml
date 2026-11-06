@@ -1,0 +1,45 @@
+name: Verify app release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, for example app-v0.1.0
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: Download the disk image and update feed
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern Valet.dmg --pattern latest.json --pattern '*.app.tar.gz'
+          xattr -w com.apple.quarantine "0081;$(printf '%x' "$(date +%s)");Safari;" Valet.dmg
+
+      - name: Check the disk image
+        run: |
+          codesign --verify --strict Valet.dmg
+          codesign -dv Valet.dmg 2>&1 | grep -E 'Authority=Developer ID Application|TeamIdentifier'
+
+      - name: Check the app inside
+        run: |
+          mount=$(hdiutil attach -nobrowse -readonly Valet.dmg | awk -F'\t' '/Volumes/{print $NF}')
+          app="$mount/Valet.app"
+          codesign --verify --deep --strict "$app"
+          codesign -dv --verbose=2 "$app" 2>&1 | grep -E '^Identifier|Authority=Developer ID Application|TeamIdentifier|Runtime Version'
+          xcrun stapler validate "$app"
+          spctl -a -vvv -t exec "$app"
+          lipo -archs "$app/Contents/MacOS/valet"
+          hdiutil detach -quiet "$mount"
+
+      - name: Check the update feed
+        run: |
+          jq -e --arg v "${TAG#app-v}" '.version == $v' latest.json
+          jq -r '.platforms | to_entries[] | "\(.key) \(.value.url)"' latest.json
+          for p in $(jq -r '.platforms | keys[]' latest.json); do jq -e --arg p "$p" '.platforms[$p].signature | length > 100' latest.json; done
