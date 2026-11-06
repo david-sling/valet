@@ -128,16 +128,20 @@ a { color: inherit; }
 .codeblock-head { display: flex; align-items: center; gap: 8px; padding: 6px 6px 0 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
 .codeblock-tabs { display: flex; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .codeblock-tabs button {
-  flex: none; padding: 9px 10px 11px; border: 0; border-bottom: 2px solid transparent; background: none;
+  flex: none; display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 10px 11px; border: 0; border-bottom: 2px solid transparent; background: none;
   font: 500 13px/1 var(--sans); color: rgba(255, 255, 255, 0.55); cursor: pointer;
 }
 .codeblock-tabs button:hover { color: #fff; }
+.codeblock-tabs .mark { width: 14px; height: 14px; fill: currentColor; flex: none; }
 .codeblock-tabs button[aria-selected="true"] { color: #fff; border-bottom-color: #fff; }
 .codeblock-copy {
-  flex: none; margin-bottom: 6px; padding: 6px 10px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 8px;
-  background: none; font: 500 12px/1 var(--sans); color: rgba(255, 255, 255, 0.8); cursor: pointer;
+  flex: none; display: grid; place-items: center; width: 32px; height: 32px; margin-bottom: 6px; padding: 0;
+  border: 0; border-radius: 8px; background: none; color: rgba(255, 255, 255, 0.6); cursor: pointer;
 }
-.codeblock-copy:hover { color: #fff; border-color: rgba(255, 255, 255, 0.32); }
+.codeblock-copy:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+.codeblock-copy:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.codeblock-copy svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .codeblock pre { margin: 0; padding: 16px 18px; overflow-x: auto; font: 500 13px/1.6 var(--mono); color: #fff; }
 .codeblock pre .sigil { color: rgba(255, 255, 255, 0.4); user-select: none; }
 .install-then { margin: 0; font-size: 15px; color: var(--ink-2); }
