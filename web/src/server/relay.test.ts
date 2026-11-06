@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { SKILL_VERSION } from '#/agent/version'
 import { handle } from './http'
 import { keys } from './keys'
 import { closeRedis, getRedis } from './redis'
@@ -133,6 +134,19 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('relay against a local Redis', () =
     expect(Date.now() - t).toBeLessThan(1000)
   })
 
+  it('starts a session whatever skill version is sent, and asks an outdated agent to update', async () => {
+    const base = { name: 'Acme Inc.', purpose: 'Find out why AcmeApp crashes.' }
+    const current = await call(S.createSession, { method: 'POST', body: { ...base, skill_version: SKILL_VERSION } })
+    expect(current.status).toBe(201)
+    expect(current.body.skill_update).toBeUndefined()
+    for (const extra of [{ skill_version: SKILL_VERSION - 1 }, {}]) {
+      const old = await call(S.createSession, { method: 'POST', body: { ...base, ...extra } })
+      expect(old.status).toBe(201)
+      expect(old.body.session_id).toBeTruthy()
+      expect(old.body.skill_update.prompt).toMatch(/agent\/skill\.md/)
+    }
+  })
+
   it('lets a join code work once', async () => {
     const s = await create()
     expect((await call(S.join, { method: 'POST', body: { code: s.code } })).status).toBe(200)
@@ -170,6 +184,17 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('relay against a local Redis', () =
       body: { ...READ, reason: 'Something else.', client_id: id },
     })
     expect(changed.status).toBe(409)
+  })
+
+  it('hands empty args to the client as an object, not an array', async () => {
+    const s = await live()
+    for (const body of [{ tool: 'list_processes', args: {} }, { tool: 'list_processes' }]) {
+      const r = await call(A.postAction, { method: 'POST', token: s.agent_token, params: s.params, body: { ...body, reason: 'x', client_id: cid() } })
+      expect(r.status).toBe(201)
+      expect(r.body.args).toEqual({})
+    }
+    const { body } = await call(A.inbox, { token: s.client, params: s.params })
+    expect(body.actions.map((a: { args: unknown }) => a.args)).toEqual([{}, {}])
   })
 
   it('answers a waiting agent as soon as the client does', async () => {

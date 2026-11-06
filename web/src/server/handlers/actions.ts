@@ -14,7 +14,19 @@ import type { Redis } from '../redis'
 import type { Session } from '../session'
 import type { SessionState } from '@valet/protocol'
 
-type Stored = { id: string; seq: number; tool: string; args: unknown; reason: string; status: string; created_at: number; answered_at?: number }
+// args_json is a string so cjson never re-encodes it (it can't tell {} from [], so args: {} came back as []);
+// args is what records written before that carry
+type Stored = {
+  id: string
+  seq: number
+  tool: string
+  args_json?: string
+  args?: unknown
+  reason: string
+  status: string
+  created_at: number
+  answered_at?: number
+}
 
 async function readAction(redis: Redis, id: string, aid: string) {
   const [raw, result] = await redis.hmGet(keys.actions(id), [aid, `${aid}:result`])
@@ -24,7 +36,7 @@ async function readAction(redis: Redis, id: string, aid: string) {
     action_id: a.id,
     seq: a.seq,
     tool: a.tool,
-    args: a.args,
+    args: a.args_json === undefined ? a.args : (JSON.parse(a.args_json) as unknown),
     reason: a.reason,
     status: a.status,
     created_at: a.created_at,
@@ -85,7 +97,7 @@ export async function postAction(request: Request, { id }: Params) {
   const args = 'args' in req ? (req.args ?? {}) : {}
   const aid = newActionId()
   const now = Date.now()
-  const record = { id: aid, tool: req.tool, args, reason, status: 'pending', created_at: now }
+  const record = { id: aid, tool: req.tool, args_json: JSON.stringify(args), reason, status: 'pending', created_at: now }
   const digest = createHash('sha256').update(JSON.stringify({ tool: req.tool, args, reason })).digest('hex')
   const reply = await run(redis, SCRIPTS.ENQUEUE, [...sessionKeys(id), keys.idem(id, client_id)], [
     expireAt(s),

@@ -19,7 +19,8 @@ pub enum Request {
 
 impl Request {
     pub fn parse(tool: &str, args: &Value) -> Result<Self, String> {
-        let args = if args.is_null() { Value::Object(Default::default()) } else { args.clone() };
+        let empty = args.is_null() || args.as_array().is_some_and(|a| a.is_empty());
+        let args = if empty { Value::Object(Default::default()) } else { args.clone() };
         serde_json::from_value(serde_json::json!({ "tool": tool, "args": args }))
             .map_err(|e| format!("The request for {tool} is malformed: {e}"))
     }
@@ -207,6 +208,12 @@ fn is_executable(p: &Path) -> bool {
     std::fs::metadata(p).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
 }
 
+// macOS refuses to exec setuid/setgid programs inside any sandbox, so asking the person would only end in a failure
+fn is_setuid(p: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::metadata(p).is_ok_and(|m| m.permissions().mode() & 0o6000 != 0)
+}
+
 fn program_needs(program: &Path, argv: &[String]) -> Vec<Need> {
     let base = program.file_name().and_then(|n| n.to_str()).unwrap_or_default();
     let base = base.trim_end_matches(|c: char| c.is_ascii_digit() || c == '.');
@@ -249,6 +256,12 @@ pub fn plan(request: Request) -> Result<Plan, String> {
         Request::RunCommand { command, cwd: dir } => {
             let first = command.first().ok_or("The command is empty.")?;
             let prog = find_program(first)?;
+            if is_setuid(&prog) {
+                return Err(format!(
+                    "{} runs with raised privileges (setuid), and macOS won't start those inside Valet's sandbox. Use a structured tool instead, such as list_processes for ps.",
+                    prog.display()
+                ));
+            }
             let mut needs = program_needs(&prog, command);
             if let Some(dir) = dir {
                 let d = resolve(dir)?;
@@ -324,11 +337,26 @@ mod tests {
     }
 
     #[test]
-    fn a_shell_is_high_risk_and_sudo_is_critical() {
+    fn a_shell_is_high_risk_and_admin_tools_are_critical() {
         let p = plan(Request::RunCommand { command: vec!["sh".into(), "-c".into(), "ls".into()], cwd: None }).unwrap();
         assert_eq!(p.risk, Risk::High);
-        let p = plan(Request::RunCommand { command: vec!["sudo".into(), "ls".into()], cwd: None }).unwrap();
+        let p = plan(Request::RunCommand { command: vec!["launchctl".into(), "list".into()], cwd: None }).unwrap();
         assert_eq!(p.risk, Risk::Critical);
+    }
+
+    #[test]
+    fn setuid_programs_are_turned_back_before_anyone_is_asked() {
+        for prog in ["/bin/ps", "/usr/bin/sudo"] {
+            let e = plan(Request::RunCommand { command: vec![prog.into()], cwd: None }).unwrap_err();
+            assert!(e.contains("setuid"), "{e}");
+        }
+    }
+
+    #[test]
+    fn empty_args_parse_whether_object_array_or_null() {
+        for args in [serde_json::json!({}), serde_json::json!([]), Value::Null] {
+            assert!(matches!(Request::parse("list_processes", &args), Ok(Request::ListProcesses {})));
+        }
     }
 
     #[test]
