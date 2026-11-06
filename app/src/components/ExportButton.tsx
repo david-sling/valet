@@ -48,11 +48,14 @@ export function ExportButton({ onExport }: { onExport: (f: Format) => Promise<bo
     } catch {
       // storage can be unavailable
     }
+    run(f)
   }
+
+  const run = (f: Format) => onExport(f).then(setSaved, () => undefined)
 
   return (
     <div className="split" ref={ref}>
-      <button className="split-main" onClick={() => onExport(format).then(setSaved, () => undefined)}>
+      <button className="split-main" onClick={() => run(format)}>
         <svg viewBox="0 0 16 16" aria-hidden="true">
           <path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10" />
         </svg>
