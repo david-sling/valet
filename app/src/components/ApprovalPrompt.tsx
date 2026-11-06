@@ -78,6 +78,10 @@ export function ApprovalPrompt({
           <RiskBars risk={prompt.risk} />
         </p>
 
+        <div className="reason">
+          <span>Their reason</span>
+          <p>{prompt.reason}</p>
+        </div>
         <div className="action-block">
           <div className="literal-row">
             <code className="literal">{prompt.literal}</code>
@@ -106,10 +110,6 @@ export function ApprovalPrompt({
           )}
         </div>
 
-        <div className="reason">
-          <span>Their reason</span>
-          <p>{prompt.reason}</p>
-        </div>
 
         {prompt.busy ? (
           <div className="touchid-wait" role="status">
