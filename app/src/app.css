@@ -85,11 +85,11 @@ button:disabled { cursor: not-allowed; }
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   height: 44px; padding: 0 20px; border-radius: 999px; border: 1px solid transparent;
   font-weight: 600; font-size: 14px; white-space: nowrap;
-  transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out), border-color 180ms, opacity 180ms;
+  transition: box-shadow 180ms var(--ease-out), border-color 180ms, opacity 180ms;
 }
 .mbtn-sm { height: 36px; padding: 0 14px; font-size: 13px; }
 .mbtn-ink { background: var(--ink); color: var(--panel); }
-.mbtn-ink:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 10px 24px -12px rgba(21, 22, 26, 0.5); }
+.mbtn-ink:not(:disabled):hover { box-shadow: 0 10px 24px -12px rgba(21, 22, 26, 0.5); }
 .mbtn-ghost { background: var(--panel); border-color: var(--line); }
 .mbtn-ghost:not(:disabled):hover { border-color: var(--line-strong); }
 .mbtn-danger { background: var(--panel); border-color: var(--peach); color: var(--peach-ink); }
