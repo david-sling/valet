@@ -24,7 +24,10 @@ const CALLS: Call[] = [
 
 const STEPS = [
   { title: 'Connect your agent.', body: 'Add the Valet skill to the agent you already run. It shows the agent how to call Valet with curl.' },
-  { title: 'Send the customer a link.', body: 'Your agent starts a session with the permissions it proposes. They review them and join from the Valet app.' },
+  {
+    title: 'Send the customer a link.',
+    body: 'Your agent starts a session with the permissions it proposes. The link gets them the Valet app, where they review those permissions and join.',
+  },
   { title: 'Get the signed log.', body: 'When the session ends, you and your customer both receive the same sealed record of every step.' },
 ]
 

@@ -3,14 +3,15 @@ import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { Ticket } from '../hero/Ticket'
 import { createTear } from '../hero/tear'
-import { DownloadButton, StarButton } from '../Links'
+import { DOWNLOAD } from '#/lib/links'
+import { InstallSkill, StarButton } from '../Links'
 
 // The closing: the ticket story ends where it began. The two halves come back in from either side and meet at the
 // perforation, the hero's tear run backwards, because at the end of a session both sides hold matching halves: the
-// same signed record. Then the one action the page asks for, the download, and the footer.
+// same signed record. Then the one action the page asks for, installing the skill, and the footer.
 // The markup is the finished state, the ticket whole, which is what shows without the scroll animation.
 
-export function StubEnds({ stars }: { stars: number | null }) {
+export function StubEnds({ stars, skill }: { stars: number | null; skill: string }) {
   const rootRef = useRef<HTMLElement>(null)
   const ticketRef = useRef<SVGSVGElement>(null)
 
@@ -96,7 +97,7 @@ export function StubEnds({ stars }: { stars: number | null }) {
   }, [])
 
   return (
-    <section className="closing" id="download" ref={rootRef}>
+    <section className="closing" id="start" ref={rootRef}>
       <div className="closing-inner">
         <div className="rejoin">
           <Ticket ref={ticketRef} />
@@ -105,8 +106,10 @@ export function StubEnds({ stars }: { stars: number | null }) {
         <p className="lead">
           When it’s over, the customer and your agent hold matching halves: the same signed record of every step.
         </p>
-        <DownloadButton />
-        <p className="closing-note">macOS 13 or later · Apple silicon and Intel</p>
+        <InstallSkill skill={skill} />
+        <p className="closing-note">
+          Your agent sends your customer a link, where they get the <a href={DOWNLOAD}>Valet app for Mac</a>.
+        </p>
       </div>
 
       <footer className="site-foot">

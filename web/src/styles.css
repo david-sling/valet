@@ -76,7 +76,6 @@ a { color: inherit; }
   transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out), background-color 180ms;
 }
 .btn-sm { height: 40px; padding: 0 16px; font-size: 14px; }
-.btn .mark { width: 16px; height: 16px; margin-top: -2px; fill: currentColor; flex: none; }
 .nav-end { display: flex; align-items: center; gap: 8px; }
 .chip {
   display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 999px;
@@ -123,7 +122,29 @@ a { color: inherit; }
 }
 .tear-hero .copy .display { font-size: clamp(2.5rem, 5.6vw, 5rem); }
 .tear-hero .copy .lead { margin: 0; }
-.tear-hero .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.closing-note a, .install-note a { color: var(--ink); text-underline-offset: 2px; }
+.install { display: grid; justify-items: center; gap: 12px; width: min(640px, 100%); }
+.codeblock { width: 100%; background: var(--ink); border-radius: 16px; text-align: left; overflow: hidden; }
+.codeblock-head { display: flex; align-items: center; gap: 8px; padding: 6px 6px 0 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+.codeblock-tabs { display: flex; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.codeblock-tabs button {
+  flex: none; padding: 9px 10px 11px; border: 0; border-bottom: 2px solid transparent; background: none;
+  font: 500 13px/1 var(--sans); color: rgba(255, 255, 255, 0.55); cursor: pointer;
+}
+.codeblock-tabs button:hover { color: #fff; }
+.codeblock-tabs button[aria-selected="true"] { color: #fff; border-bottom-color: #fff; }
+.codeblock-copy {
+  flex: none; margin-bottom: 6px; padding: 6px 10px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 8px;
+  background: none; font: 500 12px/1 var(--sans); color: rgba(255, 255, 255, 0.8); cursor: pointer;
+}
+.codeblock-copy:hover { color: #fff; border-color: rgba(255, 255, 255, 0.32); }
+.codeblock pre { margin: 0; padding: 16px 18px; overflow-x: auto; font: 500 13px/1.6 var(--mono); color: #fff; }
+.codeblock pre .sigil { color: rgba(255, 255, 255, 0.4); user-select: none; }
+.install-then { margin: 0; font-size: 15px; color: var(--ink-2); }
+.install-then code { white-space: nowrap; padding: 3px 8px; border-radius: 6px; background: rgba(21, 22, 26, 0.06); font: 500 14px/1.4 var(--mono); color: var(--ink); }
+.install-note { margin: 0; font-size: 13px; color: var(--ink-3); }
+
+
 
 /* the scene's frame spans the screen edge to edge, centred on it; the ticket and the shreds are placed from its middle */
 .tear-hero .scene-wrap { --frame: min(20vw, 24vh); position: absolute; z-index: 2; left: 0; width: 100%; top: 50%; height: var(--frame); } /* above the shapes */

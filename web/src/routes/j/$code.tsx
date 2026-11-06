@@ -9,6 +9,7 @@ export const Route = createFileRoute('/j/$code')({
 })
 
 const VALID = new RegExp(`^[${CODE_CHARS}]{6}$`)
+const WAIT_MS = 2000
 
 function JoinLink() {
   const raw = normaliseCode(Route.useParams().code)
@@ -24,6 +25,22 @@ function JoinLink() {
   const copy = () => {
     if (!code) return
     navigator.clipboard?.writeText(code).then(() => setCopied(true), () => undefined)
+  }
+
+  // A browser can't ask whether an app is installed. If Valet opens, the page loses focus to it or to the browser's
+  // "open Valet?" prompt; if nothing has taken focus after a moment, it isn't there, so download it instead.
+  const openApp = () => {
+    let left = false
+    const away = () => {
+      left = true
+    }
+    window.addEventListener('blur', away)
+    document.addEventListener('visibilitychange', away)
+    setTimeout(() => {
+      window.removeEventListener('blur', away)
+      document.removeEventListener('visibilitychange', away)
+      if (!left) window.location.href = DOWNLOAD
+    }, WAIT_MS)
   }
 
   return (
@@ -65,7 +82,14 @@ function JoinLink() {
                     </>
                   )}
                 </p>
-                <a className="btn btn-ink jt-open" href={`valet://join/${raw}`} onClick={(e) => e.stopPropagation()}>
+                <a
+                  className="btn btn-ink jt-open"
+                  href={`valet://join/${raw}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openApp()
+                  }}
+                >
                   Open in Valet
                 </a>
               </>
@@ -80,14 +104,14 @@ function JoinLink() {
         {code && (
           <div className="join-copy">
             <p className="lead">
-              Open the Valet app and enter this code to see who is asking and what they want to do. Nothing happens on your
-              computer until you agree.
+              Install Valet, open it and enter this code to see who is asking and what they want to do. Nothing happens on
+              your computer until you agree.
             </p>
             <p className="join-note">
               The code works once and expires 10 minutes after it was made. If you didn't ask anyone for help, ignore it.
             </p>
             <p className="join-note">
-              Don't have Valet yet? <a href={DOWNLOAD}>Download it for Mac</a> (macOS 13 or later).
+              Valet runs on macOS 13 or later. If the button doesn't open it, <a href={DOWNLOAD}>download Valet for Mac</a>.
             </p>
           </div>
         )}

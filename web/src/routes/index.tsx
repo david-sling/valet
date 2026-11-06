@@ -10,27 +10,31 @@ import { NotRemoteDesktop } from '#/components/compare/NotRemoteDesktop'
 import { StubEnds } from '#/components/closing/StubEnds'
 import { useStackedSections } from '#/lib/stack-sections'
 import { getStars } from '#/lib/github'
+import { getSkillUrl } from '#/lib/skill'
 
 export const Route = createFileRoute('/')({
-  loader: () => getStars(),
+  loader: async () => {
+    const [stars, skill] = await Promise.all([getStars(), getSkillUrl()])
+    return { stars, skill }
+  },
   component: Home,
 })
 
 function Home() {
-  const stars = Route.useLoaderData()
+  const { stars, skill } = Route.useLoaderData()
   const mainRef = useRef<HTMLElement>(null)
   useStackedSections(mainRef)
   return (
     <>
       <Nav stars={stars} />
       <main ref={mainRef}>
-        <TearHero />
+        <TearHero skill={skill} />
         <AsksFirst />
         <ClientsSay />
         <ForVendors />
         <SandboxEnforces />
         <NotRemoteDesktop />
-        <StubEnds stars={stars} />
+        <StubEnds stars={stars} skill={skill} />
       </main>
     </>
   )

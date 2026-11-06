@@ -1,4 +1,4 @@
-import { DownloadButton, StarButton } from './Links'
+import { StarButton } from './Links'
 
 export function Nav({ stars }: { stars: number | null }) {
   return (
@@ -14,7 +14,9 @@ export function Nav({ stars }: { stars: number | null }) {
       </div>
       <div className="nav-end">
         <StarButton stars={stars} label="Star" className="nav-star" />
-        <DownloadButton small />
+        <a className="btn btn-ink btn-sm" href="#start">
+          Get the skill
+        </a>
       </div>
     </nav>
   )

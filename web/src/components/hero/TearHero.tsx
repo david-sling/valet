@@ -4,7 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { startSmoothScroll } from '#/lib/smooth-scroll'
 import { Ticket } from './Ticket'
 import { createTear } from './tear'
-import { DownloadButton } from '../Links'
+import { InstallSkill } from '../Links'
 
 // where each shred of paper flies from the tear: x as a share of the scene's width, y of its frame's height, and its spin
 const SHREDS = [
@@ -30,7 +30,7 @@ function Sparkle({ className, left, top }: { className: string; left: string; to
 // middle at the same size and tears along its perforation: the red body moves straight away from the stub, and the
 // line appears in the gap. Lying flat, the body slides left and the stub stays; upright, on a phone, the body rises,
 // the stub swings open. Last, on both, the stub falls away to the bottom right.
-export function TearHero() {
+export function TearHero({ skill }: { skill: string }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const ticketRef = useRef<SVGSVGElement>(null)
 
@@ -262,12 +262,7 @@ export function TearHero() {
               Valet lets an AI agent run commands on your customer's machine: only what they approve, enforced on their
               machine, logged for both of you.
             </p>
-            <div className="actions">
-              <DownloadButton />
-              <a className="btn btn-ghost" href="#security">
-                How it stays safe
-              </a>
-            </div>
+            <InstallSkill skill={skill} />
           </div>
 
           <div className="scene-wrap">
