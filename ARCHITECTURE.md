@@ -100,7 +100,7 @@ A static Markdown file with skill front matter, served at `GET /agent/skill.md` 
 
 ### 3.4 Join page
 
-`/j/{code}` on the web app. It shows "Open in Valet" (deep link `valet://join/{code}`) and a download link. It reveals nothing about the session: no vendor name and no purpose. The code is checked only when the client app redeems it.
+`/j/{code}` on the web app. It shows one "Open in Valet" button (deep link `valet://join/{code}`); if no app takes the page's focus within 2 seconds, the page downloads Valet instead. The app accepts only a well-formed code from the link and fills it into the Join screen; joining still waits for the person to press Join. It reveals nothing about the session: no vendor name and no purpose. The code is checked only when the client app redeems it.
 
 ## 4. Session lifecycle
 

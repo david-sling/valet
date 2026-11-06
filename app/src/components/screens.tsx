@@ -127,8 +127,8 @@ export function Sidebar({
   )
 }
 
-export function Home({ onJoin, error }: { onJoin: (code: string) => void; error: string }) {
-  const [code, setCode] = useState('')
+export function Home({ code: linked = '', onJoin, error }: { code?: string; onJoin: (code: string) => void; error: string }) {
+  const [code, setCode] = useState(linked)
   return (
     <div className="screen home">
       <img src="/valet-mark.svg" alt="" width={44} height={44} />

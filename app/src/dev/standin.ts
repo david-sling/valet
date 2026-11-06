@@ -132,6 +132,8 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
         feed: [...s.feed, event('You ended the session')],
       }))
       return null
+    case 'take_join_link':
+      return null
     case 'plugin:event|listen':
       if (args.event === 'sessions') listeners.push(args.handler as number)
       return args.handler

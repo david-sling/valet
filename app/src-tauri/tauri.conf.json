@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Valet",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "in.davidsling.valet",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -44,6 +44,11 @@
     "createUpdaterArtifacts": true
   },
   "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["valet"]
+      }
+    },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdEQ0IxNEUyOTM5NjEzRDAKUldUUUU1YVQ0aFRMZlp4bEJqc2JobTNVSVBPeHlIMEt4RmROS1VtRTQrN0kwZmUwUTgwSWRYYmcK",
       "endpoints": [

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-take-join-link"
+description = "Enables the take_join_link command without any pre-configured scope."
+commands.allow = ["take_join_link"]
+
+[[permission]]
+identifier = "deny-take-join-link"
+description = "Denies the take_join_link command without any pre-configured scope."
+commands.deny = ["take_join_link"]

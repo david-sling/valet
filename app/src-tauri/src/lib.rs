@@ -8,10 +8,11 @@ mod store;
 mod tools;
 mod types;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use tauri::{AppHandle, Emitter, Manager as _, RunEvent, State};
+use tauri::{AppHandle, Emitter, Manager as _, RunEvent, State, Url};
+use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_updater::UpdaterExt;
 
 use policy::Scope;
@@ -20,6 +21,35 @@ use session::{GrantChoice, Manager, SessionView};
 
 const DEFAULT_RELAY: &str = "https://valet.davidsling.in";
 const UPDATE_EVERY: Duration = Duration::from_secs(6 * 60 * 60);
+const CODE_CHARS: &str = "ACDEFGHJKMNPQRTUVWXY34679";
+
+#[derive(Default)]
+struct JoinLink(Mutex<Option<String>>);
+
+fn join_code(url: &Url) -> Option<String> {
+    if url.scheme() != "valet" || url.host_str() != Some("join") {
+        return None;
+    }
+    let code: String = url.path().chars().filter(char::is_ascii_alphanumeric).collect::<String>().to_ascii_uppercase();
+    (code.len() == 6 && code.chars().all(|c| CODE_CHARS.contains(c))).then_some(code)
+}
+
+// A link only fills in the code; joining still waits for the person to press Join.
+fn open_links(app: &AppHandle, urls: &[Url]) {
+    let Some(code) = urls.iter().find_map(join_code) else { return };
+    *app.state::<JoinLink>().0.lock().unwrap_or_else(|e| e.into_inner()) = Some(code);
+    let _ = app.emit("join-link", ());
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.unminimize();
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+}
+
+#[tauri::command]
+fn take_join_link(link: State<'_, JoinLink>) -> Option<String> {
+    link.0.lock().unwrap_or_else(|e| e.into_inner()).take()
+}
 
 #[tauri::command]
 fn snapshot(m: State<'_, Manager>) -> Vec<SessionView> {
@@ -88,6 +118,8 @@ pub fn run() {
     let base = std::env::var("VALET_RELAY").unwrap_or_else(|_| DEFAULT_RELAY.into());
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_deep_link::init())
+        .manage(JoinLink::default())
         .setup(move |app| {
             let handle = app.handle().clone();
             let emit = Arc::new(move |views: Vec<SessionView>| {
@@ -95,12 +127,17 @@ pub fn run() {
             });
             let store = app.path().app_data_dir().ok().and_then(|dir| store::Store::open(&dir.join("valet.db")).ok()).map(Arc::new);
             app.manage(Manager::new(Relay::new(&base), emit, store));
+            let handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| open_links(&handle, &event.urls()));
+            if let Ok(Some(urls)) = app.deep_link().get_current() {
+                open_links(app.handle(), &urls);
+            }
             if !cfg!(debug_assertions) {
                 tauri::async_runtime::spawn(keep_updated(app.handle().clone()));
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, set_grant, extend, end, restart])
+        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, set_grant, extend, end, restart, take_join_link])
         .build(tauri::generate_context!())
         .expect("error while building Valet")
         .run(|app, event| {
@@ -111,4 +148,25 @@ pub fn run() {
                 });
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn code(s: &str) -> Option<String> {
+        join_code(&Url::parse(s).unwrap())
+    }
+
+    #[test]
+    fn reads_only_a_well_formed_join_link() {
+        assert_eq!(code("valet://join/ACD347").as_deref(), Some("ACD347"));
+        assert_eq!(code("valet://join/acd-347").as_deref(), Some("ACD347"));
+        assert_eq!(code("valet://join/ACD347/"), Some("ACD347".into()));
+        assert_eq!(code("valet://start/ACD347"), None);
+        assert_eq!(code("https://join/ACD347"), None);
+        assert_eq!(code("valet://join/ACD34"), None);
+        assert_eq!(code("valet://join/ACD3470"), None);
+        assert_eq!(code("valet://join/ABC123"), None);
+    }
 }
