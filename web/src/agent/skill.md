@@ -22,17 +22,19 @@ W="${TMPDIR:-/tmp}"; W="${W%/}/valet-session"; umask 077; mkdir -p -m 700 "$W"; 
 
 ## 1. Start a session
 
-Fill in the two values. `name` is who is asking (your user, or their company); the person sees only this name, never what you are. `purpose` is one plain sentence the person will read before deciding.
+Fill in the two values. `name` is who is asking (your user, or their company); the person sees only this name, never what you are. `purpose` is one plain sentence the person will read before deciding. Leave `skill_version` exactly as written: it tells Valet which version of these instructions you are following.
 
 ```sh
 [ -s "$W/token" ] && { echo "REFUSING: $W already holds a session. End it (step 5), or if it is already over, rm -rf \"$W\" first."; exit 1; }
 jq -n --arg name "NAME" --arg purpose "PURPOSE" \
-  '{name: $name, purpose: $purpose}' > "$W/create.json"
+  '{name: $name, purpose: $purpose, skill_version: 3}' > "$W/create.json"
 curl -sS --http1.1 -X POST "$BASE/sessions" -H 'Content-Type: application/json' -d @"$W/create.json" -o "$W/session.json" -w 'HTTP %{http_code}\n'
 jq -r '.session_id // empty' "$W/session.json" > "$W/id"; jq -r '.agent_token // empty' "$W/session.json" > "$W/token"
 [ -s "$W/token" ] || { echo 'START FAILED:'; cat "$W/session.json"; rm -f "$W/id" "$W/token"; exit 1; }
-jq '{code, join_url, expires_at}' "$W/session.json"
+jq '{code, join_url, expires_at, skill_update}' "$W/session.json"
 ```
+
+If `skill_update` is not `null`, these instructions are out of date. Do what its `prompt` says before step 2: it has you replace this skill file with the latest version, or, if you can't write it, give your user a command that does, then carry on with the session you just started.
 
 To propose starting permissions, add a `template` array to the body. The person can switch any of them off before starting. Example entries:
 
@@ -48,15 +50,27 @@ Some places are never covered by starting permissions, whatever you propose: SSH
 
 ## 2. Hand over the code
 
-Give your user the `code` and `join_url` and ask them to send it to the person whose computer it is. That person needs the Valet app. The code works once and expires after 10 minutes, after which the state becomes `expired`.
+Your user can't send what they never saw. Many hosts show only your final message, or fold away text written between commands, so a link posted mid-turn is easily missed. So first start step 3's wait in the background, if your shell can run a command in the background and wake you when it exits. Then **end your turn with the hand-off as your final message**, filled in from step 1's output and nothing after it:
 
-Start step 3 in the same reply. Don't ask your user to tell you when the person has joined, and don't end your turn to wait for them: the wait in step 3 finds out on its own.
+```md
+Send this link to the person whose computer it is:
+
+**https://…/j/ABC-123**
+
+Or they can type the code **ABC-123** into the Valet app. It works once and expires at 14:32. The link opens Valet on their Mac, or shows them where to download it (macOS 13 or later).
+
+I'll carry on as soon as they join.
+```
+
+- Put `join_url` on a line of its own, exactly as step 1 printed it. Don't shorten it, wrap it in other text or put it only in a code block.
+- `expires_at` is in milliseconds since the epoch. Show it as a local time: `date -r $(( EXPIRES_AT / 1000 )) +%H:%M` (macOS) or `date -d @$(( EXPIRES_AT / 1000 )) +%H:%M` (Linux).
+- Don't ask your user to tell you when the person has joined: the wait finds out on its own and wakes you. If you couldn't start it in the background, end the hand-off with "Tell me once you've sent it and I'll wait for them to join." instead, and run step 3 when your user next writes.
 
 Only the person at that computer can let you in. Never ask your user to approve anything on their behalf.
 
 ## 3. Wait for the session to go live
 
-This blocks until the person has joined and started the session, or the session is over. It can take up to the 10 minutes the code lasts. If your shell can run a command in the background and tell you when it exits, run it that way; otherwise give it a timeout of at least 11 minutes, and if it is cut off anyway, run it again.
+This blocks until the person has joined and started the session, or the session is over, which can take up to the 10 minutes the code lasts. Run it in the background (step 2). If you run it in the foreground instead, give it a timeout of at least 11 minutes, and if it is cut off anyway, run it again.
 
 ```sh
 L=; while :; do
@@ -94,18 +108,61 @@ jq '{action_id, status, output, error, session_state, events}' "$W/result.json"
 
 ### Tools
 
-| tool | args | output on success |
-|---|---|---|
-| `run_command` | `{command: ["/usr/sbin/system_profiler", "SPSoftwareDataType"], cwd?}` | `{exit_code, stdout, stderr, truncated}` |
-| `read_file` | `{path, max_bytes?}` | `{content, hash, truncated}` |
-| `write_file` | `{path, content, base_hash}` | `{hash, bytes}` |
-| `list_dir` | `{path}` | `{entries: [{name, type, size}]}` |
-| `tail_log` | `{path, lines?}` | `{content, hash}` |
-| `list_processes` | none | `{processes: [{pid, name}]}` |
+These are the exact bodies. To use one, swap it for the `'{tool: "read_file", …}'` filter in the command above; keep the `--arg reason` and `--arg c` lines. Pick the structured tool over `run_command` whenever one fits: it needs no program permission and can't be stopped by the sandbox.
 
-- `command` is an argument list, not a shell string. For a pipeline send `["/bin/sh", "-c", "…"]`; the person sees it as exactly that, and it needs `/bin/sh` allowed.
-- Commands run in a sandbox: they can read only the files, and start only the programs, the person allowed. `~` and `$VARS` are not expanded in arguments, so use absolute paths. A `cwd` asks to read that folder. macOS's `log` refuses to run in a sandbox; read log files with `tail_log`.
-- Read a file before you change it. `write_file` must carry the `hash` from your latest read of that file; if the file changed since, the edit is turned back and you read it again. Put long content in a local file and use `jq --rawfile content FILE`. To create a file, send the hash of empty content: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+**`list_processes`**: which programs are running. Output: `{processes: [{pid, name}]}`.
+
+```sh
+'{tool: "list_processes", args: {}, reason: $reason, client_id: $c}'
+```
+
+**`read_file`**: a whole file, up to `max_bytes` (optional). Output: `{content, hash, truncated}`.
+
+```sh
+'{tool: "read_file", args: {path: "~/Library/Preferences/com.acme.app.plist"}, reason: $reason, client_id: $c}'
+```
+
+**`tail_log`**: the last `lines` (optional, 1 to 5000) of a log file. Output: `{content, hash}`.
+
+```sh
+'{tool: "tail_log", args: {path: "/var/log/acme.log", lines: 200}, reason: $reason, client_id: $c}'
+```
+
+**`list_dir`**: a folder's entries. Output: `{entries: [{name, type, size}], truncated}`.
+
+```sh
+'{tool: "list_dir", args: {path: "~/Library/Logs"}, reason: $reason, client_id: $c}'
+```
+
+**`run_command`**: a program with arguments, in a sandbox. Output: `{exit_code, stdout, stderr, truncated}`. `cwd` is optional.
+
+```sh
+'{tool: "run_command", args: {command: ["/usr/sbin/system_profiler", "SPSoftwareDataType"]}, reason: $reason, client_id: $c}'
+```
+
+**`write_file`**: replace a file's content. Output: `{hash, bytes}`. Write `content` to a local file first, then add `--rawfile content FILE --arg h HASH` to the `jq` line:
+
+```sh
+'{tool: "write_file", args: {path: "~/Library/Preferences/acme.conf", content: $content, base_hash: $h}, reason: $reason, client_id: $c}'
+```
+
+#### Field rules
+
+These are checked before anyone is asked. Breaking one gets you HTTP 400 `invalid_request` (the `hint` names the field) or status `rejected`.
+
+- `args` is always an object. A tool with no arguments takes `{}`; `null` is refused.
+- `reason`: 1 to 500 characters, no control characters other than tab and newline.
+- `client_id`: 8 to 64 of `A-Z a-z 0-9 _ -`, new for each new action. `uuidgen | tr -d -` gives one; on Linux without `uuidgen`, use `tr -d - < /proc/sys/kernel/random/uuid`.
+- `path` (and `cwd`): starts with `/` or `~/`, and has no `..` in it. Relative paths are refused. `~` means the person's home folder.
+- `command`: a list of 1 to 64 strings, not a shell string. The first is a program: an absolute path, or a bare name like `ls`, looked up in `/usr/bin`, `/bin`, `/usr/sbin`, `/sbin`, `/usr/local/bin` and `/opt/homebrew/bin`. The rest are passed as they are: `~` and `$VARS` are not expanded there, so give absolute paths. For a pipeline send `["/bin/sh", "-c", "…"]`. The person sees exactly that, and it needs `/bin/sh` allowed.
+- `base_hash`: the 64-character `hash` from your latest `read_file` or `tail_log` of that file. If the file changed since, the write is `rejected`: read it again. To create a new file, send the hash of empty content: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+
+#### What can't run
+
+- Commands run in a sandbox: they can read only the files, and start only the programs, the person allowed. A `cwd` asks to read that folder.
+- macOS refuses to start programs with raised privileges (setuid, such as `ps`, `sudo`, `su` and `login`) inside a sandbox. They are `rejected` before the person is asked. Use `list_processes` instead of `ps`.
+- macOS's `log` refuses to run in a sandbox; read log files with `tail_log`.
+- A `denied` whose `error` starts with `sandbox:` means the program tried to reach something not allowed. It is not the person saying no. Read `stderr` to see what, and ask for that thing with a structured tool.
 
 ### Statuses
 

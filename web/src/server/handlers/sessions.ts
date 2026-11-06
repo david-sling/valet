@@ -1,4 +1,5 @@
 import { CreateSessionBody, JoinBody, StartBody, normaliseCode } from '@valet/protocol'
+import { skillUpdate } from '#/agent/version'
 import { getConfig } from '../config'
 import { ApiError, bearer, json, notFound, readJson, readWait } from '../http'
 import { keys } from '../keys'
@@ -59,6 +60,7 @@ export async function createSession(request: Request) {
     .exec()
 
   const shown = formatCode(code)
+  const update = skillUpdate(body.skill_version, getConfig().host)
   return json(
     {
       session_id: id,
@@ -67,6 +69,7 @@ export async function createSession(request: Request) {
       join_url: `${getConfig().host}/j/${shown}`,
       state: 'invited',
       expires_at: now + LIMITS.inviteMs,
+      ...(update ? { skill_update: update } : {}),
     },
     201,
   )
