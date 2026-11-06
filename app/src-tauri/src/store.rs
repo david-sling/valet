@@ -44,7 +44,7 @@ fn phase_name(p: Phase) -> &'static str {
 }
 
 // Output and file contents stay out of the database; the record keeps what was done and how it was decided.
-fn without_content(item: &FeedItem) -> FeedItem {
+pub fn without_content(item: &FeedItem) -> FeedItem {
     let mut item = item.clone();
     if let FeedItem::Action { output, diff, .. } = &mut item {
         *output = None;
