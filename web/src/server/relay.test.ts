@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { SKILL_VERSION } from '#/agent/version'
 import { handle } from './http'
 import { keys } from './keys'
 import { closeRedis, getRedis } from './redis'
@@ -131,6 +132,19 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('relay against a local Redis', () =
     const t = Date.now()
     expect((await call(S.status, { token: l.agent_token, params: l.params, query: '?wait=10' })).body.state).toBe('live')
     expect(Date.now() - t).toBeLessThan(1000)
+  })
+
+  it('starts a session whatever skill version is sent, and asks an outdated agent to update', async () => {
+    const base = { name: 'Acme Inc.', purpose: 'Find out why AcmeApp crashes.' }
+    const current = await call(S.createSession, { method: 'POST', body: { ...base, skill_version: SKILL_VERSION } })
+    expect(current.status).toBe(201)
+    expect(current.body.skill_update).toBeUndefined()
+    for (const extra of [{ skill_version: SKILL_VERSION - 1 }, {}]) {
+      const old = await call(S.createSession, { method: 'POST', body: { ...base, ...extra } })
+      expect(old.status).toBe(201)
+      expect(old.body.session_id).toBeTruthy()
+      expect(old.body.skill_update.prompt).toMatch(/agent\/skill\.md/)
+    }
   })
 
   it('lets a join code work once', async () => {

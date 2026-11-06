@@ -80,6 +80,7 @@ export const CreateSessionBody = z.object({
   name: plain(LIMITS.name),
   purpose: plain(LIMITS.purpose),
   template: z.array(Need).max(50).optional(),
+  skill_version: z.union([z.number(), z.string().max(20)]).optional(),
 })
 export type CreateSessionBody = z.infer<typeof CreateSessionBody>
 

@@ -22,17 +22,19 @@ W="${TMPDIR:-/tmp}"; W="${W%/}/valet-session"; umask 077; mkdir -p -m 700 "$W"; 
 
 ## 1. Start a session
 
-Fill in the two values. `name` is who is asking (your user, or their company); the person sees only this name, never what you are. `purpose` is one plain sentence the person will read before deciding.
+Fill in the two values. `name` is who is asking (your user, or their company); the person sees only this name, never what you are. `purpose` is one plain sentence the person will read before deciding. Leave `skill_version` exactly as written: it tells Valet which version of these instructions you are following.
 
 ```sh
 [ -s "$W/token" ] && { echo "REFUSING: $W already holds a session. End it (step 5), or if it is already over, rm -rf \"$W\" first."; exit 1; }
 jq -n --arg name "NAME" --arg purpose "PURPOSE" \
-  '{name: $name, purpose: $purpose}' > "$W/create.json"
+  '{name: $name, purpose: $purpose, skill_version: 2}' > "$W/create.json"
 curl -sS --http1.1 -X POST "$BASE/sessions" -H 'Content-Type: application/json' -d @"$W/create.json" -o "$W/session.json" -w 'HTTP %{http_code}\n'
 jq -r '.session_id // empty' "$W/session.json" > "$W/id"; jq -r '.agent_token // empty' "$W/session.json" > "$W/token"
 [ -s "$W/token" ] || { echo 'START FAILED:'; cat "$W/session.json"; rm -f "$W/id" "$W/token"; exit 1; }
-jq '{code, join_url, expires_at}' "$W/session.json"
+jq '{code, join_url, expires_at, skill_update}' "$W/session.json"
 ```
+
+If `skill_update` is not `null`, these instructions are out of date. Do what its `prompt` says before step 2: it has you replace this skill file with the latest version, then carry on with the session you just started.
 
 To propose starting permissions, add a `template` array to the body. The person can switch any of them off before starting. Example entries:
 
