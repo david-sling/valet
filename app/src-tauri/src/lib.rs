@@ -24,6 +24,8 @@ use session::{GrantChoice, Manager, SessionView};
 
 const DEFAULT_RELAY: &str = "https://valet.davidsling.in";
 const UPDATE_EVERY: Duration = Duration::from_secs(6 * 60 * 60);
+const CHECK_TIMEOUT: Duration = Duration::from_secs(20);
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const CODE_CHARS: &str = "ACDEFGHJKMNPQRTUVWXY34679";
 
 #[derive(Default)]
@@ -129,9 +131,11 @@ async fn install_update(app: &AppHandle) -> Result<Option<String>, String> {
     if installed.is_some() {
         return Ok(installed.clone());
     }
-    let Some(update) = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())? else {
+    let updater = app.updater_builder().timeout(CHECK_TIMEOUT).build().map_err(|e| e.to_string())?;
+    let Some(mut update) = updater.check().await.map_err(|e| e.to_string())? else {
         return Ok(None);
     };
+    update.timeout = Some(DOWNLOAD_TIMEOUT);
     let _ = app.emit("update-found", update.version.clone());
     let (mut got, mut shown) = (0u64, None);
     let progress = |chunk: usize, total: Option<u64>| {
