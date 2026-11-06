@@ -398,6 +398,7 @@ button:disabled { cursor: not-allowed; }
 
 .request-actions .mbtn, .request-actions .split { height: 34px; }
 .split .fingerprint, .mbtn .fingerprint { width: 20px; height: 20px; margin: -2px 0; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; }
+.split-main:has(> .fingerprint), .mbtn:has(> .fingerprint) { padding-left: 9px; }
 
 @media (max-width: 640px) {
   .screen { padding: 16px; }
