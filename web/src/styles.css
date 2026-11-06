@@ -122,7 +122,7 @@ a { color: inherit; }
 }
 .tear-hero .copy .display { font-size: clamp(2.5rem, 5.6vw, 5rem); }
 .tear-hero .copy .lead { margin: 0; }
-.closing-note a, .install-note a { color: var(--ink); text-underline-offset: 2px; }
+.closing-note a { color: var(--ink); text-underline-offset: 2px; }
 .install { display: grid; justify-items: center; gap: 12px; width: min(640px, 100%); }
 .codeblock { width: 100%; background: var(--ink); border-radius: 16px; text-align: left; overflow: hidden; }
 .codeblock-head { display: flex; align-items: center; gap: 8px; padding: 6px 6px 0 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
@@ -142,7 +142,6 @@ a { color: inherit; }
 .codeblock pre .sigil { color: rgba(255, 255, 255, 0.4); user-select: none; }
 .install-then { margin: 0; font-size: 15px; color: var(--ink-2); }
 .install-then code { white-space: nowrap; padding: 3px 8px; border-radius: 6px; background: rgba(21, 22, 26, 0.06); font: 500 14px/1.4 var(--mono); color: var(--ink); }
-.install-note { margin: 0; font-size: 13px; color: var(--ink-3); }
 
 
 

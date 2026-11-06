@@ -29,13 +29,13 @@ const AGENTS = [
   { name: 'Claude Code', dir: '~/.claude/skills', then: 'Then, in Claude Code:', run: '/valet start a session' },
   { name: 'Codex', dir: '~/.agents/skills', then: 'Then, in Codex:', run: '$valet start a session' },
   { name: 'Cursor', dir: '~/.cursor/skills', then: 'Then, in Cursor:', run: '/valet start a session' },
-  { name: 'Gemini CLI', dir: '~/.gemini/skills', then: 'Then ask Gemini CLI:', run: 'Start a Valet session' },
+  { name: 'Any agent', dir: null, then: 'Then ask it:', run: 'Start a Valet session' },
 ]
 
 export function InstallSkill({ skill }: { skill: string }) {
   const [agent, setAgent] = useState(AGENTS[0])
   const [copied, setCopied] = useState(false)
-  const command = `curl -fsSL --create-dirs -o ${agent.dir}/valet/SKILL.md ${skill}`
+  const command = agent.dir ? `curl -fsSL --create-dirs -o ${agent.dir}/valet/SKILL.md ${skill}` : `Install the skill from ${skill}`
 
   useEffect(() => {
     if (!copied) return
@@ -63,15 +63,12 @@ export function InstallSkill({ skill }: { skill: string }) {
           </button>
         </div>
         <pre role="tabpanel">
-          <span className="sigil">$ </span>
+          {agent.dir && <span className="sigil">$ </span>}
           <code>{command}</code>
         </pre>
       </div>
       <p className="install-then">
         {agent.then} <code>{agent.run}</code>
-      </p>
-      <p className="install-note">
-        Another agent? Point it at <a href={skill}>the skill</a>.
       </p>
     </div>
   )
