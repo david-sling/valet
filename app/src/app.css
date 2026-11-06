@@ -16,6 +16,7 @@
   --sky-ink: #1f4b8f;
   --lilac-soft: #efeaff;
   --viz-allowed: #1fa35a; --viz-approved: #4353e8; --viz-denied: #e0683a; --viz-failed: #9a9ca6;
+  --ink-divider: rgba(255, 255, 255, 0.22);
   --mint-soft: #e3f6ea;
   --mint-ink: #17663b;
   --mint-line: #bfe6cd;
@@ -51,7 +52,7 @@ body {
   --ground: #17181b; --panel: #1f2024; --panel-2: #26272c; --titlebar: #232428;
   --ink: #ececef; --ink-2: #b6b8c1; --ink-3: #9093a0;
   --line: #303137; --line-2: #2a2b30; --line-strong: #4a4c55;
-  --sky-soft: #1c2a40; --sky-ink: #a8c9ff; --lilac-soft: #2a2542; --viz-allowed: #2a9d5f; --viz-approved: #6e7bea; --viz-denied: #d9693f; --viz-failed: #6c6e78; --mint-soft: #16301f; --mint-ink: #8fe0b0; --mint-line: #24492f;
+  --sky-soft: #1c2a40; --sky-ink: #a8c9ff; --lilac-soft: #2a2542; --viz-allowed: #2a9d5f; --viz-approved: #6e7bea; --viz-denied: #d9693f; --viz-failed: #6c6e78; --ink-divider: rgba(0, 0, 0, 0.16); --mint-soft: #16301f; --mint-ink: #8fe0b0; --mint-line: #24492f;
   --peach: #8a4630; --peach-soft: #3b2520; --peach-ink: #ffbca5;
   --accent: #929dff; --ok: #3cc27a;
   --risk-low-soft: #173726; --risk-low-ink: #8edbb0;
@@ -217,14 +218,18 @@ button:disabled { cursor: not-allowed; }
 .row-actions.is-left { justify-content: flex-start; }
 .page-head .split { margin-left: auto; }
 
-/* split button: the left side runs the chosen export, the arrow picks which one */
+/* split button: the left side runs the current choice, the arrow changes it */
 .split { position: relative; display: inline-flex; height: 36px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); transition: border-color 180ms; }
 .split:hover { border-color: var(--line-strong); }
 .split > button { display: inline-flex; align-items: center; gap: 7px; height: 100%; border: 0; background: none; font-size: 13px; font-weight: 600; }
 .split svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .split-main { padding: 0 12px 0 14px; border-radius: 999px 0 0 999px; }
 .split > .split-more { padding: 0 11px 0 9px; border-left: 1px solid var(--line); border-radius: 0 999px 999px 0; color: var(--ink-2); }
-.split > button:hover { background: var(--hover); }
+.split > button:not(:disabled):hover { background: var(--hover); }
+.split > button:disabled { opacity: 0.5; cursor: default; }
+.split.is-ink { background: var(--ink); border-color: var(--ink); color: var(--panel); }
+.split.is-ink > .split-more { border-left-color: var(--ink-divider); color: inherit; }
+.split.is-ink > button:not(:disabled):hover { background: var(--ink-divider); }
 .split-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; display: grid; min-width: 15rem; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: var(--soft); }
 .split-menu button { display: grid; gap: 1px; padding: 8px 10px 8px 30px; border: 0; border-radius: 8px; background: none; text-align: left; position: relative; }
 .split-menu button:hover { background: var(--hover); }
@@ -390,18 +395,9 @@ button:disabled { cursor: not-allowed; }
 .reason span { font-size: 12px; color: var(--ink-3); }
 .reason p { font-size: 14px; line-height: 1.5; color: var(--ink-2); }
 .request-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.scope-pick { position: relative; display: inline-flex; }
-.scope-pick select {
-  height: 36px; padding: 0 30px 0 14px; border: 1px solid var(--line); border-radius: 999px;
-  background: var(--panel); color: var(--ink); font: 500 13px/1 var(--sans); appearance: none; cursor: pointer;
-}
-.scope-pick select:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.scope-pick::after {
-  content: ""; position: absolute; right: 13px; top: 50%; width: 6px; height: 6px; pointer-events: none;
-  border-right: 1.5px solid var(--ink-3); border-bottom: 1.5px solid var(--ink-3); transform: translateY(-70%) rotate(45deg);
-}
-.request-actions .mbtn { height: 34px; }
-.scope-pick select { height: 34px; }
+
+.request-actions .mbtn, .request-actions .split { height: 34px; }
+.split .fingerprint, .mbtn .fingerprint { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
 
 @media (max-width: 640px) {
   .screen { padding: 16px; }
