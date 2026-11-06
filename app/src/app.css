@@ -15,6 +15,9 @@
   --sky-soft: #e4f0ff;
   --sky-ink: #1f4b8f;
   --lilac-soft: #efeaff;
+  --mint-soft: #e3f6ea;
+  --mint-ink: #17663b;
+  --mint-line: #bfe6cd;
   --peach: #ffc4b0;
   --peach-soft: #ffede6;
   --peach-ink: #8f3b1f;
@@ -47,7 +50,7 @@ body {
   --ground: #17181b; --panel: #1f2024; --panel-2: #26272c; --titlebar: #232428;
   --ink: #ececef; --ink-2: #b6b8c1; --ink-3: #9093a0;
   --line: #303137; --line-2: #2a2b30; --line-strong: #4a4c55;
-  --sky-soft: #1c2a40; --sky-ink: #a8c9ff; --lilac-soft: #2a2542;
+  --sky-soft: #1c2a40; --sky-ink: #a8c9ff; --lilac-soft: #2a2542; --mint-soft: #16301f; --mint-ink: #8fe0b0; --mint-line: #24492f;
   --peach: #8a4630; --peach-soft: #3b2520; --peach-ink: #ffbca5;
   --accent: #929dff; --ok: #3cc27a;
   --risk-low-soft: #173726; --risk-low-ink: #8edbb0;
@@ -125,8 +128,14 @@ button:disabled { cursor: not-allowed; }
 .side-item .tile { width: 28px; height: 28px; border-radius: 8px; }
 .side-item .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
 .side-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
-.side-icon svg { width: 14px; height: 14px; fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; }
-.side-foot { margin-top: auto; display: flex; padding: 8px; }
+.side-icon svg { width: 14px; height: 14px; fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.side-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px; }
+.side-version { flex: 1; display: grid; justify-items: start; min-width: 0; font-size: 12px; line-height: 1.45; color: var(--ink-3); }
+.side-version button { padding: 0; border: 0; background: none; color: var(--ink-2); }
+.side-version button:hover:enabled { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+.side-version button:disabled { cursor: default; }
+.update-track { justify-self: stretch; height: 3px; margin-top: 4px; border-radius: 999px; background: var(--line-2); overflow: hidden; }
+.update-track span { display: block; height: 100%; border-radius: inherit; background: var(--ok); transition: width 200ms; }
 /* light or dark: a sun and a moon, the chosen one raised like a selected segment */
 .theme-pick { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line-2); }
 .theme-pick button { display: grid; place-items: center; width: 30px; height: 24px; padding: 0; border: 0; border-radius: 999px; background: none; color: var(--ink-3); transition: color 180ms; }
@@ -347,5 +356,6 @@ button:disabled { cursor: not-allowed; }
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 .app-error { margin: 12px 28px 0; padding: 10px 14px; border-radius: 12px; background: var(--peach-soft); }
-.update-bar { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px 0 16px; background: var(--sky-soft); color: var(--sky-ink); font-size: 13px; }
-.update-bar .mbtn { height: 32px; margin-left: auto; }
+.update-bar { display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 16px; background: var(--mint-soft); color: var(--mint-ink); border-bottom: 1px solid var(--mint-line); font-size: 12.5px; }
+.update-bar .m-meta { color: inherit; opacity: 0.75; font-size: inherit; }
+.update-bar button { margin-left: auto; padding: 0; border: 0; background: none; color: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }

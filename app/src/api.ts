@@ -1,3 +1,4 @@
+import { getVersion } from '@tauri-apps/api/app'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import type { Grant, Need, Risk, Scope } from '@valet/protocol'
@@ -67,6 +68,12 @@ export const api = {
   onSessions: (f: (s: Session[]) => void) => listen<Session[]>('sessions', (e) => f(e.payload)),
   onUpdate: (f: (version: string) => void) => listen<string>('update-ready', (e) => f(e.payload)),
   restart: () => invoke<void>('restart'),
+  version: getVersion,
+  checkUpdate: () => invoke<string | null>('check_update'),
+  onCheckUpdate: (f: () => void) => listen('check-update', f),
+  onUpdateFound: (f: (version: string) => void) => listen<string>('update-found', (e) => f(e.payload)),
+  onUpdateProgress: (f: (percent: number | null) => void) => listen<number | null>('update-progress', (e) => f(e.payload)),
+  onUpdateFailed: (f: () => void) => listen('update-failed', f),
   takeJoinLink: () => invoke<string | null>('take_join_link'),
   onJoinLink: (f: () => void) => listen('join-link', f),
 }

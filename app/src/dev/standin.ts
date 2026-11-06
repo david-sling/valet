@@ -7,6 +7,22 @@ type Callback = (msg: unknown) => void
 
 const callbacks = new Map<number, Callback>()
 const listeners: number[] = []
+const others = new Map<string, number[]>()
+const send = (event: string, payload: unknown) => others.get(event)?.forEach((id) => callbacks.get(id)?.({ event, id, payload }))
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+// ?update in the URL makes a check find 0.1.2 and walk through the download
+async function fakeUpdate() {
+  await wait(800)
+  if (!new URLSearchParams(location.search).has('update')) return null
+  send('update-found', '0.1.2')
+  for (let p = 0; p <= 100; p += 4) {
+    send('update-progress', p)
+    await wait(150)
+  }
+  send('update-ready', '0.1.2')
+  return '0.1.2'
+}
 let sessions: Session[] = []
 let n = 0
 
@@ -134,8 +150,13 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
       return null
     case 'take_join_link':
       return null
+    case 'plugin:app|version':
+      return '0.1.0'
+    case 'check_update':
+      return fakeUpdate()
     case 'plugin:event|listen':
       if (args.event === 'sessions') listeners.push(args.handler as number)
+      else others.set(args.event as string, [...(others.get(args.event as string) ?? []), args.handler as number])
       return args.handler
     default:
       return null

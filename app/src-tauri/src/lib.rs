@@ -11,6 +11,7 @@ mod types;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use tauri::menu::{Menu, MenuItem};
 use tauri::{AppHandle, Emitter, Manager as _, RunEvent, State, Url};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_updater::UpdaterExt;
@@ -25,6 +26,10 @@ const CODE_CHARS: &str = "ACDEFGHJKMNPQRTUVWXY34679";
 
 #[derive(Default)]
 struct JoinLink(Mutex<Option<String>>);
+
+// The version already installed and waiting for a restart; the lock keeps two checks from installing at once.
+#[derive(Default)]
+struct Installed(tokio::sync::Mutex<Option<String>>);
 
 fn join_code(url: &Url) -> Option<String> {
     if url.scheme() != "valet" || url.host_str() != Some("join") {
@@ -97,20 +102,61 @@ async fn restart(app: AppHandle, m: State<'_, Manager>) -> Result<(), String> {
     app.restart()
 }
 
+async fn install_update(app: &AppHandle) -> Result<Option<String>, String> {
+    let installed = app.state::<Installed>();
+    let mut installed = installed.0.lock().await;
+    if installed.is_some() {
+        return Ok(installed.clone());
+    }
+    let Some(update) = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())? else {
+        return Ok(None);
+    };
+    let _ = app.emit("update-found", update.version.clone());
+    let (mut got, mut shown) = (0u64, None);
+    let progress = |chunk: usize, total: Option<u64>| {
+        got += chunk as u64;
+        let percent = total.filter(|t| *t > 0).map(|t| (got * 100 / t).min(100));
+        if percent != shown {
+            shown = percent;
+            let _ = app.emit("update-progress", percent);
+        }
+    };
+    let result = update.download_and_install(progress, || {}).await;
+    if let Err(e) = result {
+        let _ = app.emit("update-failed", ());
+        return Err(e.to_string());
+    }
+    *installed = Some(update.version.clone());
+    let _ = app.emit("update-ready", update.version.clone());
+    Ok(installed.clone())
+}
+
+#[tauri::command]
+async fn check_update(app: AppHandle) -> Result<Option<String>, String> {
+    install_update(&app).await
+}
+
 async fn keep_updated(app: AppHandle) {
     loop {
-        let found = match app.updater() {
-            Ok(u) => u.check().await.ok().flatten(),
-            Err(_) => None,
-        };
-        if let Some(update) = found {
-            if update.download_and_install(|_, _| {}, || {}).await.is_ok() {
-                let _ = app.emit("update-ready", update.version.clone());
-                return;
-            }
+        if let Ok(Some(_)) = install_update(&app).await {
+            return;
         }
         tokio::time::sleep(UPDATE_EVERY).await;
     }
+}
+
+fn add_update_item(app: &AppHandle) -> tauri::Result<()> {
+    let menu = Menu::default(app)?;
+    if let Some(valet) = menu.items()?.first().and_then(|m| m.as_submenu()) {
+        valet.insert(&MenuItem::with_id(app, "check-update", "Check for Updates…", true, None::<&str>)?, 1)?;
+    }
+    app.set_menu(menu)?;
+    app.on_menu_event(|app, event| {
+        if event.id() == "check-update" {
+            let _ = app.emit("check-update", ());
+        }
+    });
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -120,6 +166,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_deep_link::init())
         .manage(JoinLink::default())
+        .manage(Installed::default())
         .setup(move |app| {
             let handle = app.handle().clone();
             let emit = Arc::new(move |views: Vec<SessionView>| {
@@ -132,12 +179,13 @@ pub fn run() {
             if let Ok(Some(urls)) = app.deep_link().get_current() {
                 open_links(app.handle(), &urls);
             }
+            add_update_item(app.handle())?;
             if !cfg!(debug_assertions) {
                 tauri::async_runtime::spawn(keep_updated(app.handle().clone()));
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, set_grant, extend, end, restart, take_join_link])
+        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, set_grant, extend, end, restart, check_update, take_join_link])
         .build(tauri::generate_context!())
         .expect("error while building Valet")
         .run(|app, event| {

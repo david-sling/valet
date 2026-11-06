@@ -13,7 +13,9 @@
     "allow-set-grant",
     "allow-extend",
     "allow-end",
+    "core:app:allow-version",
     "allow-restart",
+    "allow-check-update",
     "allow-take-join-link"
   ]
 }

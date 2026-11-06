@@ -14,6 +14,15 @@ export type PastSession = {
   feed: FeedItem[]
 }
 
+export type Checking = 'idle' | 'checking' | 'current' | 'failed'
+
+const CHECKING: Record<Checking, string> = {
+  idle: 'Check for updates',
+  checking: 'Checking…',
+  current: "You're up to date",
+  failed: "Couldn't check",
+}
+
 export type OngoingItem = { id: string; vendor: string; endsAt: number; waiting: number }
 
 export function Sidebar({
@@ -28,6 +37,10 @@ export function Sidebar({
   onLive,
   onPast,
   onDark,
+  version,
+  checking,
+  downloading,
+  onCheckUpdate,
 }: {
   joining: boolean
   ongoing: OngoingItem[]
@@ -40,6 +53,10 @@ export function Sidebar({
   onLive: (id: string) => void
   onPast: (id: string) => void
   onDark: () => void
+  version: string
+  checking: Checking
+  downloading: { percent: number | null } | null
+  onCheckUpdate: () => void
 }) {
   return (
     <nav className="side" aria-label="Sessions">
@@ -109,6 +126,28 @@ export function Sidebar({
       </div>
 
       <div className="side-foot">
+        <div className="side-version">
+          {version && <span>Valet {version}</span>}
+          {downloading ? (
+            <>
+              <span role="status">Downloading…{downloading.percent !== null && ` ${downloading.percent}%`}</span>
+              <span
+                className="update-track"
+                role="progressbar"
+                aria-label="Downloading update"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={downloading.percent ?? undefined}
+              >
+                <span style={{ width: `${downloading.percent ?? 0}%` }} />
+              </span>
+            </>
+          ) : (
+            <button onClick={onCheckUpdate} disabled={checking === 'checking'}>
+              <span role="status">{CHECKING[checking]}</span>
+            </button>
+          )}
+        </div>
         <div className="theme-pick" role="radiogroup" aria-label="Appearance">
           <button role="radio" aria-checked={!dark} aria-label="Light" title="Light" onClick={() => dark && onDark()}>
             <svg viewBox="0 0 16 16" aria-hidden="true">

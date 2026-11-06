@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Grant } from '@valet/protocol'
 import { api, message } from './api'
 import type { Session } from './api'
 import { ApprovalPrompt } from './components/ApprovalPrompt'
 import { Home, Join, Live, Review, SessionBar, SessionRecord, Sidebar } from './components/screens'
-import type { PastSession, Start } from './components/screens'
+import type { Checking, PastSession, Start } from './components/screens'
 
 type Screen = 'home' | 'join' | 'review' | 'live' | 'past'
 
@@ -47,6 +47,9 @@ export function App() {
   const [error, setError] = useState('')
   const [dark, setDark] = useState(storedDark)
   const [update, setUpdate] = useState<string | null>(null)
+  const [version, setVersion] = useState('')
+  const [checking, setChecking] = useState<Checking>('idle')
+  const [downloading, setDownloading] = useState<{ percent: number | null } | null>(null)
   const [linkCode, setLinkCode] = useState('')
   const now = useNow(1000)
 
@@ -60,7 +63,19 @@ export function App() {
         setScreen('home')
       }, () => undefined)
     takeLink()
-    const off = [api.onSessions(setSessions), api.onUpdate(setUpdate), api.onJoinLink(takeLink)]
+    api.version().then(setVersion, () => undefined)
+    const off = [
+      api.onSessions(setSessions),
+      api.onUpdate((v) => {
+        setDownloading(null)
+        setUpdate(v)
+      }),
+      api.onJoinLink(takeLink),
+      api.onCheckUpdate(() => checkRef.current()),
+      api.onUpdateFound(() => setDownloading({ percent: null })),
+      api.onUpdateProgress((percent) => setDownloading((d) => d && { ...d, percent })),
+      api.onUpdateFailed(() => setDownloading(null)),
+    ]
     return () => {
       off.forEach((o) => o.then((f) => f()))
     }
@@ -114,6 +129,24 @@ export function App() {
     attempt(api.start(open.id, grants)).then(() => setScreen('live'), () => undefined)
   }
 
+  const checkUpdate = () => {
+    setChecking('checking')
+    api.checkUpdate().then(
+      (v) => {
+        if (v) setUpdate(v)
+        setChecking(v ? 'idle' : 'current')
+      },
+      () => setChecking('failed'),
+    )
+  }
+  const checkRef = useRef(checkUpdate)
+  checkRef.current = checkUpdate
+  useEffect(() => {
+    if (checking !== 'current' && checking !== 'failed') return
+    const t = setTimeout(() => setChecking('idle'), 6000)
+    return () => clearTimeout(t)
+  }, [checking])
+
   const end = (id: string) => attempt(api.end(id)).catch(() => undefined)
   const live = sessions.filter((s) => s.phase === 'live')
   const shown = screen === 'live' && open?.phase === 'live' ? open : undefined
@@ -154,10 +187,10 @@ export function App() {
       <div>
         {update && (
           <div className="update-bar" role="status">
-            <span>Valet {update} is installed.</span>
-            <span className="m-meta">{live.length ? 'Restarting ends your live sessions.' : 'Restart to use it.'}</span>
-            <button className="mbtn mbtn-ghost mbtn-sm" onClick={() => attempt(api.restart()).catch(() => undefined)}>
-              Restart
+            <span>Valet {update} is ready.</span>
+            {live.length > 0 && <span className="m-meta">Restarting ends your live sessions.</span>}
+            <button onClick={() => attempt(api.restart()).catch(() => undefined)}>
+              Restart to update
             </button>
           </div>
         )}
@@ -182,6 +215,10 @@ export function App() {
             setScreen('past')
           }}
           onDark={() => setDark(!dark)}
+          version={version}
+          checking={checking}
+          downloading={downloading}
+          onCheckUpdate={checkUpdate}
         />
         <div className="win-body">
           {error && (
