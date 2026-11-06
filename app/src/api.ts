@@ -67,6 +67,8 @@ export const api = {
   onSessions: (f: (s: Session[]) => void) => listen<Session[]>('sessions', (e) => f(e.payload)),
   onUpdate: (f: (version: string) => void) => listen<string>('update-ready', (e) => f(e.payload)),
   restart: () => invoke<void>('restart'),
+  takeJoinLink: () => invoke<string | null>('take_join_link'),
+  onJoinLink: (f: () => void) => listen('join-link', f),
 }
 
 export const message = (e: unknown) => (typeof e === 'string' ? e : e instanceof Error ? e.message : 'Something went wrong.')

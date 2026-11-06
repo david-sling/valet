@@ -47,11 +47,20 @@ export function App() {
   const [error, setError] = useState('')
   const [dark, setDark] = useState(storedDark)
   const [update, setUpdate] = useState<string | null>(null)
+  const [linkCode, setLinkCode] = useState('')
   const now = useNow(1000)
 
   useEffect(() => {
     api.snapshot().then(setSessions, () => undefined)
-    const off = [api.onSessions(setSessions), api.onUpdate(setUpdate)]
+    const takeLink = () =>
+      api.takeJoinLink().then((code) => {
+        if (!code) return
+        setLinkCode(`${code.slice(0, 3)}-${code.slice(3)}`)
+        setJoinError('')
+        setScreen('home')
+      }, () => undefined)
+    takeLink()
+    const off = [api.onSessions(setSessions), api.onUpdate(setUpdate), api.onJoinLink(takeLink)]
     return () => {
       off.forEach((o) => o.then((f) => f()))
     }
@@ -180,7 +189,7 @@ export function App() {
               {error}
             </p>
           )}
-          {screen === 'home' && <Home onJoin={join} error={joinError} />}
+          {screen === 'home' && <Home key={linkCode} code={linkCode} onJoin={join} error={joinError} />}
           {screen === 'join' && open && (
             <Join
               vendor={open.senderName}

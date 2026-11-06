@@ -1,6 +1,6 @@
 [package]
 name = "valet"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 publish = false
 
@@ -24,6 +24,7 @@ similar = "2"
 libc = "0.2"
 rusqlite = { version = "0.32", features = ["bundled"] }
 tauri-plugin-updater = "2"
+tauri-plugin-deep-link = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
