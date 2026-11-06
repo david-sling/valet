@@ -27,7 +27,7 @@ Fill in the two values. `name` is who is asking (your user, or their company); t
 ```sh
 [ -s "$W/token" ] && { echo "REFUSING: $W already holds a session. End it (step 5), or if it is already over, rm -rf \"$W\" first."; exit 1; }
 jq -n --arg name "NAME" --arg purpose "PURPOSE" \
-  '{name: $name, purpose: $purpose, skill_version: 2}' > "$W/create.json"
+  '{name: $name, purpose: $purpose, skill_version: 3}' > "$W/create.json"
 curl -sS --http1.1 -X POST "$BASE/sessions" -H 'Content-Type: application/json' -d @"$W/create.json" -o "$W/session.json" -w 'HTTP %{http_code}\n'
 jq -r '.session_id // empty' "$W/session.json" > "$W/id"; jq -r '.agent_token // empty' "$W/session.json" > "$W/token"
 [ -s "$W/token" ] || { echo 'START FAILED:'; cat "$W/session.json"; rm -f "$W/id" "$W/token"; exit 1; }
@@ -50,7 +50,7 @@ Some places are never covered by starting permissions, whatever you propose: SSH
 
 ## 2. Hand over the code
 
-Your user can't send what they never saw. Many hosts show only your final message, or fold away text written between commands, so a link posted mid-turn is easily missed. **End your turn with the hand-off as your final message**, filled in from step 1's output and nothing after it:
+Your user can't send what they never saw. Many hosts show only your final message, or fold away text written between commands, so a link posted mid-turn is easily missed. So first start step 3's wait in the background, if your shell can run a command in the background and wake you when it exits. Then **end your turn with the hand-off as your final message**, filled in from step 1's output and nothing after it:
 
 ```md
 Send this link to the person whose computer it is:
@@ -59,23 +59,29 @@ Send this link to the person whose computer it is:
 
 Or they can type the code **ABC-123** into the Valet app. It works once and expires at 14:32. The link opens Valet on their Mac, or shows them where to download it (macOS 13 or later).
 
-Tell me once you've sent it and I'll wait for them to join.
+I'll carry on as soon as they join.
 ```
 
 - Put `join_url` on a line of its own, exactly as step 1 printed it. Don't shorten it, wrap it in other text or put it only in a code block.
 - `expires_at` is in milliseconds since the epoch. Show it as a local time: `date -r $(( EXPIRES_AT / 1000 )) +%H:%M` (macOS) or `date -d @$(( EXPIRES_AT / 1000 )) +%H:%M` (Linux).
-- When your user next writes, go to step 3. If more than 10 minutes have passed, the state will be `expired`: say so, and start a new session only if they ask.
+- Don't ask your user to tell you when the person has joined: the wait finds out on its own and wakes you. If you couldn't start it in the background, end the hand-off with "Tell me once you've sent it and I'll wait for them to join." instead, and run step 3 when your user next writes.
 
 Only the person at that computer can let you in. Never ask your user to approve anything on their behalf.
 
 ## 3. Wait for the session to go live
 
+This blocks until the person has joined and started the session, or the session is over, which can take up to the 10 minutes the code lasts. Run it in the background (step 2). If you run it in the foreground instead, give it a timeout of at least 11 minutes, and if it is cut off anyway, run it again.
+
 ```sh
-curl -sS --http1.1 "$BASE/sessions/$(cat "$W/id")?wait=50" -H "Authorization: Bearer $(cat "$W/token")" \
-  | tee "$W/status.json" | jq '{state, grants, ends_at, client_connected}'
+L=; while :; do
+  curl -sS --http1.1 "$BASE/sessions/$(cat "$W/id")?wait=50" -H "Authorization: Bearer $(cat "$W/token")" -o "$W/status.json" || { sleep 3; continue; }
+  S=$(jq -r '.state // empty' "$W/status.json")
+  case "$S" in invited|joined) [ "$S" = "$L" ] || echo "state: $S"; L=$S ;; *) break ;; esac
+done
+jq '.error // {state, grants, ends_at, client_connected}' "$W/status.json"
 ```
 
-Run it again while `state` is `invited` (no one has entered the code) or `joined` (the person is reviewing). Tell your user which it is while you wait. Stop at:
+`invited` means no one has entered the code yet; `joined` means the person is reviewing what you asked for. It stops at:
 
 - `live`: go on. `grants` is what you may do without asking; anything else asks the person first.
 - `declined`, `expired` or `ended`: the session is over. Tell your user; start a new one only if they ask.
