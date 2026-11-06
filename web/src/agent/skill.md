@@ -48,7 +48,21 @@ Some places are never covered by starting permissions, whatever you propose: SSH
 
 ## 2. Hand over the code
 
-Give your user the `code` and `join_url` and ask them to send it to the person whose computer it is. That person needs the Valet app. Then go straight on to step 3 and keep waiting; don't end your turn. The code works once and expires after 10 minutes, after which the state becomes `expired`.
+Your user can't send what they never saw. Many hosts show only your final message, or fold away text written between commands, so a link posted mid-turn is easily missed. **End your turn with the hand-off as your final message**, filled in from step 1's output and nothing after it:
+
+```md
+Send this link to the person whose computer it is:
+
+**https://…/j/ABC-123**
+
+Or they can type the code **ABC-123** into the Valet app. It works once and expires at 14:32. The link opens Valet on their Mac, or shows them where to download it (macOS 13 or later).
+
+Tell me once you've sent it and I'll wait for them to join.
+```
+
+- Put `join_url` on a line of its own, exactly as step 1 printed it. Don't shorten it, wrap it in other text or put it only in a code block.
+- `expires_at` is in milliseconds since the epoch. Show it as a local time: `date -r $(( EXPIRES_AT / 1000 )) +%H:%M` (macOS) or `date -d @$(( EXPIRES_AT / 1000 )) +%H:%M` (Linux).
+- When your user next writes, go to step 3. If more than 10 minutes have passed, the state will be `expired`: say so, and start a new session only if they ask.
 
 Only the person at that computer can let you in. Never ask your user to approve anything on their behalf.
 
@@ -86,18 +100,61 @@ jq '{action_id, status, output, error, session_state, events}' "$W/result.json"
 
 ### Tools
 
-| tool | args | output on success |
-|---|---|---|
-| `run_command` | `{command: ["/usr/sbin/system_profiler", "SPSoftwareDataType"], cwd?}` | `{exit_code, stdout, stderr, truncated}` |
-| `read_file` | `{path, max_bytes?}` | `{content, hash, truncated}` |
-| `write_file` | `{path, content, base_hash}` | `{hash, bytes}` |
-| `list_dir` | `{path}` | `{entries: [{name, type, size}]}` |
-| `tail_log` | `{path, lines?}` | `{content, hash}` |
-| `list_processes` | `{}`, or leave `args` out | `{processes: [{pid, name}]}` |
+These are the exact bodies. To use one, swap it for the `'{tool: "read_file", …}'` filter in the command above; keep the `--arg reason` and `--arg c` lines. Pick the structured tool over `run_command` whenever one fits: it needs no program permission and can't be stopped by the sandbox.
 
-- `command` is an argument list, not a shell string. For a pipeline send `["/bin/sh", "-c", "…"]`; the person sees it as exactly that, and it needs `/bin/sh` allowed.
-- Commands run in a sandbox: they can read only the files, and start only the programs, the person allowed. `~` and `$VARS` are not expanded in arguments, so use absolute paths. A `cwd` asks to read that folder. macOS's `log` refuses to run in a sandbox; read log files with `tail_log`. Programs that run with raised privileges (setuid, such as `ps` and `sudo`) can't run at all and are turned back before the person is asked; use `list_processes` instead of `ps`.
-- Read a file before you change it. `write_file` must carry the `hash` from your latest read of that file; if the file changed since, the edit is turned back and you read it again. Put long content in a local file and use `jq --rawfile content FILE`. To create a file, send the hash of empty content: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+**`list_processes`**: which programs are running. Output: `{processes: [{pid, name}]}`.
+
+```sh
+'{tool: "list_processes", args: {}, reason: $reason, client_id: $c}'
+```
+
+**`read_file`**: a whole file, up to `max_bytes` (optional). Output: `{content, hash, truncated}`.
+
+```sh
+'{tool: "read_file", args: {path: "~/Library/Preferences/com.acme.app.plist"}, reason: $reason, client_id: $c}'
+```
+
+**`tail_log`**: the last `lines` (optional, 1 to 5000) of a log file. Output: `{content, hash}`.
+
+```sh
+'{tool: "tail_log", args: {path: "/var/log/acme.log", lines: 200}, reason: $reason, client_id: $c}'
+```
+
+**`list_dir`**: a folder's entries. Output: `{entries: [{name, type, size}], truncated}`.
+
+```sh
+'{tool: "list_dir", args: {path: "~/Library/Logs"}, reason: $reason, client_id: $c}'
+```
+
+**`run_command`**: a program with arguments, in a sandbox. Output: `{exit_code, stdout, stderr, truncated}`. `cwd` is optional.
+
+```sh
+'{tool: "run_command", args: {command: ["/usr/sbin/system_profiler", "SPSoftwareDataType"]}, reason: $reason, client_id: $c}'
+```
+
+**`write_file`**: replace a file's content. Output: `{hash, bytes}`. Write `content` to a local file first, then add `--rawfile content FILE --arg h HASH` to the `jq` line:
+
+```sh
+'{tool: "write_file", args: {path: "~/Library/Preferences/acme.conf", content: $content, base_hash: $h}, reason: $reason, client_id: $c}'
+```
+
+#### Field rules
+
+These are checked before anyone is asked. Breaking one gets you HTTP 400 `invalid_request` (the `hint` names the field) or status `rejected`.
+
+- `args` is always an object. A tool with no arguments takes `{}`; `null` is refused.
+- `reason`: 1 to 500 characters, no control characters other than tab and newline.
+- `client_id`: 8 to 64 of `A-Z a-z 0-9 _ -`, new for each new action. `uuidgen | tr -d -` gives one; on Linux without `uuidgen`, use `tr -d - < /proc/sys/kernel/random/uuid`.
+- `path` (and `cwd`): starts with `/` or `~/`, and has no `..` in it. Relative paths are refused. `~` means the person's home folder.
+- `command`: a list of 1 to 64 strings, not a shell string. The first is a program: an absolute path, or a bare name like `ls`, looked up in `/usr/bin`, `/bin`, `/usr/sbin`, `/sbin`, `/usr/local/bin` and `/opt/homebrew/bin`. The rest are passed as they are: `~` and `$VARS` are not expanded there, so give absolute paths. For a pipeline send `["/bin/sh", "-c", "…"]`. The person sees exactly that, and it needs `/bin/sh` allowed.
+- `base_hash`: the 64-character `hash` from your latest `read_file` or `tail_log` of that file. If the file changed since, the write is `rejected`: read it again. To create a new file, send the hash of empty content: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+
+#### What can't run
+
+- Commands run in a sandbox: they can read only the files, and start only the programs, the person allowed. A `cwd` asks to read that folder.
+- macOS refuses to start programs with raised privileges (setuid, such as `ps`, `sudo`, `su` and `login`) inside a sandbox. They are `rejected` before the person is asked. Use `list_processes` instead of `ps`.
+- macOS's `log` refuses to run in a sandbox; read log files with `tail_log`.
+- A `denied` whose `error` starts with `sandbox:` means the program tried to reach something not allowed. It is not the person saying no. Read `stderr` to see what, and ask for that thing with a structured tool.
 
 ### Statuses
 
