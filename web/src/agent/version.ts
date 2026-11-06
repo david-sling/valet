@@ -18,6 +18,8 @@ export function skillUpdate(sent: number | string | undefined, origin: string) {
       `download ${url} with curl, check that the download starts with "---" and contains "skill_version: ${SKILL_VERSION}", ` +
       `then replace the SKILL.md file you loaded the Valet skill from with it. Reread the new file and follow it from ` +
       `step 2 for this session; the session you just started is valid and needs no restart. Tell your user in one line ` +
-      `that you updated the Valet skill.`,
+      `that you updated the Valet skill. If you can't write that file (your host may block changes to its skill ` +
+      `folder), don't stop: carry on with this session, and in your hand-off message give your user this command to ` +
+      `run themselves, with PATH replaced by that SKILL.md file's absolute path: curl -fsSL ${url} -o "PATH"`,
   }
 }

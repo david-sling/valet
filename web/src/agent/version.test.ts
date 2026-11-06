@@ -19,6 +19,7 @@ describe('skillUpdate', () => {
       expect(u).toMatchObject({ latest: SKILL_VERSION, url: `${ORIGIN}/agent/skill.md` })
       expect(u.prompt).toContain(`${ORIGIN}/agent/skill.md`)
       expect(u.prompt).toContain(`skill_version: ${SKILL_VERSION}`)
+      expect(u.prompt).toContain(`curl -fsSL ${ORIGIN}/agent/skill.md -o "PATH"`)
     }
   })
 })

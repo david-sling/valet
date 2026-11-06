@@ -34,7 +34,7 @@ jq -r '.session_id // empty' "$W/session.json" > "$W/id"; jq -r '.agent_token //
 jq '{code, join_url, expires_at, skill_update}' "$W/session.json"
 ```
 
-If `skill_update` is not `null`, these instructions are out of date. Do what its `prompt` says before step 2: it has you replace this skill file with the latest version, then carry on with the session you just started.
+If `skill_update` is not `null`, these instructions are out of date. Do what its `prompt` says before step 2: it has you replace this skill file with the latest version, or, if you can't write it, give your user a command that does, then carry on with the session you just started.
 
 To propose starting permissions, add a `template` array to the body. The person can switch any of them off before starting. Example entries:
 
