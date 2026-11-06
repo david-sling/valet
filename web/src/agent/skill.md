@@ -93,10 +93,10 @@ jq '{action_id, status, output, error, session_state, events}' "$W/result.json"
 | `write_file` | `{path, content, base_hash}` | `{hash, bytes}` |
 | `list_dir` | `{path}` | `{entries: [{name, type, size}]}` |
 | `tail_log` | `{path, lines?}` | `{content, hash}` |
-| `list_processes` | none | `{processes: [{pid, name}]}` |
+| `list_processes` | `{}`, or leave `args` out | `{processes: [{pid, name}]}` |
 
 - `command` is an argument list, not a shell string. For a pipeline send `["/bin/sh", "-c", "…"]`; the person sees it as exactly that, and it needs `/bin/sh` allowed.
-- Commands run in a sandbox: they can read only the files, and start only the programs, the person allowed. `~` and `$VARS` are not expanded in arguments, so use absolute paths. A `cwd` asks to read that folder. macOS's `log` refuses to run in a sandbox; read log files with `tail_log`.
+- Commands run in a sandbox: they can read only the files, and start only the programs, the person allowed. `~` and `$VARS` are not expanded in arguments, so use absolute paths. A `cwd` asks to read that folder. macOS's `log` refuses to run in a sandbox; read log files with `tail_log`. Programs that run with raised privileges (setuid, such as `ps` and `sudo`) can't run at all and are turned back before the person is asked; use `list_processes` instead of `ps`.
 - Read a file before you change it. `write_file` must carry the `hash` from your latest read of that file; if the file changed since, the edit is turned back and you read it again. Put long content in a local file and use `jq --rawfile content FILE`. To create a file, send the hash of empty content: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
 
 ### Statuses

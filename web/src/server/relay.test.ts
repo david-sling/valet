@@ -172,6 +172,17 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('relay against a local Redis', () =
     expect(changed.status).toBe(409)
   })
 
+  it('hands empty args to the client as an object, not an array', async () => {
+    const s = await live()
+    for (const body of [{ tool: 'list_processes', args: {} }, { tool: 'list_processes' }]) {
+      const r = await call(A.postAction, { method: 'POST', token: s.agent_token, params: s.params, body: { ...body, reason: 'x', client_id: cid() } })
+      expect(r.status).toBe(201)
+      expect(r.body.args).toEqual({})
+    }
+    const { body } = await call(A.inbox, { token: s.client, params: s.params })
+    expect(body.actions.map((a: { args: unknown }) => a.args)).toEqual([{}, {}])
+  })
+
   it('answers a waiting agent as soon as the client does', async () => {
     const s = await live()
     const queued = await call(A.postAction, { method: 'POST', token: s.agent_token, params: s.params, body: { ...READ, client_id: cid() } })
