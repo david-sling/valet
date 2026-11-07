@@ -169,8 +169,26 @@ export function Sidebar({
   )
 }
 
+// Takes a typed code, a pasted "ACD-347" or a whole join link, and keeps the six code characters.
+const clean = (v: string) =>
+  (v.match(/\/j\/([\w-]+)/)?.[1] ?? v)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 6)
+
 export function Home({ code: linked = '', onJoin, error }: { code?: string; onJoin: (code: string) => void; error: string }) {
-  const [code, setCode] = useState(linked)
+  const [code, setCode] = useState(clean(linked))
+  const [focused, setFocused] = useState(false)
+  const box = (i: number) => (
+    <span
+      key={i}
+      className="otp-box"
+      data-filled={i < code.length}
+      data-active={focused && (i === code.length || (i === 5 && code.length === 6))}
+    >
+      {code[i]}
+    </span>
+  )
   return (
     <div className="screen home">
       <img src="/valet-mark.svg" alt="" width={44} height={44} />
@@ -182,25 +200,38 @@ export function Home({ code: linked = '', onJoin, error }: { code?: string; onJo
         className="code-form"
         onSubmit={(e) => {
           e.preventDefault()
-          onJoin(code)
+          if (code.length === 6) onJoin(`${code.slice(0, 3)}-${code.slice(3)}`)
         }}
       >
         <label htmlFor="code" className="m-label">
           Join code
         </label>
         <div className="code-row">
-          <input
-            id="code"
-            className="m-input"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="ABC-123"
-            autoComplete="off"
-            spellCheck={false}
-            aria-invalid={!!error}
-            aria-describedby={error ? 'code-error' : undefined}
-          />
-          <button className="mbtn mbtn-ink" disabled={!code.trim()}>
+          <div className="otp" aria-invalid={!!error}>
+            <input
+              id="code"
+              value={code}
+              onChange={(e) => setCode(clean(e.target.value))}
+              onPaste={(e) => {
+                e.preventDefault()
+                setCode(clean(e.clipboardData.getData('text')))
+              }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              autoComplete="one-time-code"
+              autoCapitalize="characters"
+              spellCheck={false}
+              autoFocus
+              aria-invalid={!!error}
+              aria-describedby={error ? 'code-error' : undefined}
+            />
+            <span className="otp-group">{[0, 1, 2].map(box)}</span>
+            <span className="otp-dash" aria-hidden="true">
+              –
+            </span>
+            <span className="otp-group">{[3, 4, 5].map(box)}</span>
+          </div>
+          <button className="mbtn mbtn-ink" disabled={code.length < 6}>
             Join
           </button>
         </div>

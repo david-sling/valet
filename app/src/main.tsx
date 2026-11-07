@@ -7,6 +7,7 @@ import '@fontsource/funnel-display/700.css'
 import '@fontsource/funnel-display/800.css'
 import '@fontsource/geist-mono/400.css'
 import '@fontsource/geist-mono/500.css'
+import '@fontsource/geist-mono/600.css'
 import { App } from './App'
 import './app.css'
 
