@@ -3,17 +3,16 @@
   --sans: "Albert Sans", system-ui, -apple-system, sans-serif;
   --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ground: #f5eddd;
+  --ground: #f4f4f2;
   --panel: #ffffff;
-  --panel-2: #faf3e6;
-  --ink: #1e1a13;
-  --ink-2: #51493a;
-  --ink-3: #6f6453;
-  --line: #e9dcc4;
-  --line-2: #f1e7d4;
-  --line-strong: #d4c19f;
-  --side: #f3e7d1; --side-line: #e6d6b9; --line-gray: #bcb5a9;
-  --avatar: #6b4e2c; --avatar-ink: #fbf3e3;
+  --panel-2: #fafaf8;
+  --ink: #15161a;
+  --ink-2: #4a4c55;
+  --ink-3: #666977;
+  --line: #e4e4e9;
+  --line-2: #efeff2;
+  --line-strong: #cfcfd6;
+  --line-gray: #b9bbc3;
   --sky-soft: #e4f0ff;
   --sky-ink: #1f4b8f;
   --lilac-soft: #efeaff;
@@ -32,7 +31,7 @@
   --risk-high-soft: #ffe3d9; --risk-high-ink: #8f2f14;
   --risk-critical: #8f2f14; --risk-critical-ink: #ffffff;
   --titlebar: #ecebe8;
-  --hover: rgba(90, 65, 20, 0.06);
+  --hover: rgba(21, 22, 26, 0.04);
   --frame-line: rgba(21, 22, 26, 0.06);
   --knob: #ffffff; --knob-on: #ffffff;
   --bar-low: #1fa35a; --bar-medium: #e0a100; --bar-high: #e5484d;
@@ -54,7 +53,7 @@ body {
   --ground: #17181b; --panel: #1f2024; --panel-2: #26272c; --titlebar: #232428;
   --ink: #ececef; --ink-2: #b6b8c1; --ink-3: #9093a0;
   --line: #303137; --line-2: #2a2b30; --line-strong: #4a4c55;
-  --sky-soft: #1c2a40; --sky-ink: #a8c9ff; --lilac-soft: #2a2542; --viz-allowed: #2a9d5f; --viz-approved: #6e7bea; --viz-denied: #d9693f; --viz-failed: #6c6e78; --ink-divider: rgba(0, 0, 0, 0.16); --side: transparent; --side-line: var(--line); --line-gray: #55575f; --avatar: var(--sky-soft); --avatar-ink: var(--sky-ink); --mint-soft: #16301f; --mint-ink: #8fe0b0; --mint-line: #24492f;
+  --sky-soft: #1c2a40; --sky-ink: #a8c9ff; --lilac-soft: #2a2542; --viz-allowed: #2a9d5f; --viz-approved: #6e7bea; --viz-denied: #d9693f; --viz-failed: #6c6e78; --ink-divider: rgba(0, 0, 0, 0.16); --line-gray: #55575f; --mint-soft: #16301f; --mint-ink: #8fe0b0; --mint-line: #24492f;
   --peach: #8a4630; --peach-soft: #3b2520; --peach-ink: #ffbca5;
   --accent: #929dff; --ok: #3cc27a;
   --risk-low-soft: #173726; --risk-low-ink: #8edbb0;
@@ -117,7 +116,7 @@ button:disabled { cursor: not-allowed; }
 
 /* the sidebar: join, the live session, past sessions. The open one is a white chip, like a selected segment. */
 .win-main { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: 0; }
-.side { display: flex; flex-direction: column; gap: 18px; padding: 12px 10px; overflow: auto; background: var(--side); border-right: 1px solid var(--side-line); }
+.side { display: flex; flex-direction: column; gap: 18px; padding: 12px 10px; overflow: auto; border-right: 1px solid var(--line); }
 .side-group { display: grid; gap: 2px; }
 .side-group .m-label { padding: 0 8px 6px; }
 .side-item {
@@ -155,7 +154,7 @@ button:disabled { cursor: not-allowed; }
 .page { min-height: 100%; display: grid; align-content: start; background: var(--panel); }
 .page-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 18px 28px; }
 .page-head > :last-child:not(:nth-child(2)) { margin-left: auto; }
-.page-head .vendor-mark { width: 40px; height: 40px; background: var(--avatar); color: var(--avatar-ink); box-shadow: none; font-size: 18px; }
+.page-head .vendor-mark { width: 40px; height: 40px; background: var(--sky-soft); box-shadow: none; font-size: 18px; }
 .page-sec { display: grid; align-content: start; gap: 16px; padding: 20px 28px; border-top: 1px solid var(--line); }
 /* joining: the page runs top to bottom, with its answer pinned along the bottom edge */
 .page.is-flow { display: flex; flex-direction: column; }
@@ -344,7 +343,7 @@ button:disabled { cursor: not-allowed; }
 .feed .event::before, .feed .event::after { content: ""; flex: 1; height: 1px; background: var(--line-2); }
 .feed .event span { max-width: 80%; text-align: center; }
 .feed-row { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 12px; animation: arrive 640ms var(--ease-out); }
-.tile { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--avatar); font: 700 12px/1 var(--sans); color: var(--avatar-ink); }
+.tile { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--sky-soft); font: 700 12px/1 var(--sans); color: var(--sky-ink); }
 .feed-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .feed-head time { margin-left: auto; font-size: 12px; color: var(--ink-3); }
 .feed-literal { display: block; margin: 2px 0 4px; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
