@@ -180,7 +180,12 @@ export function Home({ code: linked = '', onJoin, error }: { code?: string; onJo
   const [code, setCode] = useState(clean(linked))
   const [focused, setFocused] = useState(false)
   const box = (i: number) => (
-    <span key={i} className="otp-box" data-active={focused && (i === code.length || (i === 5 && code.length === 6))}>
+    <span
+      key={i}
+      className="otp-box"
+      data-filled={i < code.length}
+      data-active={focused && (i === code.length || (i === 5 && code.length === 6))}
+    >
       {code[i]}
     </span>
   )

@@ -275,14 +275,15 @@ button:disabled { cursor: not-allowed; }
 .otp { position: relative; display: flex; align-items: center; gap: 8px; }
 .otp input { position: absolute; inset: 0; width: 100%; opacity: 0; border: 0; padding: 0; font: inherit; cursor: text; }
 .otp-box {
-  display: grid; place-items: center; width: 50px; height: 60px; border: 1px solid var(--ink-3);
+  display: grid; place-items: center; width: 50px; height: 60px; border: 1px solid var(--line-strong);
   background: var(--panel); font: 500 26px/1 var(--mono); color: var(--ink); transition: border-color 120ms, box-shadow 120ms;
 }
 .otp-group { display: flex; }
 .otp-group .otp-box + .otp-box { margin-left: -1px; }
 .otp-group .otp-box:first-child { border-radius: 12px 0 0 12px; }
 .otp-group .otp-box:last-child { border-radius: 0 12px 12px 0; }
-.otp-box[data-active="true"] { position: relative; z-index: 1; }
+.otp-box[data-filled="true"] { position: relative; z-index: 1; border-color: var(--ink-3); }
+.otp-box[data-active="true"] { position: relative; z-index: 2; }
 .otp-box[data-active="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .otp[aria-invalid="true"] .otp-box { border-color: var(--peach-ink); }
 .otp-dash { width: 12px; text-align: center; font: 500 22px/1 var(--mono); color: var(--ink-3); }

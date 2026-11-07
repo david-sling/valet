@@ -382,7 +382,7 @@ Under no circumstances does the prompt auto-approve, pre-select Allow, or put Al
 A pill with the level's word in 12px 600, tracking 0.02em, using its `risk-*` component token. Low, medium and high are tinted; critical is the system's only filled chip. A 12px icon may precede the word, but the word is required.
 
 ### Join code
-The home screen asks for the join code in six boxes (50×60, 26px mono, `panel` fill, `ink-3` border) in two joined groups of three, rounded only at each group's outer ends, split by a dash, with **Join** as a full-width ink pill underneath. It is one real input drawn as boxes, so typing, paste and autofill all work; pasting a code or a whole join link fills every box. The next empty box shows the `accent` border while focused, and Join stays disabled until all six are filled.
+The home screen asks for the join code in six boxes (50×60, 26px mono, `panel` fill; a `line-strong` border while empty, `ink-3` once filled) in two joined groups of three, rounded only at each group's outer ends, split by a dash, with **Join** as a full-width ink pill underneath. It is one real input drawn as boxes, so typing, paste and autofill all work; pasting a code or a whole join link fills every box. The next empty box shows the `accent` border while focused, and Join stays disabled until all six are filled.
 
 ### Join screen
 The first screen of a session. One panel with the **signal field** as its background (this surface's One Field), holding:
