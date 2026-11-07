@@ -12,7 +12,7 @@
   --line: #e9dcc4;
   --line-2: #f1e7d4;
   --line-strong: #d4c19f;
-  --side: #f3e7d1; --side-line: #e6d6b9;
+  --side: #f3e7d1; --side-line: #e6d6b9; --line-gray: #bcb5a9;
   --avatar: #6b4e2c; --avatar-ink: #fbf3e3;
   --sky-soft: #e4f0ff;
   --sky-ink: #1f4b8f;
@@ -54,7 +54,7 @@ body {
   --ground: #17181b; --panel: #1f2024; --panel-2: #26272c; --titlebar: #232428;
   --ink: #ececef; --ink-2: #b6b8c1; --ink-3: #9093a0;
   --line: #303137; --line-2: #2a2b30; --line-strong: #4a4c55;
-  --sky-soft: #1c2a40; --sky-ink: #a8c9ff; --lilac-soft: #2a2542; --viz-allowed: #2a9d5f; --viz-approved: #6e7bea; --viz-denied: #d9693f; --viz-failed: #6c6e78; --ink-divider: rgba(0, 0, 0, 0.16); --side: transparent; --side-line: var(--line); --avatar: var(--sky-soft); --avatar-ink: var(--sky-ink); --mint-soft: #16301f; --mint-ink: #8fe0b0; --mint-line: #24492f;
+  --sky-soft: #1c2a40; --sky-ink: #a8c9ff; --lilac-soft: #2a2542; --viz-allowed: #2a9d5f; --viz-approved: #6e7bea; --viz-denied: #d9693f; --viz-failed: #6c6e78; --ink-divider: rgba(0, 0, 0, 0.16); --side: transparent; --side-line: var(--line); --line-gray: #55575f; --avatar: var(--sky-soft); --avatar-ink: var(--sky-ink); --mint-soft: #16301f; --mint-ink: #8fe0b0; --mint-line: #24492f;
   --peach: #8a4630; --peach-soft: #3b2520; --peach-ink: #ffbca5;
   --accent: #929dff; --ok: #3cc27a;
   --risk-low-soft: #173726; --risk-low-ink: #8edbb0;
@@ -275,7 +275,7 @@ button:disabled { cursor: not-allowed; }
 .otp { position: relative; display: flex; align-items: center; gap: 8px; }
 .otp input { position: absolute; inset: 0; width: 100%; opacity: 0; border: 0; padding: 0; font: inherit; cursor: text; }
 .otp-box {
-  display: grid; place-items: center; width: 50px; height: 60px; border: 1px solid var(--line-strong);
+  display: grid; place-items: center; width: 50px; height: 60px; border: 1px solid var(--line-gray);
   background: var(--panel); font: 500 26px/1 var(--mono); color: var(--ink); transition: border-color 120ms, box-shadow 120ms;
 }
 .otp-group { display: flex; }
