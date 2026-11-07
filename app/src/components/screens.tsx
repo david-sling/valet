@@ -220,11 +220,11 @@ export function Home({ code: linked = '', onJoin, error }: { code?: string; onJo
               aria-invalid={!!error}
               aria-describedby={error ? 'code-error' : undefined}
             />
-            {[0, 1, 2].map(box)}
+            <span className="otp-group">{[0, 1, 2].map(box)}</span>
             <span className="otp-dash" aria-hidden="true">
               –
             </span>
-            {[3, 4, 5].map(box)}
+            <span className="otp-group">{[3, 4, 5].map(box)}</span>
           </div>
           <button className="mbtn mbtn-ink" disabled={code.length < 6}>
             Join
