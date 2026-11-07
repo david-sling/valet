@@ -97,6 +97,7 @@ button:disabled { cursor: not-allowed; }
 .mbtn-danger { background: var(--panel); border-color: var(--peach); color: var(--peach-ink); }
 .mbtn-danger:hover { background: var(--peach-soft); }
 .mbtn:disabled { opacity: 0.4; }
+.mbtn[aria-busy="true"] { opacity: 1; cursor: progress; }
 
 /* risk: always the word and its colour */
 .risk { display: inline-block; padding: 1px 8px; border-radius: 999px; font: 600 12px/1.5 var(--sans); letter-spacing: 0.02em; white-space: nowrap; }
@@ -272,7 +273,7 @@ button:disabled { cursor: not-allowed; }
 .code-row { display: inline-grid; gap: 14px; justify-self: start; }
 /* one real input under six drawn boxes, so typing, paste and autofill all work */
 .otp { position: relative; display: flex; align-items: center; gap: 8px; }
-.otp input { position: absolute; inset: 0; width: 100%; opacity: 0; border: 0; padding: 0; font: inherit; cursor: text; }
+.otp input { position: absolute; inset: 0; z-index: 3; width: 100%; opacity: 0; border: 0; padding: 0; font: inherit; cursor: text; }
 .otp-box {
   display: grid; place-items: center; width: 50px; height: 60px; border: 1px solid var(--line-gray);
   background: var(--panel); font: 500 26px/1 var(--mono); color: var(--ink); transition: border-color 120ms, box-shadow 120ms;
@@ -361,6 +362,8 @@ button:disabled { cursor: not-allowed; }
   opacity: 0; pointer-events: none; transition: opacity 120ms, transform 120ms;
 }
 .outcome:hover::after, .outcome:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+.spinner { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 700ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 @keyframes arrive { from { opacity: 0; transform: translateY(8px); } }
 
 /* ended */

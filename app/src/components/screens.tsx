@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Grant } from '@valet/protocol'
 import { KINDS, SESSION_MINUTES, hhmm, clock, day, describe, minutes } from '../format'
 import { RiskBars } from './RiskBars'
@@ -170,15 +170,23 @@ export function Sidebar({
 }
 
 // Takes a typed code, a pasted "ACD-347" or a whole join link, and keeps the six code characters.
+// The caret always sits after the last character, so typing and Backspace act on the highlighted box.
+const toEnd = (el: HTMLInputElement) => requestAnimationFrame(() => el.setSelectionRange(el.value.length, el.value.length))
+
 const clean = (v: string) =>
   (v.match(/\/j\/([\w-]+)/)?.[1] ?? v)
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '')
     .slice(0, 6)
 
-export function Home({ code: linked = '', onJoin, error }: { code?: string; onJoin: (code: string) => void; error: string }) {
+export function Home({ code: linked = '', onJoin, error }: { code?: string; onJoin: (code: string) => Promise<void>; error: string }) {
   const [code, setCode] = useState(clean(linked))
   const [focused, setFocused] = useState(false)
+  const [joining, setJoining] = useState(false)
+  const input = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (error) input.current?.focus()
+  }, [error])
   const box = (i: number) => (
     <span
       key={i}
@@ -200,7 +208,9 @@ export function Home({ code: linked = '', onJoin, error }: { code?: string; onJo
         className="code-form"
         onSubmit={(e) => {
           e.preventDefault()
-          if (code.length === 6) onJoin(`${code.slice(0, 3)}-${code.slice(3)}`)
+          if (code.length < 6 || joining) return
+          setJoining(true)
+          onJoin(`${code.slice(0, 3)}-${code.slice(3)}`).finally(() => setJoining(false))
         }}
       >
         <label htmlFor="code" className="m-label">
@@ -209,6 +219,7 @@ export function Home({ code: linked = '', onJoin, error }: { code?: string; onJo
         <div className="code-row">
           <div className="otp" aria-invalid={!!error}>
             <input
+              ref={input}
               id="code"
               value={code}
               onChange={(e) => setCode(clean(e.target.value))}
@@ -216,7 +227,14 @@ export function Home({ code: linked = '', onJoin, error }: { code?: string; onJo
                 e.preventDefault()
                 setCode(clean(e.clipboardData.getData('text')))
               }}
-              onFocus={() => setFocused(true)}
+              onFocus={(e) => {
+                setFocused(true)
+                toEnd(e.currentTarget)
+              }}
+              onMouseUp={(e) => toEnd(e.currentTarget)}
+              onKeyDown={(e) => {
+                if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) e.preventDefault()
+              }}
               onBlur={() => setFocused(false)}
               autoComplete="one-time-code"
               autoCapitalize="characters"
@@ -231,8 +249,9 @@ export function Home({ code: linked = '', onJoin, error }: { code?: string; onJo
             </span>
             <span className="otp-group">{[3, 4, 5].map(box)}</span>
           </div>
-          <button className="mbtn mbtn-ink" disabled={code.length < 6}>
-            Join
+          <button className="mbtn mbtn-ink" disabled={code.length < 6 || joining} aria-busy={joining}>
+            {joining && <span className="spinner" aria-hidden="true" />}
+            {joining ? 'Joining…' : 'Join'}
           </button>
         </div>
         {error && (

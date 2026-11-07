@@ -109,7 +109,7 @@ export function App() {
 
   const join = (code: string) => {
     setJoinError('')
-    api.join(code).then(
+    return api.join(code).then(
       (s) => {
         setOpenId(s.id)
         setStart(s.template.length ? 'template' : 'none')

@@ -95,7 +95,11 @@ impl Relay {
         if (200..300).contains(&status) {
             return serde_json::from_value(body).map_err(|e| RelayError::Network(format!("unexpected reply: {e}")));
         }
-        let message = body["error"]["message"].as_str().unwrap_or("The relay refused the request.").to_string();
+        let message = body["error"]["message"].as_str().unwrap_or("The relay refused the request.");
+        let message = match body["error"]["hint"].as_str() {
+            Some(hint) if status == 429 => format!("{message} {hint}"),
+            _ => message.to_string(),
+        };
         Err(RelayError::Http { status, message })
     }
 

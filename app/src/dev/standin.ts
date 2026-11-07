@@ -61,37 +61,41 @@ const PROMPTS: Omit<Prompt, 'id' | 'askedAt' | 'busy'>[] = [
   },
 ]
 
+function join(code: string): Session {
+  if (code.startsWith('XXX')) throw 'That code has expired or was already used.'
+  const s: Session = {
+    id: `s${++n}`,
+    phase: 'joined',
+    senderName: 'Northwind support',
+    purpose: 'Find out why AcmeApp crashes on launch by reading its log and config.',
+    verified: false,
+    template: [
+      { kind: 'Files', access: 'read', scope: '~/Library/Logs/AcmeApp/**', risk: 'low' },
+      { kind: 'Programs', access: 'run', scope: '/usr/sbin/system_profiler', risk: 'medium' },
+      { kind: 'Processes', access: 'list', scope: 'all', risk: 'low' },
+    ],
+    createdAt: Date.now() - 90_000,
+    reviewUntil: Date.now() + 600_000,
+    startedAt: null,
+    endsAt: null,
+    endedAt: null,
+    endedBy: null,
+    grants: [],
+    feed: [],
+    prompts: [],
+  }
+  sessions = [s, ...sessions]
+  emit()
+  return s
+}
+
 function handle(cmd: string, args: Record<string, unknown>): unknown {
   const id = args.id as string
   switch (cmd) {
     case 'snapshot':
       return sessions
-    case 'join': {
-      const s: Session = {
-        id: `s${++n}`,
-        phase: 'joined',
-        senderName: 'Northwind support',
-        purpose: 'Find out why AcmeApp crashes on launch by reading its log and config.',
-        verified: false,
-        template: [
-          { kind: 'Files', access: 'read', scope: '~/Library/Logs/AcmeApp/**', risk: 'low' },
-          { kind: 'Programs', access: 'run', scope: '/usr/sbin/system_profiler', risk: 'medium' },
-          { kind: 'Processes', access: 'list', scope: 'all', risk: 'low' },
-        ],
-        createdAt: Date.now() - 90_000,
-        reviewUntil: Date.now() + 600_000,
-        startedAt: null,
-        endsAt: null,
-        endedAt: null,
-        endedBy: null,
-        grants: [],
-        feed: [],
-        prompts: [],
-      }
-      sessions = [s, ...sessions]
-      emit()
-      return s
-    }
+    case 'join':
+      return wait(900).then(() => join(String(args.code)))
     case 'decline':
       sessions = sessions.filter((s) => s.id !== id)
       emit()
