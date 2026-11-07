@@ -2,17 +2,15 @@
 name: Valet
 description: A valet key for AI agents — agents run commands on a client's machine, and the client's machine decides what is allowed.
 colors:
-  ground: "#f5eddd"
+  ground: "#f4f4f2"
   panel: "#ffffff"
-  panel-2: "#faf3e6"
-  ink: "#1e1a13"
-  ink-2: "#51493a"
-  ink-3: "#6f6453"
-  line: "#e9dcc4"
-  line-2: "#f1e7d4"
-  line-strong: "#d4c19f"
-  side: "#f3e7d1"
-  avatar: "#6b4e2c"
+  panel-2: "#fafaf8"
+  ink: "#15161a"
+  ink-2: "#4a4c55"
+  ink-3: "#666977"
+  line: "#e4e4e9"
+  line-2: "#efeff2"
+  line-strong: "#cfcfd6"
   sky: "#8ec5ff"
   sky-soft: "#e4f0ff"
   sky-ink: "#1f4b8f"
@@ -255,15 +253,13 @@ Wave's warm neutral base and role hues, plus Valet's own red-and-cream brand pai
 
 | Token | Hex | Role in Valet |
 |---|---|---|
-| ground | #f5eddd | Window and page background. Light mode's neutrals are tinted toward the stub cream, so the app reads warm; they are neutrals, not the brand cream itself. |
-| panel | #ffffff | Every panel: the approval prompt, permission list, activity feed, log. Pure white, so content stays the brightest surface. |
-| panel-2 | #faf3e6 | Recessed surfaces: the action block, inputs, code boxes, segmented track, inline code. |
-| side | #f3e7d1 | The sidebar, one step darker than the content beside it. Dark mode keeps the sidebar on ground. |
-| ink | #1e1a13 | Text, headings, the primary pill, the literal action in the action block. |
-| ink-2 | #51493a | Secondary copy; the agent's stated reason. |
-| ink-3 | #6f6453 | Labels, timestamps, hints, system events. Clears 4.5:1 on ground, side, panel and panel-2. |
-| line / line-2 / line-strong | #e9dcc4 / #f1e7d4 / #d4c19f | Hairlines, warm to match the ground. |
-| avatar / avatar-ink | #6b4e2c / #fbf3e3 | The vendor's initial tile in light mode (sidebar, page header, activity). Dark mode uses sky-soft / sky-ink. |
+| ground | #f4f4f2 | Window and page background. |
+| panel | #ffffff | Every panel: the approval prompt, permission list, activity feed, log. |
+| panel-2 | #fafaf8 | Recessed surfaces: the action block, inputs, segmented track, inline code. |
+| ink | #15161a | Text, headings, the primary pill, the literal action in the action block. |
+| ink-2 | #4a4c55 | Secondary copy; the agent's stated reason. |
+| ink-3 | #666977 | Labels, timestamps, hints, system events. Clears 4.5:1 on ground, panel and panel-2. |
+| line / line-2 / line-strong | #e4e4e9 / #efeff2 / #cfcfd6 | Hairlines, as in Wave. |
 | sky / sky-soft / sky-ink | #8ec5ff / #e4f0ff / #1f4b8f | **Agent.** Agent avatar tile, `agent` badge, the agent's side of the signal field. |
 | peach / peach-soft / peach-ink | #ffc4b0 / #ffede6 / #8f3b1f | **Client.** `you` badge, the client's side of the field; also Wave's warning tone (danger buttons, warning notes). |
 | lilac / lilac-soft | #c7b8ff / #efeaff | **Session.** The session bar's fill, text selection, the middle of the field. |
@@ -382,7 +378,7 @@ Under no circumstances does the prompt auto-approve, pre-select Allow, or put Al
 A pill with the level's word in 12px 600, tracking 0.02em, using its `risk-*` component token. Low, medium and high are tinted; critical is the system's only filled chip. A 12px icon may precede the word, but the word is required.
 
 ### Join code
-The home screen asks for the join code in six boxes (50×60, 26px mono, `panel` fill; a light gray `line-gray` border (#bcb5a9) while empty, `ink-3` once filled) in two joined groups of three, rounded only at each group's outer ends, split by a dash, with **Join** as a full-width ink pill underneath. It is one real input drawn as boxes, so typing, paste and autofill all work; pasting a code or a whole join link fills every box. The next empty box shows the `accent` border while focused, and Join stays disabled until all six are filled.
+The home screen asks for the join code in six boxes (50×60, 26px mono, `panel` fill; a light gray `line-gray` border (#b9bbc3) while empty, `ink-3` once filled) in two joined groups of three, rounded only at each group's outer ends, split by a dash, with **Join** as a full-width ink pill underneath. It is one real input drawn as boxes, so typing, paste and autofill all work; pasting a code or a whole join link fills every box. The next empty box shows the `accent` border while focused, and Join stays disabled until all six are filled.
 
 ### Join screen
 The first screen of a session. One panel with the **signal field** as its background (this surface's One Field), holding:
