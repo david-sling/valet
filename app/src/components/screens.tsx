@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Grant } from '@valet/protocol'
 import { KINDS, SESSION_MINUTES, hhmm, clock, day, describe, minutes } from '../format'
 import { RiskBars } from './RiskBars'
@@ -179,6 +179,10 @@ const clean = (v: string) =>
 export function Home({ code: linked = '', onJoin, error }: { code?: string; onJoin: (code: string) => void; error: string }) {
   const [code, setCode] = useState(clean(linked))
   const [focused, setFocused] = useState(false)
+  const input = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (error) input.current?.focus()
+  }, [error])
   const box = (i: number) => (
     <span
       key={i}
@@ -209,6 +213,7 @@ export function Home({ code: linked = '', onJoin, error }: { code?: string; onJo
         <div className="code-row">
           <div className="otp" aria-invalid={!!error}>
             <input
+              ref={input}
               id="code"
               value={code}
               onChange={(e) => setCode(clean(e.target.value))}

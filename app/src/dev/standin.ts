@@ -67,6 +67,7 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
     case 'snapshot':
       return sessions
     case 'join': {
+      if (String(args.code).startsWith('XXX')) throw 'That code has expired or was already used.'
       const s: Session = {
         id: `s${++n}`,
         phase: 'joined',
