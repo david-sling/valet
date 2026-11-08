@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio_util::sync::CancellationToken;
 
-use crate::needs::{home, protected_roots, SEARCH_PATH};
+use crate::needs::{home, protected_roots, scope_path, scope_protects, SEARCH_PATH};
 use crate::types::{now_ms, Grant, Kind, Need, Source};
 
 const OUTPUT_CAP: usize = 256 * 1024;
@@ -14,6 +14,9 @@ const WALL_LIMIT: Duration = Duration::from_secs(300);
 const CPU_SECONDS: libc::rlim_t = 300;
 // Large enough for a debug build's libraries (rustc writes 300 MB and more), small enough to stop a runaway write filling the disk
 const FILE_BYTES: libc::rlim_t = 2 * 1024 * 1024 * 1024;
+// <libproc.h>'s selector for one user's pids; libc has the call but not the constant
+const PROC_UID_ONLY: u32 = 4;
+const PROC_HEADROOM: libc::rlim_t = 256;
 
 const BASE: &str = r#"(version 1)
 (deny default)
@@ -61,19 +64,8 @@ fn filter(scope: &str) -> Option<String> {
     if scope == "*" {
         return Some("(subpath \"/\")".into());
     }
-    let (base, glob) = match scope.strip_suffix("/**") {
-        Some(b) => (b, true),
-        None => (scope, false),
-    };
-    let p = if base == "~" {
-        home()
-    } else if let Some(rest) = base.strip_prefix("~/") {
-        home().join(rest)
-    } else if base.starts_with('/') {
-        PathBuf::from(base)
-    } else {
-        return None;
-    };
+    let glob = scope.ends_with("/**");
+    let p = scope_path(scope)?;
     Some(format!("({} {})", if glob { "subpath" } else { "literal" }, quoted(&p)))
 }
 
@@ -90,10 +82,12 @@ pub fn profile(grants: &[Grant], approved: &[Need], program: &Path, tmp: &Path) 
         .map(|g| Allowed { need: &g.need, approved: g.source == Source::Approved })
         .chain(approved.iter().map(|n| Allowed { need: n, approved: true }))
         .collect();
-    let files = |access: &[&str], only_approved: bool| -> Vec<String> {
+    // only_protected picks the grants the deny below has to make way for: the ones the person approved for a
+    // protected place itself. A broad grant never qualifies, however it was granted.
+    let files = |access: &[&str], only_protected: bool| -> Vec<String> {
         live.iter()
             .filter(|a| a.need.kind == Kind::Files && access.contains(&a.need.access.as_str()))
-            .filter(|a| !only_approved || a.approved)
+            .filter(|a| !only_protected || (a.approved && scope_protects(&a.need.scope)))
             .filter_map(|a| filter(&a.need.scope))
             .collect()
     };
@@ -203,6 +197,16 @@ fn blocked(stderr: &str) -> bool {
     ["Operation not permitted", "sandbox blocked", "deny(1)", "Sandbox: "].iter().any(|s| stderr.contains(s))
 }
 
+// macOS counts processes per user, not per process group, so a ceiling has to start from what the person is
+// already running: room enough for any real command, far short of what a fork bomb needs.
+fn process_ceiling() -> Option<libc::rlim_t> {
+    let bytes = unsafe { libc::proc_listpids(PROC_UID_ONLY, libc::getuid(), std::ptr::null_mut(), 0) };
+    if bytes <= 0 {
+        return None;
+    }
+    Some(bytes as libc::rlim_t / size_of::<libc::pid_t>() as libc::rlim_t + PROC_HEADROOM)
+}
+
 fn kill_group(pgid: i32, signal: i32) {
     if pgid > 0 {
         unsafe {
@@ -234,14 +238,19 @@ pub async fn run(
     cmd.current_dir(cwd.unwrap_or(tmp));
     cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     cmd.process_group(0).kill_on_drop(true);
+    let ceiling = process_ceiling();
     unsafe {
-        cmd.pre_exec(|| {
+        cmd.pre_exec(move || {
             let cpu = libc::rlimit { rlim_cur: CPU_SECONDS, rlim_max: CPU_SECONDS };
             let fsize = libc::rlimit { rlim_cur: FILE_BYTES, rlim_max: FILE_BYTES };
             let core = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
             libc::setrlimit(libc::RLIMIT_CPU, &cpu);
             libc::setrlimit(libc::RLIMIT_FSIZE, &fsize);
             libc::setrlimit(libc::RLIMIT_CORE, &core);
+            if let Some(n) = ceiling {
+                let procs = libc::rlimit { rlim_cur: n, rlim_max: n };
+                libc::setrlimit(libc::RLIMIT_NPROC, &procs);
+            }
             Ok(())
         });
     }
@@ -319,6 +328,11 @@ mod tests {
     }
 
     #[test]
+    fn the_process_ceiling_leaves_room_for_a_real_command() {
+        assert!(process_ceiling().is_some_and(|n| n > PROC_HEADROOM));
+    }
+
+    #[test]
     fn recognises_the_ways_a_sandbox_block_is_reported() {
         assert!(blocked("ls: /Users/x/.ssh: Operation not permitted"));
         assert!(blocked("xcrun: error: unable to load libxcrun (... (file system sandbox blocked open()), ...)"));
@@ -353,6 +367,23 @@ mod tests {
         assert!(matches!(sh("/bin/ls ~/Library/Logs", &all).await, Ran::Done(_)));
         let r = sh("/bin/ls ~/.ssh", &all).await;
         assert!(matches!(r, Ran::Blocked(_)), "~/.ssh was readable");
+    }
+
+    #[test]
+    fn only_an_approved_grant_for_the_place_itself_follows_the_deny() {
+        let after_deny = |g: Grant| {
+            let sb = profile(&[g], &[], Path::new("/bin/ls"), &tmp());
+            sb.split_once("(deny file-read*").unwrap().1.to_string()
+        };
+        assert!(after_deny(grant(Kind::Files, "read", "~/.ssh/**", Source::Approved)).contains(".ssh"));
+        assert!(!after_deny(grant(Kind::Files, "read", "~/**", Source::Approved)).contains("allow file-read*"));
+    }
+
+    #[tokio::test]
+    async fn a_broad_grant_the_person_approved_leaves_protected_places_closed() {
+        let all = [grant(Kind::Files, "read", "~/**", Source::Approved), grant(Kind::Programs, "run", "/bin/ls", Source::Approved)];
+        assert!(matches!(sh("/bin/ls ~/Library/Logs", &all).await, Ran::Done(_)));
+        assert!(matches!(sh("/bin/ls ~/.ssh", &all).await, Ran::Blocked(_)), "~/.ssh was readable");
     }
 
     #[tokio::test]

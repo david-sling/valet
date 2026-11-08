@@ -304,7 +304,12 @@ fn add_update_item(app: &AppHandle) -> tauri::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let base = std::env::var("VALET_RELAY").unwrap_or_else(|_| DEFAULT_RELAY.into());
+    // VALET_RELAY points a development build at a local relay. A release always talks to Valet's own, so
+    // nothing that can set this app's environment can put itself between the client and the agent.
+    let base = match std::env::var("VALET_RELAY") {
+        Ok(url) if cfg!(debug_assertions) => url,
+        _ => DEFAULT_RELAY.into(),
+    };
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_deep_link::init())

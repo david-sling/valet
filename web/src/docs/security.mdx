@@ -19,7 +19,7 @@ description: How Valet limits what an agent can do on a Mac, what leaves the mac
 - Valet never reads a command's text to decide whether it is safe. It works out what an action needs from what will actually run, after resolving paths and following symlinks.
 - The process environment is cleared, except variables the person allowed and a minimal `PATH`.
 - Each session's processes run in their own process group with limits on CPU time, memory and process count, and are stopped when the session ends.
-- Protected locations (SSH keys, credentials, keychains, browser data, password managers, Mail, Messages, `.env` files) are denied in the sandbox profile after every broader permission, and can be reached only through a prompt the person answered.
+- Protected locations (SSH keys, credentials, keychains, browser data, password managers, Mail, Messages, `.env` files) are denied in the sandbox profile after every other permission, and can be reached only through a prompt the person answered for that place itself: no broad permission opens one, however it was granted.
 - Programs that need raised privileges, such as `sudo`, can't start inside the sandbox.
 
 ## Approvals
