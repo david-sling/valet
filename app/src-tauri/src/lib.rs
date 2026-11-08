@@ -127,7 +127,7 @@ async fn output_page(m: State<'_, Manager>, prompt: String, from: usize) -> Resu
 
 #[tauri::command]
 async fn set_grant(m: State<'_, Manager>, id: String, grant: String, on: bool) -> Result<(), String> {
-    m.set_grant(&id, &grant, on)
+    m.inner().clone().set_grant(&id, &grant, on).await
 }
 
 #[tauri::command]

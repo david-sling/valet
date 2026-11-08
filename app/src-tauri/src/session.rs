@@ -477,7 +477,16 @@ impl Manager {
         }
     }
 
-    pub fn set_grant(&self, id: &str, grant_id: &str, on: bool) -> Result<(), String> {
+    pub async fn set_grant(&self, id: &str, grant_id: &str, on: bool) -> Result<(), String> {
+        let (agent, risky) = {
+            let st = self.lock();
+            let s = st.sessions.get(id).ok_or("That session isn't open.")?;
+            let g = s.view.grants.iter().find(|g| g.id == grant_id).ok_or("No such permission.")?;
+            (s.view.sender_name.clone(), on && !g.on && g.need.risk >= Risk::High)
+        };
+        if risky {
+            approve::confirm(&format!("let {} do a high-risk action without asking", clip(&agent, 40))).await?;
+        }
         let (token, grants) = {
             let mut st = self.lock();
             let s = st.sessions.get_mut(id).ok_or("That session isn't open.")?;
