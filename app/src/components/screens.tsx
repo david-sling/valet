@@ -47,6 +47,7 @@ export function Sidebar({
   onDark,
   settingsOpen,
   onSettings,
+  version,
 }: {
   joining: boolean
   ongoing: OngoingItem[]
@@ -61,6 +62,7 @@ export function Sidebar({
   onDark: () => void
   settingsOpen: boolean
   onSettings: () => void
+  version: string
 }) {
   return (
     <nav className="side" aria-label="Sessions">
@@ -139,13 +141,16 @@ export function Sidebar({
       </div>
 
       <div className="side-foot">
-        <button className="side-settings" aria-label="Settings" title="Settings" aria-current={settingsOpen ? 'page' : undefined} onClick={onSettings}>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="6.5" />
-            <circle cx="12" cy="12" r="2.5" />
-            <path d="M18.50 12.00L21.00 12.00 M16.60 16.60L18.36 18.36 M12.00 18.50L12.00 21.00 M7.40 16.60L5.64 18.36 M5.50 12.00L3.00 12.00 M7.40 7.40L5.64 5.64 M12.00 5.50L12.00 3.00 M16.60 7.40L18.36 5.64" />
-          </svg>
-        </button>
+        <div className="side-about">
+          <button className="side-settings" aria-label="Settings" title="Settings" aria-current={settingsOpen ? 'page' : undefined} onClick={onSettings}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="6.5" />
+              <circle cx="12" cy="12" r="2.5" />
+              <path d="M18.50 12.00L21.00 12.00 M16.60 16.60L18.36 18.36 M12.00 18.50L12.00 21.00 M7.40 16.60L5.64 18.36 M5.50 12.00L3.00 12.00 M7.40 7.40L5.64 5.64 M12.00 5.50L12.00 3.00 M16.60 7.40L18.36 5.64" />
+            </svg>
+          </button>
+          {version && <span>Valet {version}</span>}
+        </div>
         <div className="theme-pick" role="radiogroup" aria-label="Appearance">
           <button role="radio" aria-checked={!dark} aria-label="Light" title="Light" onClick={() => dark && onDark()}>
             <svg viewBox="0 0 16 16" aria-hidden="true">

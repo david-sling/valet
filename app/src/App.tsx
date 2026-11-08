@@ -234,6 +234,7 @@ export function App() {
             onDark={() => setDark(!dark)}
             settingsOpen={screen === 'settings'}
             onSettings={() => setScreen('settings')}
+            version={version}
           />
           <div className="win-body">
             {error && (
