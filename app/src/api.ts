@@ -90,7 +90,7 @@ export const api = {
   forget: (id: string) => invoke<boolean>('forget', { id }),
   forgetAll: () => invoke<boolean>('forget_all'),
   settings: () => invoke<Settings>('settings'),
-  setSettings: (settings: Settings) => invoke<void>('set_settings', { settings }),
+  setSettings: (settings: Settings) => invoke<boolean>('set_settings', { settings }),
 }
 
 export const message = (e: unknown) => (typeof e === 'string' ? e : e instanceof Error ? e.message : 'Something went wrong.')

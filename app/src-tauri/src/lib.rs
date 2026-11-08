@@ -24,7 +24,7 @@ use tauri_plugin_updater::UpdaterExt;
 
 use policy::Scope;
 use relay::Relay;
-use session::{GrantChoice, Manager, SessionView};
+use session::{GrantChoice, Manager, Phase, SessionView};
 use settings::{Prefs, Settings};
 
 const DEFAULT_RELAY: &str = "https://valet.davidsling.in";
@@ -192,16 +192,27 @@ fn settings(prefs: State<'_, Prefs>) -> Settings {
 }
 
 #[tauri::command]
-fn set_settings(prefs: State<'_, Prefs>, m: State<'_, Manager>, settings: Settings) -> Result<(), String> {
+async fn set_settings(app: AppHandle, prefs: State<'_, Prefs>, m: State<'_, Manager>, settings: Settings) -> Result<bool, String> {
+    if let Some(days) = settings.keep_days {
+        let n = m.snapshot().iter().filter(|v| v.phase == Phase::Ended && too_old(v, days)).count();
+        let sessions = if n == 1 { "1 past session".to_string() } else { format!("{n} past sessions") };
+        let text = format!("{sessions} older than {days} days will be deleted from this Mac straight away. This can't be undone.");
+        if n > 0 && !confirm(&app, &format!("Keep past sessions for {days} days?"), &text) {
+            return Ok(false);
+        }
+    }
     prefs.set(settings)?;
     prune(&m, settings);
-    Ok(())
+    Ok(true)
+}
+
+fn too_old(v: &SessionView, days: u32) -> bool {
+    v.ended_at.unwrap_or(v.created_at) < types::now_ms() - i64::from(days) * DAY_MS
 }
 
 fn prune(m: &Manager, s: Settings) {
     let Some(days) = s.keep_days else { return };
-    let cutoff = types::now_ms() - i64::from(days) * DAY_MS;
-    m.forget(|v| v.ended_at.unwrap_or(v.created_at) < cutoff);
+    m.forget(|v| too_old(v, days));
 }
 
 async fn keep_pruned(app: AppHandle) {

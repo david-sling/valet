@@ -187,9 +187,16 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
       return true
     case 'settings':
       return settings
-    case 'set_settings':
-      settings = args.settings as typeof settings
-      return null
+    case 'set_settings': {
+      const next = args.settings as typeof settings
+      const cutoff = Date.now() - (next.keepDays ?? Infinity) * 86_400_000
+      const old = sessions.filter((s) => s.phase === 'ended' && (s.endedAt ?? s.createdAt) < cutoff)
+      if (old.length && !confirm(`${old.length} past sessions older than ${next.keepDays} days will be deleted straight away.`)) return false
+      sessions = sessions.filter((s) => !old.includes(s))
+      settings = next
+      emit()
+      return true
+    }
     case 'take_join_link':
       return null
     case 'export_json':

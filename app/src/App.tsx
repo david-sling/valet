@@ -296,7 +296,7 @@ export function App() {
               <SettingsPage
                 settings={settings}
                 hasPast={past.length > 0}
-                onChange={(s) => attempt(api.setSettings(s)).then(() => setSettings(s), () => undefined)}
+                onChange={(s) => attempt(api.setSettings(s)).then((saved) => saved && setSettings(s), () => undefined)}
                 onDeleteAll={() => attempt(api.forgetAll()).catch(() => undefined)}
                 version={version}
                 checking={checking}
