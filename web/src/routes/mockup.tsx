@@ -17,7 +17,6 @@ export const Route = createFileRoute('/mockup')({
   head: () => ({
     meta: [{ title: 'Valet · Client app mockup' }, { name: 'robots', content: 'noindex' }],
     links: [
-      { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Geist+Mono:wght@600&display=swap' },
       { rel: 'stylesheet', href: mockCss },
     ],
   }),
