@@ -618,6 +618,13 @@ a { color: inherit; }
 .site-foot-base {
   grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px;
 }
+@media (max-width: 640px) {
+  .site-foot { grid-template-columns: 1fr; gap: 10px; }
+  .site-foot-id { display: contents; }
+  .site-foot nav { margin: 22px 0; }
+  .site-foot-id p:has(.claude-mark) { order: 1; margin-top: 0; }
+  .site-foot-base { order: 2; }
+}
 .site-foot nav a { color: var(--ink-2); text-decoration: none; }
 .site-foot nav a:hover { color: var(--ink); }
 .site-foot p { margin: 0; }
