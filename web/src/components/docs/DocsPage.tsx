@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ComponentProps } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { MDXComponents } from 'mdx/types'
+import { TextMorph } from 'torph/react'
 import { StarButton } from '#/components/Links'
 import { SECTIONS, absolutise, getDoc, neighbours } from '#/lib/docs'
 import type { Doc, Heading } from '#/lib/docs'
@@ -52,7 +53,7 @@ function CopyMarkdown({ doc }: { doc: Doc }) {
     >
       {state === 'copied' ? <CheckIcon /> : <MarkdownIcon />}
       <span aria-live="polite">
-        {state === 'copied' ? 'Copied' : state === 'failed' ? 'Couldn’t copy' : 'Copy as Markdown'}
+        <TextMorph>{state === 'copied' ? 'Copied' : state === 'failed' ? 'Couldn’t copy' : 'Copy as Markdown'}</TextMorph>
       </span>
     </button>
   )
@@ -85,6 +86,33 @@ const components: MDXComponents = {
   ),
   a: ({ href = '', ...props }) =>
     /^https?:/.test(href) ? <a href={href} target="_blank" rel="noreferrer" {...props} /> : <a href={href} {...props} />,
+}
+
+function ThemePick() {
+  const [dark, setDark] = useState(false)
+  useEffect(() => setDark(document.documentElement.dataset.docsTheme === 'dark'), [])
+  const pick = (next: boolean) => {
+    setDark(next)
+    document.documentElement.dataset.docsTheme = next ? 'dark' : 'light'
+    try {
+      localStorage.setItem('docs-theme', next ? 'dark' : 'light')
+    } catch {}
+  }
+  return (
+    <div className="theme-pick" role="radiogroup" aria-label="Appearance">
+      <button type="button" role="radio" aria-checked={!dark} aria-label="Light" title="Light" onClick={() => pick(false)}>
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <circle cx="8" cy="8" r="2.8" />
+          <path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1" />
+        </svg>
+      </button>
+      <button type="button" role="radio" aria-checked={dark} aria-label="Dark" title="Dark" onClick={() => pick(true)}>
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M13.2 9.6A5.5 5.5 0 0 1 6.4 2.8a5.5 5.5 0 1 0 6.8 6.8z" />
+        </svg>
+      </button>
+    </div>
+  )
 }
 
 function Sidebar({ current }: { current: string }) {
@@ -153,14 +181,38 @@ function Contents({ headings }: { headings: Heading[] }) {
 
 export function DocsPage({ doc, stars }: { doc: Doc; stars: number | null }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
   const { prev, next } = neighbours(doc.slug)
   const { Content } = doc
   useEffect(() => setMenuOpen(false), [doc.slug])
+  useEffect(() => setCollapsed(document.documentElement.dataset.docsSide === 'collapsed'), [])
+  const toggleSide = () => {
+    const next = !collapsed
+    setCollapsed(next)
+    document.documentElement.dataset.docsSide = next ? 'collapsed' : 'open'
+    try {
+      localStorage.setItem('docs-side', next ? 'collapsed' : 'open')
+    } catch {}
+  }
 
   return (
     <div className="docs" data-menu={menuOpen ? 'open' : undefined}>
       <header className="docs-top">
         <div className="docs-top-start">
+          <button
+            type="button"
+            className="docs-side-toggle"
+            aria-controls="docs-side"
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'}
+            title={collapsed ? 'Show sidebar' : 'Hide sidebar'}
+            onClick={toggleSide}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+              <path d="M9.5 4.5v15" />
+            </svg>
+          </button>
           <a className="docs-brand" href="/">
             <img src="/brand/valet-mark.svg" alt="" width="24" height="24" />
             Valet
@@ -186,16 +238,19 @@ export function DocsPage({ doc, stars }: { doc: Doc; stars: number | null }) {
       <div className="docs-body">
         <div id="docs-side" className="docs-side-wrap">
           <Sidebar current={doc.slug} />
+          <div className="docs-side-foot">
+            <ThemePick />
+          </div>
         </div>
 
         <main className="docs-main">
           <article className="docs-article">
             <header className="docs-head">
-              <h1>{doc.title}</h1>
-              <p className="docs-lead">{doc.description}</p>
               <div className="docs-actions">
                 <CopyMarkdown doc={doc} />
               </div>
+              <h1>{doc.title}</h1>
+              <p className="docs-lead">{doc.description}</p>
             </header>
             <div className="docs-prose">
               <Content components={components} />

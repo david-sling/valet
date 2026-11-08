@@ -3,6 +3,8 @@ import type { Doc } from '#/lib/docs'
 
 const SITE = 'https://valet.davidsling.in'
 
+const THEME = `try{var t=localStorage.getItem('docs-theme');document.documentElement.dataset.docsTheme=t||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.docsSide=localStorage.getItem('docs-side')||'open'}catch(e){}`
+
 export function docHead(doc: Doc | undefined) {
   if (!doc) return {}
   const title = `${doc.title} · Valet docs`
@@ -16,6 +18,7 @@ export function docHead(doc: Doc | undefined) {
       { name: 'twitter:title', content: title },
       { name: 'twitter:description', content: doc.description },
     ],
+    scripts: [{ children: THEME }],
     links: [
       { rel: 'stylesheet', href: docsCss },
       { rel: 'canonical', href: `${SITE}${doc.href}` },

@@ -58,7 +58,7 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
         {/* the hero scene waits for its script to place it; without JavaScript it shows in its resting layout */}

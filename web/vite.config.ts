@@ -15,7 +15,7 @@ import rehypeShiki from '@shikijs/rehype'
 
 const docs = mdx({
   remarkPlugins: [remarkGfm, remarkFrontmatter, [remarkMdxFrontmatter, { name: 'frontmatter' }]],
-  rehypePlugins: [rehypeSlug, [rehypeShiki, { theme: 'github-light' }]],
+  rehypePlugins: [rehypeSlug, [rehypeShiki, { themes: { light: 'github-light', dark: 'github-dark-default' }, defaultColor: 'light' }]],
 })
 
 const config = defineConfig({

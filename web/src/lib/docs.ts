@@ -34,7 +34,7 @@ function body(source: string) {
 function plain(text: string) {
   return text
     .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/[`*_]/g, '')
+    .replace(/[`*]/g, '')
     .trim()
 }
 
