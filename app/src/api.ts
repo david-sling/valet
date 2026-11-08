@@ -51,12 +51,15 @@ export type Session = {
   endsAt: number | null
   endedAt: number | null
   endedBy: 'client' | 'agent' | 'time' | 'closed' | null
+  kept: boolean
   grants: Grant[]
   feed: FeedItem[]
   prompts: Prompt[]
 }
 
 export type ReleaseNote = { version: string; body: string }
+
+export type Settings = { autoUpdate: boolean; keepDays: number | null }
 
 export type GrantChoice = Need & { on: boolean }
 
@@ -78,12 +81,18 @@ export const api = {
   version: getVersion,
   checkUpdate: () => invoke<string | null>('check_update'),
   onCheckUpdate: (f: () => void) => listen('check-update', f),
+  onOpenSettings: (f: () => void) => listen('open-settings', f),
   onUpdateFound: (f: (version: string) => void) => listen<string>('update-found', (e) => f(e.payload)),
   onUpdateProgress: (f: (percent: number | null) => void) => listen<number | null>('update-progress', (e) => f(e.payload)),
   onUpdateFailed: (f: () => void) => listen('update-failed', f),
   takeJoinLink: () => invoke<string | null>('take_join_link'),
   onJoinLink: (f: () => void) => listen('join-link', f),
   whatsNew: () => invoke<ReleaseNote[]>('whats_new'),
+  forget: (id: string) => invoke<boolean>('forget', { id }),
+  forgetAll: () => invoke<boolean>('forget_all'),
+  keep: (id: string, kept: boolean) => invoke<void>('keep', { id, kept }),
+  settings: () => invoke<Settings>('settings'),
+  setSettings: (settings: Settings) => invoke<void>('set_settings', { settings }),
 }
 
 export const message = (e: unknown) => (typeof e === 'string' ? e : e instanceof Error ? e.message : 'Something went wrong.')

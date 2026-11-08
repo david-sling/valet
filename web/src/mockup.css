@@ -1,3 +1,5 @@
+@import "@fontsource/geist-mono/600.css";
+
 /* The client app mockup (/mockup). The app's own tokens from DESIGN.md (Wave's ground, panels and role hues),
    scoped to the page so the landing page's palette stays its own. */
 .mock {

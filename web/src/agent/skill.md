@@ -27,7 +27,7 @@ Fill in the two values. `name` is who is asking (your user, or their company); t
 ```sh
 [ -s "$W/token" ] && { echo "REFUSING: $W already holds a session. End it (step 5), or if it is already over, rm -rf \"$W\" first."; exit 1; }
 jq -n --arg name "NAME" --arg purpose "PURPOSE" \
-  '{name: $name, purpose: $purpose, skill_version: 3}' > "$W/create.json"
+  '{name: $name, purpose: $purpose, skill_version: 4}' > "$W/create.json"
 curl -sS --http1.1 -X POST "$BASE/sessions" -H 'Content-Type: application/json' -d @"$W/create.json" -o "$W/session.json" -w 'HTTP %{http_code}\n'
 jq -r '.session_id // empty' "$W/session.json" > "$W/id"; jq -r '.agent_token // empty' "$W/session.json" > "$W/token"
 [ -s "$W/token" ] || { echo 'START FAILED:'; cat "$W/session.json"; rm -f "$W/id" "$W/token"; exit 1; }
@@ -134,7 +134,7 @@ These are the exact bodies. To use one, swap it for the `'{tool: "read_file", â€
 '{tool: "list_dir", args: {path: "~/Library/Logs"}, reason: $reason, client_id: $c}'
 ```
 
-**`run_command`**: a program with arguments, in a sandbox. Output: `{exit_code, stdout, stderr, truncated}`. `cwd` is optional.
+**`run_command`**: a program with arguments, in a sandbox. Output: `{exit_code, stdout, stderr, truncated}`. `cwd` is optional. Add `network: true` when the command will reach the network and its first word doesn't show it, such as a shell running `git fetch` or a build that downloads packages: the person is asked for network access, which the sandbox otherwise blocks.
 
 ```sh
 '{tool: "run_command", args: {command: ["/usr/sbin/system_profiler", "SPSoftwareDataType"]}, reason: $reason, client_id: $c}'
@@ -162,6 +162,9 @@ These are checked before anyone is asked. Breaking one gets you HTTP 400 `invali
 - Commands run in a sandbox: they can read only the files, and start only the programs, the person allowed. A `cwd` asks to read that folder.
 - macOS refuses to start programs with raised privileges (setuid, such as `ps`, `sudo`, `su` and `login`) inside a sandbox. They are `rejected` before the person is asked. Use `list_processes` instead of `ps`.
 - macOS's `log` refuses to run in a sandbox; read log files with `tail_log`.
+- `git` runs with an empty global config (`GIT_CONFIG_GLOBAL` points at an empty file) unless the person granted `~/.gitconfig`. Repository settings still apply.
+- Each command can run for 5 minutes, use 5 minutes of CPU and write files of up to 2 GB. A command that hits a limit is `failed`, and `error` says which.
+- The sandbox can't be nested: a command can't start `sandbox-exec` itself.
 - A `denied` whose `error` starts with `sandbox:` means the program tried to reach something not allowed. It is not the person saying no. Read `stderr` to see what, and ask for that thing with a structured tool.
 
 ### Statuses

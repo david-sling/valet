@@ -51,7 +51,11 @@ const path = z.string().min(1).max(LIMITS.path)
 export const ActionRequest = z.discriminatedUnion('tool', [
   z.object({
     tool: z.literal('run_command'),
-    args: z.object({ command: z.array(z.string().max(LIMITS.arg)).min(1).max(LIMITS.argv), cwd: path.optional() }),
+    args: z.object({
+      command: z.array(z.string().max(LIMITS.arg)).min(1).max(LIMITS.argv),
+      cwd: path.optional(),
+      network: z.boolean().optional(),
+    }),
   }),
   z.object({ tool: z.literal('read_file'), args: z.object({ path, max_bytes: z.number().int().positive().optional() }) }),
   z.object({

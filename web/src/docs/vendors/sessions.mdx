@@ -27,6 +27,7 @@ curl -sS -X POST "https://valet.davidsling.in/api/v1/sessions/$SESSION_ID/end" \
 A session ends when either side ends it, or when it reaches its time limit. When it ends:
 
 - Requests still waiting are answered `ended`.
+- The output of every request is deleted from the relay. Read what you need before ending.
 - The customer's Mac stops every program the session started and drops every permission.
 - The signed log is sealed.
 

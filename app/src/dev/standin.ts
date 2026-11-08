@@ -30,6 +30,7 @@ const NOTES = [
 ]
 
 let sessions: Session[] = []
+let settings = { autoUpdate: true, keepDays: null as number | null }
 let n = 0
 
 const emit = () => listeners.forEach((id) => callbacks.get(id)?.({ event: 'sessions', id, payload: sessions }))
@@ -92,6 +93,7 @@ function join(code: string): Session {
     endsAt: null,
     endedAt: null,
     endedBy: null,
+    kept: false,
     grants: [],
     feed: [],
     prompts: [],
@@ -174,6 +176,32 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
         feed: [...s.feed, event('You ended the session')],
       }))
       return null
+    case 'forget':
+      sessions = sessions.filter((s) => s.id !== id)
+      emit()
+      return true
+    case 'forget_all':
+      sessions = sessions.filter((s) => s.phase !== 'ended')
+      emit()
+      return true
+    case 'keep': {
+      const cutoff = Date.now() - (settings.keepDays ?? Infinity) * 86_400_000
+      patch(id, (s) => ({ ...s, kept: args.kept as boolean }))
+      sessions = sessions.filter((s) => s.kept || s.phase !== 'ended' || (s.endedAt ?? s.createdAt) >= cutoff)
+      emit()
+      return null
+    }
+    case 'settings':
+      return settings
+    case 'set_settings': {
+      const next = args.settings as typeof settings
+      const cutoff = Date.now() - (next.keepDays ?? Infinity) * 86_400_000
+      const old = sessions.filter((s) => s.phase === 'ended' && !s.kept && (s.endedAt ?? s.createdAt) < cutoff)
+      sessions = sessions.filter((s) => !old.includes(s))
+      settings = next
+      emit()
+      return null
+    }
     case 'take_join_link':
       return null
     case 'export_json':
