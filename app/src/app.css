@@ -289,8 +289,44 @@ button:disabled { cursor: not-allowed; }
 .check { width: 15px; height: 15px; fill: none; stroke: var(--ok); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* home */
-.home { justify-items: start; padding-top: 48px; max-width: 26rem; gap: 12px; }
-.home img { margin-bottom: 6px; }
+.home { justify-items: start; max-width: 26rem; gap: 12px; }
+.screen.home { padding-top: 0; }
+/* the brand ticket from the /j/ page: the title on the red body, the code on the cream stub; brand colours in both themes */
+.ticket { --notch: 9.375cqi; --hole: 3.646cqi; container-type: inline-size; width: min(400px, 100%); }
+.ticket-body, .ticket-stub {
+  --cut: radial-gradient(circle var(--notch) at 0 var(--edge), #0000 calc(100% - 0.5px), #000 100%),
+    radial-gradient(circle var(--notch) at 100% var(--edge), #0000 calc(100% - 0.5px), #000 100%),
+    radial-gradient(circle var(--hole) at 18.378% var(--edge), #0000 calc(100% - 0.5px), #000 100%),
+    radial-gradient(circle var(--hole) at 31.027% var(--edge), #0000 calc(100% - 0.5px), #000 100%),
+    radial-gradient(circle var(--hole) at 43.676% var(--edge), #0000 calc(100% - 0.5px), #000 100%),
+    radial-gradient(circle var(--hole) at 56.324% var(--edge), #0000 calc(100% - 0.5px), #000 100%),
+    radial-gradient(circle var(--hole) at 68.973% var(--edge), #0000 calc(100% - 0.5px), #000 100%),
+    radial-gradient(circle var(--hole) at 81.622% var(--edge), #0000 calc(100% - 0.5px), #000 100%);
+  -webkit-mask: var(--cut);
+  -webkit-mask-composite: source-in;
+  mask: var(--cut);
+  mask-composite: intersect;
+}
+.ticket-body { --edge: 100%; display: grid; gap: 8px; padding: 72px 24px calc(var(--notch) + 12px); background: #d03826; color: #fff; }
+.ticket-body .m-title { font-size: 22px; }
+.ticket-body .m-body { color: #ffe9e4; font-weight: 300; }
+.ticket .ticket-stub { --edge: 0; box-sizing: border-box; margin-top: 0; padding: calc(var(--notch) + 12px) 24px 24px; border-radius: 0 0 16px 16px; background: #efd09b; color: #5c4520; }
+.ticket-stub .m-label { color: #8a6a35; }
+.ticket-stub .code-row { display: grid; justify-self: stretch; }
+.ticket-stub .otp-group { flex: 1; }
+.ticket-stub .otp-box { flex: 1; width: auto; min-width: 0; border-color: rgba(92, 69, 32, 0.3); background: #fbf3e3; color: #3a2a10; }
+.ticket-stub .otp-box[data-filled="true"] { border-color: #8a6a35; }
+.ticket-stub .otp-box[data-active="true"] { border-color: #3a2a10; box-shadow: 0 0 0 1px #3a2a10; }
+.ticket-stub .otp[aria-invalid="true"] .otp-box { border-color: #b8301f; }
+.ticket-stub .otp-dash { color: #8a6a35; }
+.ticket-stub .mbtn-ink { background: #3a2a10; color: #fbf3e3; }
+.ticket-stub .m-error { color: #b8301f; }
+.ticket-stub .code-row { grid-template-columns: minmax(0, 1fr) auto; column-gap: 6px; }
+.ticket-stub .code-row .mbtn { grid-column: 1 / -1; }
+.code-paste { display: grid; place-items: center; width: 40px; height: 40px; align-self: center; margin-right: -8px; padding: 0; border: 0; border-radius: 10px; background: none; color: #8a6a35; transition: background 120ms, color 120ms; }
+.code-paste:hover { background: rgba(92, 69, 32, 0.1); color: #3a2a10; }
+.code-paste:focus-visible { outline-color: #3a2a10; }
+.code-paste svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .code-form { display: grid; gap: 8px; width: 100%; margin-top: 12px; }
 .code-row { display: inline-grid; gap: 14px; justify-self: start; }
 /* one real input under six drawn boxes, so typing, paste and autofill all work */

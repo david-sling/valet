@@ -248,7 +248,7 @@ export function App() {
                 {error}
               </p>
             )}
-            {screen === 'home' && <Home key={linkCode} code={linkCode} onJoin={join} error={joinError} />}
+            {screen === 'home' && <Home key={linkCode} code={linkCode} onJoin={join} onPaste={api.paste} error={joinError} />}
             {screen === 'join' && open && (
               <Join
                 vendor={open.senderName}

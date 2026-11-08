@@ -86,6 +86,7 @@ export const api = {
   onUpdateProgress: (f: (percent: number | null) => void) => listen<number | null>('update-progress', (e) => f(e.payload)),
   onUpdateFailed: (f: () => void) => listen('update-failed', f),
   takeJoinLink: () => invoke<string | null>('take_join_link'),
+  paste: () => invoke<string | null>('paste'),
   onJoinLink: (f: () => void) => listen('join-link', f),
   whatsNew: () => invoke<ReleaseNote[]>('whats_new'),
   forget: (id: string) => invoke<boolean>('forget', { id }),

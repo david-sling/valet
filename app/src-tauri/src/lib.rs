@@ -17,6 +17,7 @@ use std::time::Duration;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::{AppHandle, Emitter, Manager as _, RunEvent, State, Url};
+use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_notification::NotificationExt;
@@ -93,6 +94,11 @@ fn notify_new_requests(app: &AppHandle, seen: &Mutex<HashSet<String>>, views: &[
 #[tauri::command]
 fn take_join_link(link: State<'_, JoinLink>) -> Option<String> {
     link.0.lock().unwrap_or_else(|e| e.into_inner()).take()
+}
+
+#[tauri::command]
+fn paste(app: AppHandle) -> Option<String> {
+    app.clipboard().read_text().ok()
 }
 
 #[tauri::command]
@@ -293,6 +299,7 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(JoinLink::default())
         .manage(Installed::default())
         .manage(whats_new::Pending::default())
@@ -324,7 +331,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, output_page, set_grant, extend, end, restart, check_update, export_json, print_report, take_join_link, whats_new, forget, forget_all, keep, settings, set_settings])
+        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, output_page, set_grant, extend, end, restart, check_update, export_json, print_report, take_join_link, paste, whats_new, forget, forget_all, keep, settings, set_settings])
         .build(tauri::generate_context!())
         .expect("error while building Valet")
         .run(|app, event| {
