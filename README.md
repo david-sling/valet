@@ -78,6 +78,25 @@ pnpm typecheck && pnpm test
 cargo test --manifest-path app/src-tauri/Cargo.toml
 ```
 
+## Contributing
+
+1. Pick an open [issue](https://github.com/david-sling/valet/issues), or open one first for anything larger than a small fix, and say there that you're taking it.
+2. Fork the repository and branch from `main`.
+3. Run the relay against a local Redis, never a shared one. A `web/.env` like this is enough:
+
+   ```bash
+   STORAGE_REDIS_URL=redis://localhost:6379
+   REDIS_PREFIX=valetdev
+   HOST=http://localhost:3000
+   CRON_SECRET=any-local-secret-of-16-plus-chars
+   ```
+
+   Use `tools/fake-agent.ts` and `tools/fake-client.ts` to drive a session without a Mac or a real agent. Tests that need Redis read `TEST_REDIS_URL`, which must point at a local instance.
+4. Before opening a PR, run the checks under [Development](#development). Run the Rust tests too if you touched `app/`.
+5. Open a pull request into `main` that links the issue (`Closes #N`) and says how you tested it.
+
+Keep changes to the protocol in `packages/protocol/` and the skill file in step with the relay. Read [ARCHITECTURE.md](ARCHITECTURE.md) first: the relay never decides what is allowed, and request logs never carry bodies, tokens, commands or output. Don't put secrets in issues, PRs or test fixtures. Version bumps and release tags are left to the maintainer.
+
 ## Releasing the app
 
 1. Bump `version` in `app/src-tauri/tauri.conf.json` and `app/src-tauri/Cargo.toml` and commit.
