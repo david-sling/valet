@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Grant } from '@valet/protocol'
 import { api, message } from './api'
-import type { ReleaseNote, Session } from './api'
+import type { ReleaseNote, Session, Settings } from './api'
 import { ApprovalPrompt } from './components/ApprovalPrompt'
 import { PrintReport } from './components/PrintReport'
 import { WhatsNew } from './components/WhatsNew'
-import { Home, Join, Live, Review, SessionBar, SessionRecord, Sidebar } from './components/screens'
+import { Home, Join, Live, Review, SessionBar, SessionRecord, SettingsPage, Sidebar } from './components/screens'
 import type { Checking, PastSession, Start } from './components/screens'
 
-type Screen = 'home' | 'join' | 'review' | 'live' | 'past'
+type Screen = 'home' | 'join' | 'review' | 'live' | 'past' | 'settings'
 
 const EXTEND_MS = 15 * 60_000
 const MAX_SESSION_MS = 3 * 60 * 60_000
@@ -56,6 +56,7 @@ export function App() {
   const [downloading, setDownloading] = useState<{ percent: number | null } | null>(null)
   const [linkCode, setLinkCode] = useState('')
   const [notes, setNotes] = useState<ReleaseNote[]>([])
+  const [settings, setSettings] = useState<Settings | null>(null)
   const now = useNow(1000)
 
   useEffect(() => {
@@ -70,6 +71,7 @@ export function App() {
     takeLink()
     api.version().then(setVersion, () => undefined)
     api.whatsNew().then(setNotes, () => undefined)
+    api.settings().then(setSettings, () => undefined)
     const off = [
       api.onSessions(setSessions),
       api.onUpdate((v) => {
@@ -78,6 +80,7 @@ export function App() {
       }),
       api.onJoinLink(takeLink),
       api.onCheckUpdate(() => checkRef.current()),
+      api.onOpenSettings(() => setScreen('settings')),
       api.onUpdateFound(() => setDownloading({ percent: null })),
       api.onUpdateProgress((percent) => setDownloading((d) => d && { ...d, percent })),
       api.onUpdateFailed(() => setDownloading(null)),
@@ -154,6 +157,7 @@ export function App() {
     return () => clearTimeout(t)
   }, [checking])
 
+  const restart = () => attempt(api.restart()).catch(() => undefined)
   const end = (id: string) => attempt(api.end(id)).catch(() => undefined)
   const live = sessions.filter((s) => s.phase === 'live')
   const shown = screen === 'live' && open?.phase === 'live' ? open : undefined
@@ -198,7 +202,7 @@ export function App() {
             <div className="update-bar" role="status">
               <span>Valet {update} is ready.</span>
               {live.length > 0 && <span className="m-meta">Restarting ends your live sessions.</span>}
-              <button onClick={() => attempt(api.restart()).catch(() => undefined)}>
+              <button onClick={restart}>
                 Restart to update
               </button>
             </div>
@@ -224,10 +228,8 @@ export function App() {
               setScreen('past')
             }}
             onDark={() => setDark(!dark)}
-            version={version}
-            checking={checking}
-            downloading={downloading}
-            onCheckUpdate={checkUpdate}
+            settingsOpen={screen === 'settings'}
+            onSettings={() => setScreen('settings')}
           />
           <div className="win-body">
             {error && (
@@ -287,6 +289,21 @@ export function App() {
                 s={record}
                 onExportJson={() => attempt(api.exportJson(record.id, `Valet session - ${record.vendor} - ${isoDay(record.startedAt)}.json`))}
                 onExportPdf={() => attempt(api.printReport())}
+                onDelete={() => attempt(api.forget(record.id)).then((gone) => gone && setScreen('home'), () => undefined)}
+              />
+            )}
+            {screen === 'settings' && settings && (
+              <SettingsPage
+                settings={settings}
+                hasPast={past.length > 0}
+                onChange={(s) => attempt(api.setSettings(s)).then(() => setSettings(s), () => undefined)}
+                onDeleteAll={() => attempt(api.forgetAll()).catch(() => undefined)}
+                version={version}
+                checking={checking}
+                downloading={downloading}
+                onCheckUpdate={checkUpdate}
+                ready={update}
+                onRestart={restart}
               />
             )}
           </div>

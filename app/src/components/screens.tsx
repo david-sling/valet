@@ -5,7 +5,7 @@ import { RiskBars } from './RiskBars'
 import { Diff, DiffStat } from './Diff'
 import { ExportButton } from './ExportButton'
 import { OutcomeChart, type Slice } from './OutcomeChart'
-import type { FeedItem, Outcome } from '../api'
+import type { FeedItem, Outcome, Settings } from '../api'
 
 export type PastSession = {
   id: string
@@ -40,10 +40,8 @@ export function Sidebar({
   onLive,
   onPast,
   onDark,
-  version,
-  checking,
-  downloading,
-  onCheckUpdate,
+  settingsOpen,
+  onSettings,
 }: {
   joining: boolean
   ongoing: OngoingItem[]
@@ -56,10 +54,8 @@ export function Sidebar({
   onLive: (id: string) => void
   onPast: (id: string) => void
   onDark: () => void
-  version: string
-  checking: Checking
-  downloading: { percent: number | null } | null
-  onCheckUpdate: () => void
+  settingsOpen: boolean
+  onSettings: () => void
 }) {
   return (
     <nav className="side" aria-label="Sessions">
@@ -133,28 +129,13 @@ export function Sidebar({
       </div>
 
       <div className="side-foot">
-        <div className="side-version">
-          {version && <span>Valet {version}</span>}
-          {downloading ? (
-            <>
-              <span role="status">Downloading…{downloading.percent !== null && ` ${downloading.percent}%`}</span>
-              <span
-                className="update-track"
-                role="progressbar"
-                aria-label="Downloading update"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={downloading.percent ?? undefined}
-              >
-                <span style={{ width: `${downloading.percent ?? 0}%` }} />
-              </span>
-            </>
-          ) : (
-            <button onClick={onCheckUpdate} disabled={checking === 'checking'}>
-              <span role="status">{CHECKING[checking]}</span>
-            </button>
-          )}
-        </div>
+        <button className="side-settings" aria-label="Settings" title="Settings" aria-current={settingsOpen ? 'page' : undefined} onClick={onSettings}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="6.5" />
+            <circle cx="12" cy="12" r="2.5" />
+            <path d="M18.50 12.00L21.00 12.00 M16.60 16.60L18.36 18.36 M12.00 18.50L12.00 21.00 M7.40 16.60L5.64 18.36 M5.50 12.00L3.00 12.00 M7.40 7.40L5.64 5.64 M12.00 5.50L12.00 3.00 M16.60 7.40L18.36 5.64" />
+          </svg>
+        </button>
         <div className="theme-pick" role="radiogroup" aria-label="Appearance">
           <button role="radio" aria-checked={!dark} aria-label="Light" title="Light" onClick={() => dark && onDark()}>
             <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -678,10 +659,12 @@ export function SessionRecord({
   s,
   onExportJson,
   onExportPdf,
+  onDelete,
 }: {
   s: PastSession
   onExportJson: () => Promise<boolean>
   onExportPdf: () => Promise<void>
+  onDelete: () => void
 }) {
   const acts = s.feed.filter((f): f is Extract<FeedItem, { type: 'action' }> => f.type === 'action')
   const n = (o: Outcome) => acts.filter((a) => a.outcome === o).length
@@ -702,7 +685,12 @@ export function SessionRecord({
           </>
         }
       >
-        <ExportButton onExport={(f) => (f === 'json' ? onExportJson() : onExportPdf().then(() => false))} />
+        <div className="page-actions">
+          <button className="mbtn mbtn-ghost mbtn-sm" onClick={onDelete}>
+            Delete
+          </button>
+          <ExportButton onExport={(f) => (f === 'json' ? onExportJson() : onExportPdf().then(() => false))} />
+        </div>
       </PageHead>
       <section className="page-sec">
         <OutcomeChart total={acts.length} slices={slices} />
@@ -715,6 +703,127 @@ export function SessionRecord({
       <section className="page-sec">
         <h2 className="m-label">Activity</h2>
         <Feed items={s.feed} initial={s.vendor[0]} />
+      </section>
+    </div>
+  )
+}
+
+const KEEP: Array<{ days: number | null; label: string }> = [
+  { days: null, label: 'Forever' },
+  { days: 90, label: '90 days' },
+  { days: 30, label: '30 days' },
+  { days: 7, label: '7 days' },
+]
+
+export function SettingsPage({
+  settings,
+  hasPast,
+  onChange,
+  onDeleteAll,
+  version,
+  checking,
+  downloading,
+  onCheckUpdate,
+  ready,
+  onRestart,
+}: {
+  settings: Settings
+  hasPast: boolean
+  onChange: (s: Settings) => void
+  onDeleteAll: () => void
+  version: string
+  checking: Checking
+  downloading: { percent: number | null } | null
+  onCheckUpdate: () => void
+  ready: string | null
+  onRestart: () => void
+}) {
+  return (
+    <div className="page">
+      <header className="page-head">
+        <div>
+          <h1 className="m-title">Settings</h1>
+          <p className="m-meta">Saved on this Mac only.</p>
+        </div>
+      </header>
+      <section className="page-sec">
+        <h2 className="m-label">Updates</h2>
+        <div className="setting">
+          <div>
+            <b>Valet {version}</b>
+            {ready ? (
+              <p className="m-meta" role="status">
+                Valet {ready} is ready to install.
+              </p>
+            ) : downloading ? (
+              <>
+                <p className="m-meta" role="status">
+                  Downloading the update…{downloading.percent !== null && ` ${downloading.percent}%`}
+                </p>
+                <span
+                  className="update-track"
+                  role="progressbar"
+                  aria-label="Downloading update"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={downloading.percent ?? undefined}
+                >
+                  <span style={{ width: `${downloading.percent ?? 0}%` }} />
+                </span>
+              </>
+            ) : (
+              checking !== 'idle' && (
+                <p className="m-meta" role="status">
+                  {CHECKING[checking]}
+                </p>
+              )
+            )}
+          </div>
+          {ready ? (
+            <button className="mbtn mbtn-ink mbtn-sm" onClick={onRestart}>
+              Restart to update
+            </button>
+          ) : (
+            <button className="mbtn mbtn-ghost mbtn-sm" onClick={onCheckUpdate} disabled={checking === 'checking' || !!downloading}>
+              Check for updates
+            </button>
+          )}
+        </div>
+        <div className="setting">
+          <div>
+            <b>Check for updates automatically</b>
+            <p className="m-meta">
+              At launch and every 6 hours, Valet asks GitHub for a new version, so GitHub sees your IP address. When this is
+              off, Valet only checks when you choose Check for updates.
+            </p>
+          </div>
+          <button
+            role="switch"
+            aria-checked={settings.autoUpdate}
+            aria-label="Check for updates automatically"
+            className="switch"
+            onClick={() => onChange({ ...settings, autoUpdate: !settings.autoUpdate })}
+          />
+        </div>
+      </section>
+      <section className="page-sec">
+        <h2 className="m-label">Past sessions</h2>
+        <p className="m-body">
+          Records of past sessions stay on this Mac and never include command output or file contents. Choose how long to keep
+          them; older ones are deleted straight away.
+        </p>
+        <div className="seg" role="radiogroup" aria-label="Keep past sessions">
+          {KEEP.map((k) => (
+            <button key={k.label} role="radio" aria-checked={settings.keepDays === k.days} onClick={() => onChange({ ...settings, keepDays: k.days })}>
+              {k.label}
+            </button>
+          ))}
+        </div>
+        <div>
+          <button className="mbtn mbtn-danger mbtn-sm" disabled={!hasPast} onClick={onDeleteAll}>
+            Delete all past sessions
+          </button>
+        </div>
       </section>
     </div>
   )

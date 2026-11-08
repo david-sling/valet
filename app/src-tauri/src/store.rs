@@ -116,8 +116,11 @@ impl Store {
         tx.commit()
     }
 
+    // secure_delete zeroes the freed pages; the checkpoint clears the copies the WAL still holds
     pub fn forget(&self, id: &str) -> rusqlite::Result<()> {
-        self.conn().execute("DELETE FROM sessions WHERE id = ?1", params![id]).map(|_| ())
+        let conn = self.conn();
+        conn.execute("DELETE FROM sessions WHERE id = ?1", params![id])?;
+        conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
     }
 
     pub fn load(&self) -> rusqlite::Result<Vec<SessionView>> {
@@ -231,6 +234,18 @@ mod tests {
         store.save(&view(Phase::Live), &[FeedItem::Event { id: 1, at: 6, text: "Session started".into() }]).unwrap();
         let loaded = store.load().unwrap();
         assert_eq!((loaded[0].phase, loaded[0].ended_at, loaded[0].ended_by.as_deref()), (Phase::Ended, Some(6), Some("closed")));
+    }
+
+    #[test]
+    fn forgetting_a_session_removes_its_activity() {
+        let store = Store::memory();
+        let mut ended = view(Phase::Ended);
+        ended.ended_at = Some(9);
+        store.save(&ended, &[FeedItem::Event { id: 1, at: 6, text: "Session started".into() }]).unwrap();
+        store.forget("s1").unwrap();
+        assert!(store.load().unwrap().is_empty());
+        let rows: i64 = store.conn().query_row("SELECT COUNT(*) FROM feed", [], |r| r.get(0)).unwrap();
+        assert_eq!(rows, 0);
     }
 
     #[test]

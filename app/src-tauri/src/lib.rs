@@ -5,6 +5,7 @@ mod policy;
 mod relay;
 mod sandbox;
 mod session;
+mod settings;
 mod store;
 mod tools;
 mod types;
@@ -17,16 +18,19 @@ use std::time::Duration;
 use tauri::menu::{Menu, MenuItem};
 use tauri::{AppHandle, Emitter, Manager as _, RunEvent, State, Url};
 use tauri_plugin_deep_link::DeepLinkExt;
-use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_updater::UpdaterExt;
 
 use policy::Scope;
 use relay::Relay;
 use session::{GrantChoice, Manager, SessionView};
+use settings::{Prefs, Settings};
 
 const DEFAULT_RELAY: &str = "https://valet.davidsling.in";
 const UPDATE_EVERY: Duration = Duration::from_secs(6 * 60 * 60);
+const PRUNE_EVERY: Duration = Duration::from_secs(60 * 60);
+const DAY_MS: i64 = 24 * 60 * 60 * 1000;
 const CHECK_TIMEOUT: Duration = Duration::from_secs(20);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const CODE_CHARS: &str = "ACDEFGHJKMNPQRTUVWXY34679";
@@ -156,6 +160,57 @@ async fn export_json(app: AppHandle, m: State<'_, Manager>, id: String, name: St
     Ok(true)
 }
 
+fn confirm(app: &AppHandle, title: &str, text: &str) -> bool {
+    app.dialog()
+        .message(text)
+        .title(title)
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::OkCancelCustom("Delete".into(), "Cancel".into()))
+        .blocking_show()
+}
+
+#[tauri::command]
+async fn forget(app: AppHandle, m: State<'_, Manager>, id: String) -> Result<bool, String> {
+    let Some(vendor) = m.snapshot().into_iter().find(|s| s.id == id).map(|s| s.sender_name) else { return Ok(false) };
+    if !confirm(&app, "Delete this session?", &format!("The record of your session with {vendor} is removed from this Mac. This can't be undone.")) {
+        return Ok(false);
+    }
+    Ok(m.forget(|s| s.id == id) > 0)
+}
+
+#[tauri::command]
+async fn forget_all(app: AppHandle, m: State<'_, Manager>) -> Result<bool, String> {
+    if !confirm(&app, "Delete all past sessions?", "Every past session's record is removed from this Mac. This can't be undone.") {
+        return Ok(false);
+    }
+    Ok(m.forget(|_| true) > 0)
+}
+
+#[tauri::command]
+fn settings(prefs: State<'_, Prefs>) -> Settings {
+    prefs.get()
+}
+
+#[tauri::command]
+fn set_settings(prefs: State<'_, Prefs>, m: State<'_, Manager>, settings: Settings) -> Result<(), String> {
+    prefs.set(settings)?;
+    prune(&m, settings);
+    Ok(())
+}
+
+fn prune(m: &Manager, s: Settings) {
+    let Some(days) = s.keep_days else { return };
+    let cutoff = types::now_ms() - i64::from(days) * DAY_MS;
+    m.forget(|v| v.ended_at.unwrap_or(v.created_at) < cutoff);
+}
+
+async fn keep_pruned(app: AppHandle) {
+    loop {
+        prune(&app.state::<Manager>(), app.state::<Prefs>().get());
+        tokio::time::sleep(PRUNE_EVERY).await;
+    }
+}
+
 #[tauri::command]
 fn print_report(window: tauri::WebviewWindow) -> Result<(), String> {
     window.print().map_err(|e| e.to_string())
@@ -213,8 +268,10 @@ async fn whats_new(app: AppHandle, pending: State<'_, whats_new::Pending>) -> Re
 
 async fn keep_updated(app: AppHandle) {
     loop {
-        if let Ok(Some(_)) = install_update(&app).await {
-            return;
+        if app.state::<Prefs>().get().auto_update {
+            if let Ok(Some(_)) = install_update(&app).await {
+                return;
+            }
         }
         tokio::time::sleep(UPDATE_EVERY).await;
     }
@@ -224,11 +281,12 @@ fn add_update_item(app: &AppHandle) -> tauri::Result<()> {
     let menu = Menu::default(app)?;
     if let Some(valet) = menu.items()?.first().and_then(|m| m.as_submenu()) {
         valet.insert(&MenuItem::with_id(app, "check-update", "Check for Updates…", true, None::<&str>)?, 1)?;
+        valet.insert(&MenuItem::with_id(app, "open-settings", "Settings…", true, Some("CmdOrCtrl+,"))?, 2)?;
     }
     app.set_menu(menu)?;
     app.on_menu_event(|app, event| {
-        if event.id() == "check-update" {
-            let _ = app.emit("check-update", ());
+        if event.id() == "check-update" || event.id() == "open-settings" {
+            let _ = app.emit(event.id().as_ref(), ());
         }
     });
     Ok(())
@@ -256,6 +314,8 @@ pub fn run() {
             let fresh = dir.as_ref().is_none_or(|d| !d.join("valet.db").exists());
             let store = dir.as_ref().and_then(|dir| store::Store::open(&dir.join("valet.db")).ok()).map(Arc::new);
             app.manage(Manager::new(Relay::new(&base), emit, store));
+            app.manage(Prefs::load(dir.clone()));
+            tauri::async_runtime::spawn(keep_pruned(app.handle().clone()));
             let handle = app.handle().clone();
             app.deep_link().on_open_url(move |event| open_links(&handle, &event.urls()));
             if let Ok(Some(urls)) = app.deep_link().get_current() {
@@ -271,7 +331,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, output_page, set_grant, extend, end, restart, check_update, export_json, print_report, take_join_link, whats_new])
+        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, output_page, set_grant, extend, end, restart, check_update, export_json, print_report, take_join_link, whats_new, forget, forget_all, settings, set_settings])
         .build(tauri::generate_context!())
         .expect("error while building Valet")
         .run(|app, event| {

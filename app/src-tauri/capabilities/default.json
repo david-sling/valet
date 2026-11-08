@@ -19,6 +19,10 @@
     "allow-export-json",
     "allow-print-report",
     "allow-take-join-link",
-    "allow-whats-new"
+    "allow-whats-new",
+    "allow-forget",
+    "allow-forget-all",
+    "allow-settings",
+    "allow-set-settings"
   ]
 }

@@ -30,6 +30,7 @@ const NOTES = [
 ]
 
 let sessions: Session[] = []
+let settings = { autoUpdate: true, keepDays: null as number | null }
 let n = 0
 
 const emit = () => listeners.forEach((id) => callbacks.get(id)?.({ event: 'sessions', id, payload: sessions }))
@@ -173,6 +174,21 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
         grants: s.grants.map((g) => ({ ...g, on: false })),
         feed: [...s.feed, event('You ended the session')],
       }))
+      return null
+    case 'forget':
+      if (!confirm('Delete this session?')) return false
+      sessions = sessions.filter((s) => s.id !== id)
+      emit()
+      return true
+    case 'forget_all':
+      if (!confirm('Delete all past sessions?')) return false
+      sessions = sessions.filter((s) => s.phase !== 'ended')
+      emit()
+      return true
+    case 'settings':
+      return settings
+    case 'set_settings':
+      settings = args.settings as typeof settings
       return null
     case 'take_join_link':
       return null

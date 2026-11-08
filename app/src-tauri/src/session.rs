@@ -252,6 +252,29 @@ impl Manager {
         Self { relay, state: Arc::new(Mutex::new(state)), emit, store }
     }
 
+    // Only finished sessions; a live one keeps its record until it ends.
+    pub fn forget(&self, which: impl Fn(&SessionView) -> bool) -> usize {
+        let gone: Vec<String> = {
+            let mut st = self.lock();
+            let gone: Vec<String> =
+                st.sessions.values().filter(|s| s.view.phase == Phase::Ended && which(&s.view)).map(|s| s.view.id.clone()).collect();
+            for id in &gone {
+                st.sessions.remove(id);
+            }
+            st.order.retain(|o| !gone.contains(o));
+            gone
+        };
+        if let Some(store) = &self.store {
+            for id in &gone {
+                let _ = store.forget(id);
+            }
+        }
+        if !gone.is_empty() {
+            (self.emit)(self.snapshot());
+        }
+        gone.len()
+    }
+
     fn lock(&self) -> std::sync::MutexGuard<'_, State> {
         self.state.lock().unwrap_or_else(|e| e.into_inner())
     }
@@ -905,6 +928,38 @@ mod tests {
             let url = format!("{}/sessions/{}/actions/{}?wait=20", self.api, self.id, aid.as_str().unwrap());
             self.http.get(url).bearer_auth(&self.token).send().await.unwrap().json().await.unwrap()
         }
+    }
+
+    #[test]
+    fn forgets_only_the_finished_sessions_asked_for() {
+        let store = Arc::new(Store::memory());
+        for (id, ended_at) in [("old", 5), ("new", 50)] {
+            let view = SessionView {
+                id: id.into(),
+                phase: Phase::Ended,
+                sender_name: "Acme".into(),
+                purpose: "Fix it.".into(),
+                verified: false,
+                template: vec![],
+                created_at: 1,
+                review_until: 2,
+                started_at: Some(3),
+                ends_at: Some(60),
+                ended_at: Some(ended_at),
+                ended_by: Some("client".into()),
+                grants: vec![],
+                feed: vec![],
+                prompts: vec![],
+            };
+            store.save(&view, &[]).unwrap();
+        }
+        let m = Manager::new(Relay::new("http://localhost:9"), Arc::new(|_| {}), Some(store.clone()));
+        assert_eq!(m.forget(|v| v.ended_at < Some(10)), 1);
+        let ids = |vs: Vec<SessionView>| vs.into_iter().map(|v| v.id).collect::<Vec<_>>();
+        assert_eq!(ids(m.snapshot()), ["new"]);
+        assert_eq!(ids(store.load().unwrap()), ["new"]);
+        assert_eq!(m.forget(|_| true), 1);
+        assert!(m.snapshot().is_empty());
     }
 
     #[test]
