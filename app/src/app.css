@@ -134,6 +134,7 @@ button:disabled { cursor: not-allowed; }
 .side-item .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
 .side-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
 .side-icon svg { width: 14px; height: 14px; fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.side-about { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 12px; color: var(--ink-3); white-space: nowrap; }
 .side-settings { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; background: none; color: var(--ink-3); transition: color 180ms; }
 .side-settings:hover { color: var(--ink); }
 .side-settings[aria-current="page"] { color: var(--ink); }
