@@ -1,4 +1,5 @@
 mod approve;
+mod audit;
 mod export;
 mod needs;
 mod policy;
@@ -166,7 +167,8 @@ async fn restart(app: AppHandle, m: State<'_, Manager>) -> Result<(), String> {
 #[tauri::command]
 async fn export_json(app: AppHandle, m: State<'_, Manager>, id: String, name: String) -> Result<bool, String> {
     let version = app.package_info().version.to_string();
-    let record = m.snapshot().iter().find(|s| s.id == id).and_then(|s| export::record(s, &version, types::now_ms()));
+    let log = m.sealed_log(&id);
+    let record = m.snapshot().iter().find(|s| s.id == id).and_then(|s| export::record(s, &version, types::now_ms(), log));
     let record = record.ok_or("Only a finished session can be exported.")?;
     let Some(path) = app.dialog().file().set_file_name(export::file_name(&name)).add_filter("JSON", &["json"]).blocking_save_file() else {
         return Ok(false);
@@ -330,7 +332,9 @@ pub fn run() {
             let dir = app.path().app_data_dir().ok();
             let fresh = dir.as_ref().is_none_or(|d| !d.join("valet.db").exists());
             let store = dir.as_ref().and_then(|dir| store::Store::open(&dir.join("valet.db")).ok()).map(Arc::new);
-            app.manage(Manager::new(Relay::new(&base), emit, store));
+            // Made on the first launch that needs it and kept in the Keychain; without it a session still runs, but its log isn't sealed.
+            let signer = audit::device_signer().map_err(|e| eprintln!("valet: {e}")).ok();
+            app.manage(Manager::new(Relay::new(&base), emit, store, signer));
             app.manage(Prefs::load(dir.clone()));
             tauri::async_runtime::spawn(keep_pruned(app.handle().clone()));
             let handle = app.handle().clone();

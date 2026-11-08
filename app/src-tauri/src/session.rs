@@ -9,6 +9,7 @@ use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 
 use crate::approve;
+use crate::audit::{self, Log, Signer};
 use crate::needs::{can_widen, normalise_scope, plan, rate, tilde, Plan, Request};
 use crate::policy::{decide, grants_from, scopes_for, Scope};
 use crate::relay::{InboxAction, Relay, RelayError};
@@ -21,6 +22,8 @@ const ARMING: Duration = Duration::from_millis(600);
 const FEED_OUTPUT: usize = 64 * 1024;
 const MAX_GRANTS: usize = 200;
 const PAGE: usize = 64 * 1024;
+// The relay takes a sealed log up to 2 MB. A longer one still reaches the local record; the agent gets nothing.
+const RELAY_LOG: usize = 2 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -129,6 +132,7 @@ struct Session {
     tmp: PathBuf,
     saved_feed: usize,
     saved: bool,
+    log: Log,
 }
 
 #[derive(Default)]
@@ -150,6 +154,12 @@ impl State {
             s.view.feed.push(FeedItem::Event { id: n, at: now_ms(), text });
         }
     }
+
+    fn log(&mut self, id: &str, kind: &str, data: Value) {
+        if let Some(s) = self.sessions.get_mut(id) {
+            s.log.append(kind, data);
+        }
+    }
 }
 
 type Emit = Arc<dyn Fn(Vec<SessionView>) + Send + Sync>;
@@ -160,6 +170,7 @@ pub struct Manager {
     state: Arc<Mutex<State>>,
     emit: Emit,
     store: Option<Arc<Store>>,
+    signer: Option<Arc<Signer>>,
 }
 
 struct Done {
@@ -245,7 +256,7 @@ fn session_tmp(id: &str) -> std::io::Result<PathBuf> {
 }
 
 impl Manager {
-    pub fn new(relay: Relay, emit: Emit, store: Option<Arc<Store>>) -> Self {
+    pub fn new(relay: Relay, emit: Emit, store: Option<Arc<Store>>, signer: Option<Signer>) -> Self {
         let mut state = State::default();
         for view in store.as_ref().and_then(|s| s.load().ok()).unwrap_or_default() {
             state.order.push(view.id.clone());
@@ -260,10 +271,11 @@ impl Manager {
                     stop: CancellationToken::new(),
                     tmp: PathBuf::new(),
                     saved: true,
+                    log: Log::default(),
                 },
             );
         }
-        Self { relay, state: Arc::new(Mutex::new(state)), emit, store }
+        Self { relay, state: Arc::new(Mutex::new(state)), emit, store, signer: signer.map(Arc::new) }
     }
 
     pub fn keep(&self, id: &str, kept: bool) {
@@ -351,6 +363,14 @@ impl Manager {
         self.lock().sessions.get(id).map(|s| s.view.phase)
     }
 
+    fn log(&self, id: &str, kind: &str, data: Value) {
+        self.lock().log(id, kind, data);
+    }
+
+    pub fn sealed_log(&self, id: &str) -> Option<Value> {
+        serde_json::from_str(&self.store.as_ref()?.load_log(id)?).ok()
+    }
+
     pub async fn join(&self, code: &str) -> Result<SessionView, String> {
         let j = self.relay.join(code).await.map_err(|e| e.to_string())?;
         let tmp = session_tmp(&j.session_id).map_err(|e| e.to_string())?;
@@ -389,6 +409,7 @@ impl Manager {
                     tmp,
                     saved_feed: 0,
                     saved: false,
+                    log: Log::default(),
                 },
             );
         }
@@ -443,8 +464,16 @@ impl Manager {
             s.view.started_at = Some(now_ms());
             s.view.ends_at = Some(started.ends_at);
             s.view.grants = grants;
+            let (sender_name, purpose, grants) = (s.view.sender_name.clone(), s.view.purpose.clone(), s.view.grants.clone());
             let plural = if count == 1 { "permission" } else { "permissions" };
             st.event(id, format!("Session started with {count} {plural}"));
+            st.log(id, "session.start", json!({
+                "session_id": id,
+                "sender_name": sender_name,
+                "purpose": purpose,
+                "ends_at": started.ends_at,
+                "grants": grants,
+            }));
         }
         self.changed();
         let me = self.clone();
@@ -462,6 +491,7 @@ impl Manager {
                 s.view.ends_at = Some(started.ends_at);
             }
             st.event(id, "Added 15 minutes".into());
+            st.log(id, "session.extend", json!({ "ends_at": started.ends_at }));
         }
         self.changed();
         Ok(())
@@ -508,7 +538,10 @@ impl Manager {
             }
             let g = s.view.grants.iter_mut().find(|g| g.id == grant_id).ok_or("No such permission.")?;
             g.on = on;
-            (s.token.clone(), s.view.grants.clone())
+            let changed = g.clone();
+            let out = (s.token.clone(), s.view.grants.clone());
+            st.log(id, "grant.changed", json!({ "by": "person", "grants": [changed] }));
+            out
         };
         self.changed();
         self.mirror(id, token, grants);
@@ -524,6 +557,7 @@ impl Manager {
     }
 
     fn close(&self, id: &str, phase: Phase, by: Option<String>) {
+        let mut sealed = None;
         let tmp = {
             let mut st = self.lock();
             let Some(s) = st.sessions.get_mut(id) else { return };
@@ -538,6 +572,8 @@ impl Manager {
             s.view.grants.iter_mut().for_each(|g| g.on = false);
             let tmp = s.tmp.clone();
             let sender = s.view.sender_name.clone();
+            let ended_at = s.view.ended_at;
+            let token = s.token.clone();
             if phase == Phase::Ended {
                 let text = match by.as_deref() {
                     Some("client") => "You ended the session".to_string(),
@@ -546,6 +582,13 @@ impl Manager {
                     _ => "The session ended".to_string(),
                 };
                 st.event(id, text);
+                st.log(id, "session.end", json!({ "ended_at": ended_at, "ended_by": by }));
+                // signing is the last thing the log holds still for; the upload happens after, out of the way
+                if let (Some(signer), Some(s)) = (&self.signer, st.sessions.get(id)) {
+                    if !s.log.is_empty() {
+                        sealed = Some((token, s.log.seal(id, signer, now_ms())));
+                    }
+                }
             }
             if phase == Phase::Declined {
                 st.order.retain(|o| o != id);
@@ -558,6 +601,39 @@ impl Manager {
         };
         let _ = std::fs::remove_dir_all(tmp);
         self.changed();
+        if let Some((token, log)) = sealed {
+            self.seal(id, token, log);
+        }
+    }
+
+    // The local copy is kept whatever the relay does with it, and nothing here waits on the upload.
+    fn seal(&self, id: &str, token: String, log: Value) {
+        let text = log.to_string();
+        if let Some(store) = &self.store {
+            let _ = store.save_log(id, &text);
+        }
+        if text.len() > RELAY_LOG {
+            return;
+        }
+        // a log that doesn't verify here would only fail the agent's check; the local copy still stands
+        if let Err(e) = audit::verify(&log) {
+            eprintln!("valet: the sealed log didn't verify, so it wasn't sent: {e}");
+            return;
+        }
+        let relay = self.relay.clone();
+        let id = id.to_string();
+        tokio::spawn(async move {
+            for wait in [1, 2, 4, 8, 15] {
+                // a 409 means the relay hasn't taken the ending in yet; our own end call may still be on its way
+                match relay.put_log(&id, &token, &log).await {
+                    Ok(_) => return,
+                    Err(e) if matches!(e.status(), None | Some(409) | Some(429) | Some(500..=599)) => {}
+                    Err(_) => return,
+                }
+                tokio::time::sleep(Duration::from_secs(wait)).await;
+            }
+            let _ = relay.put_log(&id, &token, &log).await;
+        });
     }
 
     pub fn output_page(&self, prompt_id: &str, from: usize) -> Result<Page, String> {
@@ -709,6 +785,24 @@ impl Manager {
 
     async fn handle(&self, id: String, a: InboxAction) {
         let planned = Request::parse(&a.tool, &a.args).and_then(plan);
+        let mut entry = json!({
+            "action_id": a.action_id,
+            "seq": a.seq,
+            "tool": a.tool,
+            "args": audit::safe_args(&a.args),
+            "reason": a.reason,
+        });
+        match &planned {
+            Ok(p) => {
+                entry["literal"] = json!(p.literal);
+                entry["program"] = json!(p.program.as_ref().map(|x| x.display().to_string()));
+                entry["cwd"] = json!(p.cwd.as_deref().map(tilde));
+                entry["needs"] = json!(p.needs);
+                entry["risk"] = json!(p.risk);
+            }
+            Err(e) => entry["rejected"] = json!(e),
+        }
+        self.log(&id, "action", entry);
         let (done, literal, diff, method) = match planned {
             Err(e) => (Some(Done::rejected(e)), a.tool.clone(), None, None),
             Ok(p) => {
@@ -732,6 +826,15 @@ impl Manager {
             _ => "Failed",
         };
         let output = done.output.as_ref().and_then(|v| feed_output(&a.tool, v));
+        let text = done.output.as_ref().map(|v| output_text(&a.tool, v)).unwrap_or_default();
+        let truncated = done.output.as_ref().is_some_and(|v| v["truncated"] == true);
+        self.log(&id, "result", json!({
+            "action_id": a.action_id,
+            "status": done.status,
+            "outcome": outcome,
+            "output": audit::output_facts(&text, truncated),
+            "error": done.error,
+        }));
         let token = {
             let mut st = self.lock();
             let n = st.next_id();
@@ -829,9 +932,11 @@ impl Manager {
             match answer {
                 None => return (None, None),
                 Some(Answer::Deny) => {
+                    self.log(id, "decision", json!({ "action_id": a.action_id, "allowed": false, "confirmed": "click", "needs": asked }));
                     return (Some(Done { status: "denied", output: None, error: None }), Some("click"));
                 }
                 Some(Answer::Allow { scope, method: m }) => {
+                    self.log(id, "decision", json!({ "action_id": a.action_id, "allowed": true, "confirmed": m, "scope": scope, "needs": asked }));
                     method = Some(m);
                     approved = asked.clone();
                     check = scope == Scope::Check;
@@ -842,7 +947,11 @@ impl Manager {
         let mut done = self.execute(id, p, &approved, &tmp, &stop).await;
         if let (true, Some(d)) = (check, &done) {
             let text = d.output.as_ref().map(|v| output_text(&a.tool, v)).filter(|t| !t.is_empty()).or(d.error.clone()).unwrap_or_default();
-            match self.hold(id, a, p, text, &stop).await {
+            let sent = self.hold(id, a, p, text, &stop).await;
+            if let Some(sent) = sent {
+                self.log(id, "decision", json!({ "action_id": a.action_id, "on": "output", "allowed": sent, "confirmed": "click" }));
+            }
+            match sent {
                 None => return (None, None),
                 Some(false) => done = Some(Done { status: "denied", output: None, error: Some("The output was checked and not sent.".into()) }),
                 Some(true) => {}
@@ -905,10 +1014,16 @@ impl Manager {
             let ids: Vec<u64> = added.iter().map(|_| st.next_id()).collect();
             let Some(s) = st.sessions.get_mut(id) else { return };
             let room = MAX_GRANTS.saturating_sub(s.view.grants.len());
+            let before = s.view.grants.len();
             for ((need, expires_at), n) in added.into_iter().take(room).zip(ids) {
                 s.view.grants.push(Grant { id: format!("a{n}"), on: true, source: Source::Approved, need, expires_at });
             }
-            (s.token.clone(), s.view.grants.clone())
+            let fresh = s.view.grants[before..].to_vec();
+            let out = (s.token.clone(), s.view.grants.clone());
+            if !fresh.is_empty() {
+                st.log(id, "grant.changed", json!({ "by": "approval", "scope": scope, "grants": fresh }));
+            }
+            out
         };
         self.mirror(id, token, grants);
     }
@@ -1013,7 +1128,7 @@ mod tests {
             store.save(&view, &[]).unwrap();
             store.set_kept(id, view.kept).unwrap();
         }
-        let m = Manager::new(Relay::new("http://localhost:9"), Arc::new(|_| {}), Some(store.clone()));
+        let m = Manager::new(Relay::new("http://localhost:9"), Arc::new(|_| {}), Some(store.clone()), None);
         assert_eq!(m.forget(|v| !v.kept && v.ended_at < Some(10)), 1);
         let ids = |vs: Vec<SessionView>| {
             let mut ids = vs.into_iter().map(|v| v.id).collect::<Vec<_>>();
@@ -1079,7 +1194,7 @@ mod tests {
         };
 
         let store = Arc::new(Store::memory());
-        let m = Manager::new(Relay::new(&base), Arc::new(|_| {}), Some(store.clone()));
+        let m = Manager::new(Relay::new(&base), Arc::new(|_| {}), Some(store.clone()), Some(Signer::from_seed([3; 32])));
         let joined = m.join(created["code"].as_str().unwrap()).await.unwrap();
         assert_eq!(joined.sender_name, "Test vendor");
         let choices: Vec<GrantChoice> = serde_json::from_value(template.as_array().unwrap().iter().map(|n| {
@@ -1152,9 +1267,31 @@ mod tests {
         assert_eq!((s.phase, s.ended_by.as_deref()), (Phase::Ended, Some("agent")));
         assert!(s.grants.iter().all(|g| !g.on));
 
-        let reopened = Manager::new(Relay::new(&base), Arc::new(|_| {}), Some(store)).snapshot();
+        let reopened = Manager::new(Relay::new(&base), Arc::new(|_| {}), Some(store.clone()), None).snapshot();
         assert_eq!((reopened.len(), reopened[0].feed.len()), (1, s.feed.len()), "the record should outlive the app");
         assert!(reopened[0].feed.iter().all(|f| !matches!(f, FeedItem::Action { output: Some(_), .. })));
+
+        let url = format!("{api}/sessions/{}/log", agent.id);
+        let mut sent = Value::Null;
+        for _ in 0..100 {
+            let r = http.get(&url).bearer_auth(&agent.token).send().await.unwrap();
+            if r.status().is_success() {
+                sent = r.json().await.unwrap();
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        audit::verify(&sent).unwrap_or_else(|e| panic!("the agent's copy didn't verify: {e}"));
+        assert_eq!(sent, m.sealed_log(&agent.id).expect("a local copy"), "both sides hold the same log");
+        assert_eq!(sent["seal"]["public_key"], Signer::from_seed([3; 32]).public_key());
+        let kinds: Vec<&str> = sent["entries"].as_array().unwrap().iter().map(|e| e["type"].as_str().unwrap()).collect();
+        assert_eq!(kinds.first(), Some(&"session.start"));
+        assert_eq!(kinds.last(), Some(&"session.end"));
+        assert!(kinds.iter().any(|k| *k == "decision") && kinds.iter().any(|k| *k == "grant.changed"));
+        let text = sent.to_string();
+        for leaked in ["opengl", "metal", "Darwin", "renderer"] {
+            assert!(!text.contains(leaked), "{leaked} is output or file content and must not be in the log");
+        }
         let _ = std::fs::remove_dir_all(dir);
     }
 }
