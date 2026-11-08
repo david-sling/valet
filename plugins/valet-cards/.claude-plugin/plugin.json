@@ -1,0 +1,7 @@
+{
+  "name": "valet-cards",
+  "version": "0.1.0",
+  "description": "Shows each Valet session call and its answer as cards in a pane",
+  "author": { "name": "David S D" },
+  "types": "./types/index.d.ts"
+}

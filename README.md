@@ -31,6 +31,27 @@ Both sides connect outward to the relay; the client opens no ports. The relay ca
 | `app/` | The macOS client. Tauri v2: a Rust core for policy, sandbox and approvals, and a React webview |
 | `packages/protocol/` | Shared schemas and types, with test vectors |
 | `tools/` | `fake-agent.ts` and `fake-client.ts`, stand-ins for either side when testing the relay |
+| `plugins/valet-cards/` | A Claude Code plugin that shows a session's calls as cards in a pane beside the chat |
+
+## Claude Code pane
+
+`valet-cards` shows a Valet session as cards in a pane beside the chat: the join code and link with copy buttons, each action with its status and output, past sessions, and buttons to start and end a session. It reads the files the skill keeps in `$TMPDIR/valet-session`, so it needs the skill installed as well. It is optional and works only in Claude Code.
+
+At the prompt of a terminal session:
+
+```
+/plugin install valet-cards --marketplace david-sling/valet
+```
+
+From a shell:
+
+```bash
+claude plugin install valet-cards --marketplace david-sling/valet
+```
+
+In the desktop app, where `/plugin` does not run: click + next to the prompt box, then Plugins, Add marketplace with `david-sling/valet`, then Add plugin.
+
+`/valet-pane` opens the pane. It is built on Claude Code's early-access plugin API, which may change between releases.
 
 ## Development
 
