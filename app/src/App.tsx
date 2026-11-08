@@ -47,6 +47,7 @@ export function App() {
   const [openId, setOpenId] = useState<string | null>(null)
   const [start, setStart] = useState<Start>('template')
   const [draft, setDraft] = useState<Grant[]>([])
+  const [starting, setStarting] = useState(false)
   const [joinError, setJoinError] = useState('')
   const [error, setError] = useState('')
   const [dark, setDark] = useState(storedDark)
@@ -133,7 +134,10 @@ export function App() {
   const begin = () => {
     if (!open) return
     const grants = draft.map(({ id: _id, source: _source, expiresAt: _at, ...need }) => need)
-    attempt(api.start(open.id, grants)).then(() => setScreen('live'), () => undefined)
+    setStarting(true)
+    attempt(api.start(open.id, grants))
+      .then(() => setScreen('live'), () => undefined)
+      .finally(() => setStarting(false))
   }
 
   const checkUpdate = () => {
@@ -253,6 +257,7 @@ export function App() {
                 start={start}
                 hasTemplate={open.template.length > 0}
                 grants={draft}
+                starting={starting}
                 onStart={pickStart}
                 onToggle={(gid) => setDraft((gs) => gs.map((g) => (g.id === gid ? { ...g, on: !g.on } : g)))}
                 onBegin={begin}

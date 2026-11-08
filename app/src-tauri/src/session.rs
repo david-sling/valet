@@ -363,6 +363,10 @@ impl Manager {
         if self.phase(id) != Some(Phase::Joined) {
             return Err("This session has already started or ended.".into());
         }
+        if choices.iter().take(MAX_GRANTS).any(|c| c.on && c.need.risk >= Risk::High) {
+            let agent = self.lock().sessions.get(id).map(|s| s.view.sender_name.clone()).unwrap_or_default();
+            approve::confirm(&format!("start a session where {} can do high-risk actions without asking", clip(&agent, 40))).await?;
+        }
         let grants: Vec<Grant> = {
             let mut st = self.lock();
             choices
