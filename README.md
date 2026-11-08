@@ -82,13 +82,10 @@ cargo test --manifest-path app/src-tauri/Cargo.toml
 
 1. Pick an open [issue](https://github.com/david-sling/valet/issues), or open one first for anything larger than a small fix, and say there that you're taking it.
 2. Fork the repository and branch from `main`.
-3. Run the relay against a local Redis, never a shared one. A `web/.env` like this is enough:
+3. Run the relay against a local Redis, never a shared one. `web/example.env` is set up for one on the default port:
 
    ```bash
-   STORAGE_REDIS_URL=redis://localhost:6379
-   REDIS_PREFIX=valetdev
-   HOST=http://localhost:3000
-   CRON_SECRET=any-local-secret-of-16-plus-chars
+   cp web/example.env web/.env
    ```
 
    Use `tools/fake-agent.ts` and `tools/fake-client.ts` to drive a session without a Mac or a real agent. Tests that need Redis read `TEST_REDIS_URL`, which must point at a local instance.
