@@ -8,6 +8,7 @@ mod session;
 mod store;
 mod tools;
 mod types;
+mod whats_new;
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -166,6 +167,20 @@ async fn check_update(app: AppHandle) -> Result<Option<String>, String> {
     install_update(&app).await
 }
 
+#[tauri::command]
+async fn whats_new(app: AppHandle, pending: State<'_, whats_new::Pending>) -> Result<Vec<whats_new::Note>, String> {
+    let Some(since) = pending.0.lock().unwrap_or_else(|e| e.into_inner()).clone() else {
+        return Ok(vec![]);
+    };
+    let current = app.package_info().version.clone();
+    let notes = whats_new::pick(whats_new::fetch().await?, since.as_ref(), &current);
+    if let Ok(dir) = app.path().app_data_dir() {
+        whats_new::record(&dir, &current);
+    }
+    *pending.0.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    Ok(notes)
+}
+
 async fn keep_updated(app: AppHandle) {
     loop {
         if let Ok(Some(_)) = install_update(&app).await {
@@ -198,12 +213,15 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(JoinLink::default())
         .manage(Installed::default())
+        .manage(whats_new::Pending::default())
         .setup(move |app| {
             let handle = app.handle().clone();
             let emit = Arc::new(move |views: Vec<SessionView>| {
                 let _ = handle.emit("sessions", views);
             });
-            let store = app.path().app_data_dir().ok().and_then(|dir| store::Store::open(&dir.join("valet.db")).ok()).map(Arc::new);
+            let dir = app.path().app_data_dir().ok();
+            let fresh = dir.as_ref().is_none_or(|d| !d.join("valet.db").exists());
+            let store = dir.as_ref().and_then(|dir| store::Store::open(&dir.join("valet.db")).ok()).map(Arc::new);
             app.manage(Manager::new(Relay::new(&base), emit, store));
             let handle = app.handle().clone();
             app.deep_link().on_open_url(move |event| open_links(&handle, &event.urls()));
@@ -213,10 +231,14 @@ pub fn run() {
             add_update_item(app.handle())?;
             if !cfg!(debug_assertions) {
                 tauri::async_runtime::spawn(keep_updated(app.handle().clone()));
+                if let Some(dir) = &dir {
+                    *app.state::<whats_new::Pending>().0.lock().unwrap_or_else(|e| e.into_inner()) =
+                        whats_new::on_launch(dir, &app.package_info().version, fresh);
+                }
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, output_page, set_grant, extend, end, restart, check_update, export_json, print_report, take_join_link])
+        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, output_page, set_grant, extend, end, restart, check_update, export_json, print_report, take_join_link, whats_new])
         .build(tauri::generate_context!())
         .expect("error while building Valet")
         .run(|app, event| {

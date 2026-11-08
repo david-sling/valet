@@ -56,6 +56,8 @@ export type Session = {
   prompts: Prompt[]
 }
 
+export type ReleaseNote = { version: string; body: string }
+
 export type GrantChoice = Need & { on: boolean }
 
 export const api = {
@@ -81,6 +83,7 @@ export const api = {
   onUpdateFailed: (f: () => void) => listen('update-failed', f),
   takeJoinLink: () => invoke<string | null>('take_join_link'),
   onJoinLink: (f: () => void) => listen('join-link', f),
+  whatsNew: () => invoke<ReleaseNote[]>('whats_new'),
 }
 
 export const message = (e: unknown) => (typeof e === 'string' ? e : e instanceof Error ? e.message : 'Something went wrong.')

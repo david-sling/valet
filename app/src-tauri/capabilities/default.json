@@ -18,6 +18,7 @@
     "allow-check-update",
     "allow-export-json",
     "allow-print-report",
-    "allow-take-join-link"
+    "allow-take-join-link",
+    "allow-whats-new"
   ]
 }

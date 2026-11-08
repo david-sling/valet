@@ -43,3 +43,7 @@ jobs:
           jq -e --arg v "${TAG#app-v}" '.version == $v' latest.json
           jq -r '.platforms | to_entries[] | "\(.key) \(.value.url)"' latest.json
           for p in $(jq -r '.platforms | keys[]' latest.json); do jq -e --arg p "$p" '.platforms[$p].signature | length > 100' latest.json; done
+
+      - name: Check the release notes
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body -q .body | grep -v -F 'Signed and notarised' | grep -q '[^[:space:]]' || { echo "::error::$TAG has no release notes"; exit 1; }

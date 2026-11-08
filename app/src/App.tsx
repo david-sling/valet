@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Grant } from '@valet/protocol'
 import { api, message } from './api'
-import type { Session } from './api'
+import type { ReleaseNote, Session } from './api'
 import { ApprovalPrompt } from './components/ApprovalPrompt'
 import { PrintReport } from './components/PrintReport'
+import { WhatsNew } from './components/WhatsNew'
 import { Home, Join, Live, Review, SessionBar, SessionRecord, Sidebar } from './components/screens'
 import type { Checking, PastSession, Start } from './components/screens'
 
@@ -54,6 +55,7 @@ export function App() {
   const [checking, setChecking] = useState<Checking>('idle')
   const [downloading, setDownloading] = useState<{ percent: number | null } | null>(null)
   const [linkCode, setLinkCode] = useState('')
+  const [notes, setNotes] = useState<ReleaseNote[]>([])
   const now = useNow(1000)
 
   useEffect(() => {
@@ -67,6 +69,7 @@ export function App() {
       }, () => undefined)
     takeLink()
     api.version().then(setVersion, () => undefined)
+    api.whatsNew().then(setNotes, () => undefined)
     const off = [
       api.onSessions(setSessions),
       api.onUpdate((v) => {
@@ -289,6 +292,7 @@ export function App() {
         </div>
       </div>
       {record && <PrintReport s={record} version={version} />}
+      {notes.length > 0 && <WhatsNew notes={notes} onClose={() => setNotes([])} />}
     </>
   )
 }
