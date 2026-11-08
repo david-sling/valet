@@ -52,6 +52,7 @@ mod tests {
             ends_at: Some(4),
             ended_at: Some(5),
             ended_by: Some("client".into()),
+            kept: false,
             grants: vec![],
             feed,
             prompts: vec![],

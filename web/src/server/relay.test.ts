@@ -235,6 +235,18 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('relay against a local Redis', () =
     expect(late.status).toBe(410)
   })
 
+  it('drops output when the session ends, keeping how it was decided', async () => {
+    const s = await live()
+    const asked = await call(A.postAction, { method: 'POST', token: s.agent_token, params: s.params, body: { ...READ, client_id: cid() } })
+    const aid = asked.body.action_id
+    await call(A.postResult, { method: 'POST', token: s.client, params: { ...s.params, aid }, body: { status: 'ok', output: { content: 'secret' }, method: 'click' } })
+    expect((await call(A.getAction, { token: s.agent_token, params: { ...s.params, aid } })).body.output).toEqual({ content: 'secret' })
+    await call(S.end, { method: 'POST', token: s.client, params: s.params })
+    const after = await call(A.getAction, { token: s.agent_token, params: { ...s.params, aid } })
+    expect(after.body).toMatchObject({ status: 'ok', method: 'click', output_deleted: true })
+    expect(after.body.output).toBeUndefined()
+  })
+
   it('expires an unused invite and ends a session at its time limit', async () => {
     const redis = await getRedis()
     const invite = await create()

@@ -4,8 +4,9 @@ import { KINDS, SESSION_MINUTES, hhmm, clock, day, describe, minutes } from '../
 import { RiskBars } from './RiskBars'
 import { Diff, DiffStat } from './Diff'
 import { ExportButton } from './ExportButton'
+import { MoreMenu } from './MoreMenu'
 import { OutcomeChart, type Slice } from './OutcomeChart'
-import type { FeedItem, Outcome } from '../api'
+import type { FeedItem, Outcome, Settings } from '../api'
 
 export type PastSession = {
   id: string
@@ -14,6 +15,7 @@ export type PastSession = {
   startedAt: number
   endedAt: number
   endedBy: 'you' | 'vendor' | 'time' | 'closed' | 'unknown'
+  kept: boolean
   feed: FeedItem[]
 }
 
@@ -28,6 +30,9 @@ const CHECKING: Record<Checking, string> = {
 
 export type OngoingItem = { id: string; vendor: string; endsAt: number; waiting: number }
 
+const DAY_MS = 24 * 60 * 60 * 1000
+const fullDay = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+
 export function Sidebar({
   joining,
   ongoing,
@@ -40,10 +45,8 @@ export function Sidebar({
   onLive,
   onPast,
   onDark,
-  version,
-  checking,
-  downloading,
-  onCheckUpdate,
+  settingsOpen,
+  onSettings,
 }: {
   joining: boolean
   ongoing: OngoingItem[]
@@ -56,10 +59,8 @@ export function Sidebar({
   onLive: (id: string) => void
   onPast: (id: string) => void
   onDark: () => void
-  version: string
-  checking: Checking
-  downloading: { percent: number | null } | null
-  onCheckUpdate: () => void
+  settingsOpen: boolean
+  onSettings: () => void
 }) {
   return (
     <nav className="side" aria-label="Sessions">
@@ -121,6 +122,11 @@ export function Sidebar({
                 <span>
                   <b>{s.vendor}</b>
                   <small className="is-past">
+                    {s.kept && (
+                      <span className="side-kept" role="img" aria-label="Never deleted automatically" title="Never deleted automatically">
+                        <PinIcon />
+                      </span>
+                    )}
                     {day(s.startedAt)} · {SIDE_ENDED_BY[s.endedBy]}
                   </small>
                 </span>
@@ -133,28 +139,13 @@ export function Sidebar({
       </div>
 
       <div className="side-foot">
-        <div className="side-version">
-          {version && <span>Valet {version}</span>}
-          {downloading ? (
-            <>
-              <span role="status">Downloading…{downloading.percent !== null && ` ${downloading.percent}%`}</span>
-              <span
-                className="update-track"
-                role="progressbar"
-                aria-label="Downloading update"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={downloading.percent ?? undefined}
-              >
-                <span style={{ width: `${downloading.percent ?? 0}%` }} />
-              </span>
-            </>
-          ) : (
-            <button onClick={onCheckUpdate} disabled={checking === 'checking'}>
-              <span role="status">{CHECKING[checking]}</span>
-            </button>
-          )}
-        </div>
+        <button className="side-settings" aria-label="Settings" title="Settings" aria-current={settingsOpen ? 'page' : undefined} onClick={onSettings}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="6.5" />
+            <circle cx="12" cy="12" r="2.5" />
+            <path d="M18.50 12.00L21.00 12.00 M16.60 16.60L18.36 18.36 M12.00 18.50L12.00 21.00 M7.40 16.60L5.64 18.36 M5.50 12.00L3.00 12.00 M7.40 7.40L5.64 5.64 M12.00 5.50L12.00 3.00 M16.60 7.40L18.36 5.64" />
+          </svg>
+        </button>
         <div className="theme-pick" role="radiogroup" aria-label="Appearance">
           <button role="radio" aria-checked={!dark} aria-label="Light" title="Light" onClick={() => dark && onDark()}>
             <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -678,10 +669,16 @@ export function SessionRecord({
   s,
   onExportJson,
   onExportPdf,
+  onKeep,
+  onDelete,
+  keepDays,
 }: {
   s: PastSession
   onExportJson: () => Promise<boolean>
   onExportPdf: () => Promise<void>
+  onKeep: () => void
+  onDelete: () => void
+  keepDays: number | null
 }) {
   const acts = s.feed.filter((f): f is Extract<FeedItem, { type: 'action' }> => f.type === 'action')
   const n = (o: Outcome) => acts.filter((a) => a.outcome === o).length
@@ -691,18 +688,62 @@ export function SessionRecord({
     { key: 'denied', label: 'Denied or turned back', value: n('Denied') + n('Rejected') },
   ]
   if (n('Failed')) slices.push({ key: 'failed', label: 'Ran but failed', value: n('Failed') })
+  const [asking, setAsking] = useState<'delete' | 'unkeep' | null>(null)
+  const expired = keepDays !== null && s.endedAt + keepDays * DAY_MS < Date.now()
   return (
     <div className="page">
+      {asking === 'delete' && (
+        <Confirm title="Delete this session?" action="Delete session" onConfirm={() => {
+            setAsking(null)
+            onDelete()
+          }} onCancel={() => setAsking(null)}>
+          <p>The record of your session with {s.vendor} is removed from this Mac. This can't be undone.</p>
+        </Confirm>
+      )}
+      {asking === 'unkeep' && (
+        <Confirm title="Allow automatic deletion?" action="Delete session" onConfirm={() => {
+            setAsking(null)
+            onKeep()
+          }} onCancel={() => setAsking(null)}>
+          <p>
+            This session is older than {keepDays} days, your retention period, so it will be deleted from this Mac straight away. This
+            can't be undone.
+          </p>
+        </Confirm>
+      )}
       <PageHead
         vendor={s.vendor}
         meta={
           <>
             {day(s.startedAt)}–{hhmm(s.endedAt)} · {minutes(s.endedAt - s.startedAt)} ·{' '}
             <span className="ended-by">{ENDED_BY[s.endedBy]}</span>
+            {s.kept ? <> · Does not auto-delete</> : keepDays !== null && <> · Auto-deletes on {fullDay(s.endedAt + keepDays * DAY_MS)}</>}
           </>
         }
       >
-        <ExportButton onExport={(f) => (f === 'json' ? onExportJson() : onExportPdf().then(() => false))} />
+        <div className="page-actions">
+          <ExportButton onExport={(f) => (f === 'json' ? onExportJson() : onExportPdf().then(() => false))} />
+          <MoreMenu
+            label="More options"
+            items={[
+              {
+                key: 'keep',
+                label: s.kept ? 'Allow automatic deletion' : 'Never delete automatically',
+                hint: s.kept ? 'Delete it once it’s older than your retention period' : 'Keep it even when it’s older than your retention period',
+                icon: <PinIcon off={s.kept} />,
+                onPick: () => (s.kept && expired ? setAsking('unkeep') : onKeep()),
+              },
+              {
+                key: 'delete',
+                label: 'Delete session',
+                hint: 'Remove its record from this Mac now',
+                icon: <TrashIcon />,
+                danger: true,
+                onPick: () => setAsking('delete'),
+              },
+            ]}
+          />
+        </div>
       </PageHead>
       <section className="page-sec">
         <OutcomeChart total={acts.length} slices={slices} />
@@ -717,6 +758,261 @@ export function SessionRecord({
         <Feed items={s.feed} initial={s.vendor[0]} />
       </section>
     </div>
+  )
+}
+
+const KEEP: Array<{ days: number | null; label: string }> = [
+  { days: null, label: 'Forever' },
+  { days: 90, label: '90 days' },
+  { days: 30, label: '30 days' },
+  { days: 7, label: '7 days' },
+]
+
+
+function Confirm({
+  title,
+  action,
+  danger = true,
+  onConfirm,
+  onCancel,
+  children,
+}: {
+  title: string
+  action: string
+  danger?: boolean
+  onConfirm: () => void
+  onCancel: () => void
+  children: React.ReactNode
+}) {
+  const ref = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    if (!ref.current?.open) ref.current?.showModal()
+  }, [])
+  return (
+    <dialog ref={ref} className="whats-new confirm" aria-labelledby="confirm-title" onClose={onCancel}>
+      <h2 id="confirm-title" className="m-title">
+        {title}
+      </h2>
+      <div className="whats-new-notes">{children}</div>
+      <form method="dialog">
+        <button className="mbtn mbtn-ghost mbtn-sm" autoFocus>
+          Cancel
+        </button>
+        <button type="button" className={`mbtn mbtn-sm ${danger ? 'mbtn-danger' : 'mbtn-ink'}`} onClick={onConfirm}>
+          {action}
+        </button>
+      </form>
+    </dialog>
+  )
+}
+
+function ConfirmKeep({
+  days,
+  old,
+  onConfirm,
+  onCancel,
+}: {
+  days: number
+  old: PastSession[]
+  onConfirm: (keep: string[]) => void
+  onCancel: () => void
+}) {
+  const [keep, setKeep] = useState<string[]>([])
+  const gone = old.length - keep.length
+  const count = gone === 1 ? '1 past session' : `${gone} past sessions`
+  return (
+    <Confirm
+      title={`Keep past sessions for ${days} days?`}
+      action={gone ? `Delete ${count}` : 'Keep them all'}
+      danger={gone > 0}
+      onConfirm={() => onConfirm(keep)}
+      onCancel={onCancel}
+    >
+      <p>
+        {gone ? `${count} older than ${days} days will be deleted from this Mac straight away. This can't be undone.` : 'Every older session is kept, so nothing will be deleted.'}
+      </p>
+      <details>
+        <summary>Show {old.length === 1 ? 'the session' : `the ${old.length} sessions`}</summary>
+        <p className="m-meta">Tick a session to keep it. Kept sessions are never deleted automatically.</p>
+        <ul className="confirm-keep-list">
+          {old.map((s) => (
+            <li key={s.id}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={keep.includes(s.id)}
+                  onChange={(e) => setKeep((k) => (e.target.checked ? [...k, s.id] : k.filter((x) => x !== s.id)))}
+                />
+                <b>{s.vendor}</b>
+              </label>
+              <span>{fullDay(s.startedAt)}</span>
+            </li>
+          ))}
+        </ul>
+      </details>
+    </Confirm>
+  )
+}
+
+export function SettingsPage({
+  settings,
+  past,
+  onChange,
+  onDeleteAll,
+  version,
+  checking,
+  downloading,
+  onCheckUpdate,
+  ready,
+  onRestart,
+}: {
+  settings: Settings
+  past: PastSession[]
+  onChange: (s: Settings, keep?: string[]) => void
+  onDeleteAll: () => void
+  version: string
+  checking: Checking
+  downloading: { percent: number | null } | null
+  onCheckUpdate: () => void
+  ready: string | null
+  onRestart: () => void
+}) {
+  const [asking, setAsking] = useState<{ days: number; old: PastSession[] } | null>(null)
+  const [clearing, setClearing] = useState(false)
+  const keep = (days: number | null) => {
+    const old = days === null ? [] : past.filter((p) => !p.kept && p.endedAt < Date.now() - days * DAY_MS)
+    if (days !== null && old.length) setAsking({ days, old })
+    else onChange({ ...settings, keepDays: days })
+  }
+  return (
+    <div className="page">
+      {asking && (
+        <ConfirmKeep
+          days={asking.days}
+          old={asking.old}
+          onCancel={() => setAsking(null)}
+          onConfirm={(keep) => {
+            setAsking(null)
+            onChange({ ...settings, keepDays: asking.days }, keep)
+          }}
+        />
+      )}
+      {clearing && (
+        <Confirm
+          title="Delete all past sessions?"
+          action={past.length === 1 ? 'Delete 1 session' : `Delete ${past.length} sessions`}
+          onConfirm={() => {
+            setClearing(false)
+            onDeleteAll()
+          }}
+          onCancel={() => setClearing(false)}
+        >
+          <p>Every past session's record is removed from this Mac, including sessions you chose to keep. This can't be undone.</p>
+        </Confirm>
+      )}
+      <header className="page-head">
+        <div>
+          <h1 className="m-title">Settings</h1>
+          <p className="m-meta">Saved on this Mac only.</p>
+        </div>
+      </header>
+      <section className="page-sec">
+        <h2 className="m-label">Updates</h2>
+        <div className="setting">
+          <div>
+            <b>Valet {version}</b>
+            {ready ? (
+              <p className="m-meta" role="status">
+                Valet {ready} is ready to install.
+              </p>
+            ) : downloading ? (
+              <>
+                <p className="m-meta" role="status">
+                  Downloading the update…{downloading.percent !== null && ` ${downloading.percent}%`}
+                </p>
+                <span
+                  className="update-track"
+                  role="progressbar"
+                  aria-label="Downloading update"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={downloading.percent ?? undefined}
+                >
+                  <span style={{ width: `${downloading.percent ?? 0}%` }} />
+                </span>
+              </>
+            ) : (
+              checking !== 'idle' && (
+                <p className="m-meta" role="status">
+                  {CHECKING[checking]}
+                </p>
+              )
+            )}
+          </div>
+          {ready ? (
+            <button className="mbtn mbtn-ink mbtn-sm" onClick={onRestart}>
+              Restart to update
+            </button>
+          ) : (
+            <button className="mbtn mbtn-ghost mbtn-sm" onClick={onCheckUpdate} disabled={checking === 'checking' || !!downloading}>
+              Check for updates
+            </button>
+          )}
+        </div>
+        <div className="setting">
+          <div>
+            <b>Check for updates automatically</b>
+            <p className="m-meta">
+              At launch and every 6 hours, Valet asks GitHub for a new version, so GitHub sees your IP address. When this is
+              off, Valet only checks when you choose Check for updates.
+            </p>
+          </div>
+          <button
+            role="switch"
+            aria-checked={settings.autoUpdate}
+            aria-label="Check for updates automatically"
+            className="switch"
+            onClick={() => onChange({ ...settings, autoUpdate: !settings.autoUpdate })}
+          />
+        </div>
+      </section>
+      <section className="page-sec">
+        <h2 className="m-label">Past sessions</h2>
+        <p className="m-body">
+          Records of past sessions stay on this Mac and never include command output or file contents. Choose how long to keep
+          them; older ones are deleted straight away. Sessions you mark as kept are never deleted automatically.
+        </p>
+        <div className="seg" role="radiogroup" aria-label="Keep past sessions">
+          {KEEP.map((k) => (
+            <button key={k.label} role="radio" aria-checked={settings.keepDays === k.days} onClick={() => keep(k.days)}>
+              {k.label}
+            </button>
+          ))}
+        </div>
+        <div>
+          <button className="mbtn mbtn-danger mbtn-sm" disabled={!past.length} onClick={() => setClearing(true)}>
+            Delete all past sessions
+          </button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function PinIcon({ off = false }: { off?: boolean }) {
+  return (
+    <svg viewBox="0 0 16 16">
+      <path d="M6 2.5h4M6.6 2.5v3.6L4.5 9h7l-2.1-2.9V2.5M8 9v4.5" />
+      {off && <path d="M2.5 2.5l11 11" />}
+    </svg>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 16 16">
+      <path d="M2.5 4.5h11M6.5 4.5V3h3v1.5M4 4.5l.7 8.5h6.6l.7-8.5M6.8 7v3.5M9.2 7v3.5" />
+    </svg>
   )
 }
 
