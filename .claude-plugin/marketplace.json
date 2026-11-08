@@ -1,0 +1,13 @@
+{
+  "name": "valet",
+  "description": "Valet add-ons for Claude Code",
+  "owner": {
+    "name": "David S D"
+  },
+  "plugins": [
+    {
+      "name": "valet-cards",
+      "source": "./claude-plugin"
+    }
+  ]
+}
