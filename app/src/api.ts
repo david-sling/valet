@@ -33,6 +33,8 @@ export type Prompt = {
   scopes: Scope[]
   askedAt: number
   diff: string[] | null
+  output: string | null
+  outputNext: number | null
   busy: boolean
 }
 
@@ -62,6 +64,7 @@ export const api = {
   decline: (id: string) => invoke<void>('decline', { id }),
   start: (id: string, grants: GrantChoice[]) => invoke<void>('start', { id, grants }),
   answer: (prompt: string, allow: boolean, scope?: Scope) => invoke<void>('answer', { prompt, allow, scope }),
+  outputPage: (prompt: string, from: number) => invoke<{ text: string; next: number | null }>('output_page', { prompt, from }),
   setGrant: (id: string, grant: string, on: boolean) => invoke<void>('set_grant', { id, grant, on }),
   extend: (id: string) => invoke<void>('extend', { id }),
   end: (id: string) => invoke<void>('end', { id }),

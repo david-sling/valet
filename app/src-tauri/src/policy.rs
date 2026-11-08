@@ -45,6 +45,8 @@ pub fn decide(risk: Risk, needs: &[Need], grants: &[Grant], now: i64) -> Vec<Nee
 pub enum Scope {
     #[serde(rename = "once")]
     Once,
+    #[serde(rename = "check")]
+    Check,
     #[serde(rename = "session")]
     Session,
     #[serde(rename = "15m")]
@@ -55,9 +57,9 @@ pub enum Scope {
 
 pub fn scopes_for(risk: Risk, needs: &[Need]) -> Vec<Scope> {
     if risk == Risk::Critical {
-        return vec![Scope::Once];
+        return vec![Scope::Once, Scope::Check];
     }
-    let mut s = vec![Scope::Once, Scope::Session, Scope::Minutes15];
+    let mut s = vec![Scope::Once, Scope::Check, Scope::Session, Scope::Minutes15];
     if needs.iter().any(|n| n.kind == Kind::Files) {
         s.push(Scope::Folder);
     }
@@ -65,7 +67,7 @@ pub fn scopes_for(risk: Risk, needs: &[Need]) -> Vec<Scope> {
 }
 
 pub fn grants_from(needs: &[Need], scope: Scope, now: i64) -> Vec<(Need, Option<i64>)> {
-    if scope == Scope::Once {
+    if matches!(scope, Scope::Once | Scope::Check) {
         return vec![];
     }
     needs

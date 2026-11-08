@@ -385,6 +385,8 @@ button:disabled { cursor: not-allowed; }
 .action-block { border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line-2); overflow: hidden; }
 .literal-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 10px; padding: 12px 14px; }
 .literal { font: 500 13.5px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.action-block .out { margin: 0; border-radius: 0; border-top: 1px solid var(--line-2); max-height: 320px; overflow: auto; }
+.out-more { display: block; margin-top: 8px; color: var(--ink-3); font-family: var(--sans); }
 /* git-style diff: full-width line tints, a sign gutter, collapsed when long */
 .diff { display: grid; padding: 6px 0; border-top: 1px solid var(--line-2); font-size: 12.5px; line-height: 1.6; }
 .diff-line { display: grid; grid-template-columns: 22px minmax(0, 1fr); padding-right: 14px; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }

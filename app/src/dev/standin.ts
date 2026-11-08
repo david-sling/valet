@@ -33,6 +33,8 @@ const patch = (id: string, f: (s: Session) => Session) => {
 }
 const event = (text: string): FeedItem => ({ type: 'event', id: ++n, at: Date.now(), text })
 
+const HELD = Array.from({ length: 2000 }, (_, i) => `line ${i + 1}: driver 31.0.101 ok`).join('\n')
+
 const PROMPTS: Omit<Prompt, 'id' | 'askedAt' | 'busy'>[] = [
   {
     tool: 'write_file',
@@ -42,8 +44,10 @@ const PROMPTS: Omit<Prompt, 'id' | 'askedAt' | 'busy'>[] = [
     needs: [{ kind: 'Files', access: 'write', scope: '~/Library/Application Support/AcmeApp/config.json', risk: 'medium' }],
     risk: 'medium',
     reason: 'Switching the renderer to Metal, which avoids the driver bug.',
-    scopes: ['once', 'session', '15m', 'folder'],
+    scopes: ['once', 'check', 'session', '15m', 'folder'],
     diff: [' {', '-  "renderer": "opengl",', '+  "renderer": "metal",', '   "gpu.vsync": true', ' }'],
+    output: null,
+    outputNext: null,
   },
   {
     tool: 'run_command',
@@ -56,8 +60,10 @@ const PROMPTS: Omit<Prompt, 'id' | 'askedAt' | 'busy'>[] = [
     ],
     risk: 'high',
     reason: 'Checking the latest driver Acme recommends.',
-    scopes: ['once', 'session', '15m'],
+    scopes: ['once', 'check', 'session', '15m'],
     diff: null,
+    output: null,
+    outputNext: null,
   },
 ]
 
@@ -126,6 +132,11 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
       const s = sessions.find((x) => x.prompts.some((p) => p.id === args.prompt))
       const p = s?.prompts.find((x) => x.id === args.prompt)
       if (!s || !p) throw 'That request is no longer waiting.'
+      if (args.allow && args.scope === 'check') {
+        const output = HELD.slice(0, 4096)
+        patch(s.id, (x) => ({ ...x, prompts: x.prompts.map((q) => (q.id === p.id ? { ...q, id: `p${++n}`, askedAt: Date.now(), scopes: [], diff: null, output, outputNext: 4096 } : q)) }))
+        return null
+      }
       const outcome = args.allow ? 'Approved' : 'Denied'
       const method = args.allow ? (p.risk === 'high' ? 'Touch ID' : 'Click') : undefined
       patch(s.id, (x) => ({
@@ -134,6 +145,11 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
         feed: [...x.feed, { type: 'action', id: ++n, at: Date.now(), tool: p.tool, literal: p.literal, outcome, method, diff: p.diff ?? undefined }],
       }))
       return null
+    }
+    case 'output_page': {
+      const from = args.from as number
+      const end = Math.min(from + 4096, HELD.length)
+      return wait(200).then(() => ({ text: HELD.slice(from, end), next: end < HELD.length ? end : null }))
     }
     case 'set_grant':
       patch(id, (s) => ({ ...s, grants: s.grants.map((g) => (g.id === args.grant ? { ...g, on: args.on as boolean } : g)) }))

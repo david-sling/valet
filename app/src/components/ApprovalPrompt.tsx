@@ -5,7 +5,7 @@ import { VERB, describe } from '../format'
 import { RiskBars } from './RiskBars'
 import { Diff, DiffStat } from './Diff'
 import { SplitButton } from './SplitButton'
-import type { Prompt } from '../api'
+import { api, type Prompt } from '../api'
 
 const RIDGES = [
   'M6.2 7.6a7.6 7.6 0 0 1 11.6 0',
@@ -48,7 +48,8 @@ export function ApprovalPrompt({
     onAnswer(allow, allow ? scope : undefined).catch((e: unknown) => setError(typeof e === 'string' ? e : 'Not confirmed.'))
   }
 
-  const allowLabel = scope === 'once' ? 'Allow once' : `Allow for ${SCOPE_LABEL[scope].toLowerCase()}`
+  const allowLabel =
+    scope === 'once' ? 'Allow once' : scope === 'check' ? 'Allow, check output' : `Allow for ${SCOPE_LABEL[scope].toLowerCase()}`
   const fingerprint = (
     <svg className="fingerprint" viewBox="0 0 24 24" aria-label="with Touch ID">
       {RIDGES.map((d) => (
@@ -73,7 +74,15 @@ export function ApprovalPrompt({
       <div className="request-body">
         <p id={titleId} className="request-ask">
           <span>
-            <b>{vendor}</b> wants to {VERB[prompt.tool] ?? prompt.tool}
+            {prompt.output === null ? (
+              <>
+                <b>{vendor}</b> wants to {VERB[prompt.tool] ?? prompt.tool}
+              </>
+            ) : (
+              <>
+                Send this output to <b>{vendor}</b>?
+              </>
+            )}
           </span>
           <RiskBars risk={prompt.risk} />
         </p>
@@ -89,6 +98,7 @@ export function ApprovalPrompt({
             {prompt.diff && <DiffStat lines={prompt.diff} />}
           </div>
           {prompt.diff && <Diff lines={prompt.diff} />}
+          {prompt.output !== null && <HeldOutput prompt={prompt} />}
           {(prompt.program || extra.length > 0) && (
             <p className="action-meta">
               {prompt.program && (
@@ -111,7 +121,17 @@ export function ApprovalPrompt({
         </div>
 
 
-        {prompt.busy ? (
+        {prompt.output !== null ? (
+          <div className="request-actions">
+            <button ref={denyRef} className="mbtn mbtn-ghost mbtn-sm" onClick={() => answer(false)}>
+              Don't send
+            </button>
+            <button className="mbtn mbtn-ink mbtn-sm" onClick={() => answer(true)} disabled={!armed}>
+              Send
+            </button>
+            {clock}
+          </div>
+        ) : prompt.busy ? (
           <div className="touchid-wait" role="status">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               {RIDGES.map((d) => (
@@ -149,5 +169,32 @@ export function ApprovalPrompt({
         {error && <p className="m-error">{error}</p>}
       </div>
     </li>
+  )
+}
+
+function HeldOutput({ prompt }: { prompt: Prompt }) {
+  const [text, setText] = useState(prompt.output ?? '')
+  const [next, setNext] = useState(prompt.outputNext)
+  const loading = useRef(false)
+
+  const onScroll = (e: React.UIEvent<HTMLPreElement>) => {
+    const el = e.currentTarget
+    if (next === null || loading.current || el.scrollHeight - el.scrollTop - el.clientHeight > 400) return
+    loading.current = true
+    api
+      .outputPage(prompt.id, next)
+      .then((p) => {
+        setText((t) => t + p.text)
+        setNext(p.next)
+      })
+      .catch(() => {})
+      .finally(() => (loading.current = false))
+  }
+
+  return (
+    <pre className="out" onScroll={onScroll}>
+      {text || 'No output'}
+      {next !== null && <span className="out-more">Scroll for more…</span>}
+    </pre>
   )
 }

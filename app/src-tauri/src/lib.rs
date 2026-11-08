@@ -86,6 +86,11 @@ async fn answer(m: State<'_, Manager>, prompt: String, allow: bool, scope: Optio
 }
 
 #[tauri::command]
+async fn output_page(m: State<'_, Manager>, prompt: String, from: usize) -> Result<session::Page, String> {
+    m.output_page(&prompt, from)
+}
+
+#[tauri::command]
 async fn set_grant(m: State<'_, Manager>, id: String, grant: String, on: bool) -> Result<(), String> {
     m.set_grant(&id, &grant, on)
 }
@@ -211,7 +216,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, set_grant, extend, end, restart, check_update, export_json, print_report, take_join_link])
+        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, output_page, set_grant, extend, end, restart, check_update, export_json, print_report, take_join_link])
         .build(tauri::generate_context!())
         .expect("error while building Valet")
         .run(|app, event| {
