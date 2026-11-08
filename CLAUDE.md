@@ -2,7 +2,6 @@
 
 ## Release notes
 
-- Every app release needs notes in `app/release-notes/X.Y.Z.md`, written for the people using the app. The app shows them on the first open after an update.
-- Keep `[DRAFT]` as the first line of the next version's notes while changes land, and add each user-visible change to them as it's made. The release workflow fails while `[DRAFT]` is there.
-- Remove `[DRAFT]` only when releasing: in the release commit itself (or a commit right before it), then tag that commit `app-vX.Y.Z` and push the tag.
-- After a release, start the next version's file with `[DRAFT]`.
+- Every app release needs notes, written as the message of an annotated tag. The release workflow fails on a lightweight tag or an empty message, and the app shows the notes on the first open after the update.
+- Draft them only when releasing, from `git log app-v<previous>..HEAD`: user-visible changes only, written for the people using the app, not for developers. Show the draft to the user before tagging.
+- Tag the version-bump commit with `git tag -a app-vX.Y.Z --cleanup=whitespace -F <notes file>`, keeping the notes file outside the repo. `--cleanup=whitespace` keeps Markdown `#` headings, which the default cleanup strips as comments.

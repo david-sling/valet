@@ -80,12 +80,15 @@ cargo test --manifest-path app/src-tauri/Cargo.toml
 
 ## Releasing the app
 
-Release notes for the next version live in `app/release-notes/X.Y.Z.md` and start with `[DRAFT]` while changes land. The app shows them on the first open after the update.
+1. Bump `version` in `app/src-tauri/tauri.conf.json` and `app/src-tauri/Cargo.toml` and commit.
+2. Tag that commit with the release notes as the tag message, drafted from the commits since the last `app-v*` tag, and push the tag. The release stops on a tag without notes, and the app shows them on the first open after the update.
 
-1. In one commit, bump `version` in `app/src-tauri/tauri.conf.json` and `app/src-tauri/Cargo.toml`, and remove `[DRAFT]` from the notes. The release stops if the notes are missing or still marked `[DRAFT]`.
-2. Tag that commit `app-vX.Y.Z` and push the tag. The release workflow builds, signs and notarises a draft release.
+   ```bash
+   git tag -a app-vX.Y.Z --cleanup=whitespace -F notes.md
+   ```
+
+   The release workflow builds, signs and notarises a draft release.
 3. Check the draft, then publish it. Installed apps pick it up within 6 hours.
-4. Start the next version's notes with `[DRAFT]`.
 
 Details are in [ARCHITECTURE.md §12.1](ARCHITECTURE.md#121-client-releases).
 
