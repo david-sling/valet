@@ -80,8 +80,14 @@ cargo test --manifest-path app/src-tauri/Cargo.toml
 
 ## Releasing the app
 
-1. In one commit, bump `version` in `app/src-tauri/tauri.conf.json` and `app/src-tauri/Cargo.toml`, and write the release notes in `app/release-notes/X.Y.Z.md`, drafted from the commits since the last `app-v*` tag. The release stops without them, and the app shows them on the first open after the update.
-2. Tag that commit `app-vX.Y.Z` and push the tag. The release workflow builds, signs and notarises a draft release.
+1. Bump `version` in `app/src-tauri/tauri.conf.json` and `app/src-tauri/Cargo.toml` and commit.
+2. Tag that commit with the release notes as the tag message, drafted from the commits since the last `app-v*` tag, and push the tag. The release stops on a tag without notes, and the app shows them on the first open after the update.
+
+   ```bash
+   git tag -a app-vX.Y.Z --cleanup=whitespace -F notes.md
+   ```
+
+   The release workflow builds, signs and notarises a draft release.
 3. Check the draft, then publish it. Installed apps pick it up within 6 hours.
 
 Details are in [ARCHITECTURE.md §12.1](ARCHITECTURE.md#121-client-releases).

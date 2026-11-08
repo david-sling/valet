@@ -16,10 +16,11 @@ jobs:
       - name: Check the release notes
         id: notes
         run: |
-          version=$(jq -r .version app/src-tauri/tauri.conf.json)
-          file="app/release-notes/$version.md"
-          grep -q '[^[:space:]]' "$file" 2>/dev/null || { echo "::error::Write the release notes for $version in $file"; exit 1; }
-          { echo 'body<<VALET_NOTES'; cat "$file"; echo; echo; echo 'Signed and notarised for macOS 13 or later, on Apple silicon and Intel.'; echo 'VALET_NOTES'; } >> "$GITHUB_OUTPUT"
+          git fetch --quiet --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          notes=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME" | sed '/^-----BEGIN .*SIGNATURE-----$/,$d')
+          [ "$(git cat-file -t "$GITHUB_REF_NAME")" = tag ] && printf '%s' "$notes" | grep -q '[^[:space:]]' || {
+            echo "::error::Put the release notes in the tag message: git tag -a $GITHUB_REF_NAME --cleanup=whitespace -F notes.md"; exit 1; }
+          { echo 'body<<VALET_NOTES'; printf '%s\n\n' "$notes"; echo 'Signed and notarised for macOS 13 or later, on Apple silicon and Intel.'; echo 'VALET_NOTES'; } >> "$GITHUB_OUTPUT"
 
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
