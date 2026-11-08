@@ -20,6 +20,7 @@ use crate::types::{now_ms, Grant, Need, Risk, Source};
 const ARMING: Duration = Duration::from_millis(600);
 const FEED_OUTPUT: usize = 64 * 1024;
 const MAX_GRANTS: usize = 200;
+const PAGE: usize = 64 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -67,7 +68,15 @@ pub struct PromptView {
     pub scopes: Vec<Scope>,
     pub asked_at: i64,
     pub diff: Option<Vec<String>>,
+    pub output: Option<String>,
+    pub output_next: Option<usize>,
     pub busy: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Page {
+    pub text: String,
+    pub next: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -107,6 +116,7 @@ struct Prompt {
     view: PromptView,
     raised: Instant,
     reply: Option<oneshot::Sender<Answer>>,
+    held: String,
 }
 
 struct Session {
@@ -174,8 +184,25 @@ fn clip(s: &str, max: usize) -> String {
     format!("{}…", &s[..end])
 }
 
+fn page(s: &str, from: usize) -> Page {
+    let floor = |mut i: usize| {
+        i = i.min(s.len());
+        while !s.is_char_boundary(i) {
+            i -= 1;
+        }
+        i
+    };
+    let (start, end) = (floor(from), floor(from.saturating_add(PAGE)));
+    Page { text: s[start..end].to_string(), next: (end < s.len()).then_some(end) }
+}
+
 fn feed_output(tool: &str, v: &Value) -> Option<String> {
-    let text = match tool {
+    let text = output_text(tool, v);
+    (!text.is_empty()).then(|| clip(&text, FEED_OUTPUT))
+}
+
+fn output_text(tool: &str, v: &Value) -> String {
+    match tool {
         "run_command" => {
             let out = v["stdout"].as_str().unwrap_or_default();
             let err = v["stderr"].as_str().unwrap_or_default();
@@ -192,8 +219,7 @@ fn feed_output(tool: &str, v: &Value) -> Option<String> {
             .unwrap_or_default(),
         "write_file" => format!("wrote {} bytes", v["bytes"]),
         _ => String::new(),
-    };
-    (!text.is_empty()).then(|| clip(&text, FEED_OUTPUT))
+    }
 }
 
 fn session_tmp(id: &str) -> std::io::Result<PathBuf> {
@@ -467,6 +493,17 @@ impl Manager {
         self.changed();
     }
 
+    pub fn output_page(&self, prompt_id: &str, from: usize) -> Result<Page, String> {
+        let st = self.lock();
+        let p = st
+            .sessions
+            .values()
+            .flat_map(|s| &s.prompts)
+            .find(|p| p.view.id == prompt_id)
+            .ok_or("That request is no longer waiting.")?;
+        Ok(page(&p.held, from))
+    }
+
     pub async fn answer(&self, prompt_id: &str, allow: bool, scope: Option<Scope>) -> Result<(), String> {
         let (id, scope, literal, agent) = {
             let mut st = self.lock();
@@ -493,6 +530,15 @@ impl Manager {
             }
             if p.raised.elapsed() < ARMING {
                 return Err("Wait a moment before allowing.".into());
+            }
+            if p.view.output.is_some() {
+                let p = s.prompts.remove(i);
+                if let Some(tx) = p.reply {
+                    let _ = tx.send(Answer::Allow { scope: Scope::Once, method: "click" });
+                }
+                drop(st);
+                self.changed();
+                return Ok(());
             }
             let scope = scope.ok_or("Choose how long to allow it for.")?;
             if !p.view.scopes.contains(&scope) {
@@ -679,6 +725,7 @@ impl Manager {
         }
         let mut method = None;
         let mut approved = vec![];
+        let mut check = false;
         if !asked.is_empty() {
             let (tx, rx) = oneshot::channel();
             {
@@ -698,10 +745,13 @@ impl Manager {
                         scopes: scopes_for(p.risk, &asked),
                         asked_at: now_ms(),
                         diff,
+                        output: None,
+                        output_next: None,
                         busy: false,
                     },
                     raised: Instant::now(),
                     reply: Some(tx),
+                    held: String::new(),
                 });
             }
             self.changed();
@@ -717,11 +767,20 @@ impl Manager {
                 Some(Answer::Allow { scope, method: m }) => {
                     method = Some(m);
                     approved = asked.clone();
+                    check = scope == Scope::Check;
                     self.add_grants(id, &asked, scope);
                 }
             }
         }
-        let done = self.execute(id, p, &approved, &tmp, &stop).await;
+        let mut done = self.execute(id, p, &approved, &tmp, &stop).await;
+        if let (true, Some(d)) = (check, &done) {
+            let text = d.output.as_ref().map(|v| output_text(&a.tool, v)).filter(|t| !t.is_empty()).or(d.error.clone()).unwrap_or_default();
+            match self.hold(id, a, p, text, &stop).await {
+                None => return (None, None),
+                Some(false) => done = Some(Done { status: "denied", output: None, error: Some("The output was checked and not sent.".into()) }),
+                Some(true) => {}
+            }
+        }
         let done = done.map(|mut d| {
             if method.is_some() && d.status == "ok" {
                 d.status = "approved";
@@ -729,6 +788,42 @@ impl Manager {
             d
         });
         (done, method)
+    }
+
+    async fn hold(&self, id: &str, a: &InboxAction, p: &Plan, output: String, stop: &CancellationToken) -> Option<bool> {
+        let (tx, rx) = oneshot::channel();
+        let first = page(&output, 0);
+        {
+            let mut st = self.lock();
+            let n = st.next_id();
+            let s = st.sessions.get_mut(id)?;
+            s.prompts.push(Prompt {
+                view: PromptView {
+                    id: format!("p{n}"),
+                    tool: a.tool.clone(),
+                    literal: p.literal.clone(),
+                    program: None,
+                    cwd: None,
+                    needs: vec![],
+                    risk: p.risk,
+                    reason: a.reason.clone(),
+                    scopes: vec![],
+                    asked_at: now_ms(),
+                    diff: None,
+                    output: Some(first.text),
+                    output_next: first.next,
+                    busy: false,
+                },
+                raised: Instant::now(),
+                reply: Some(tx),
+                held: output,
+            });
+        }
+        self.changed();
+        tokio::select! {
+            r = rx => r.ok().map(|a| matches!(a, Answer::Allow { .. })),
+            _ = stop.cancelled() => None,
+        }
     }
 
     fn add_grants(&self, id: &str, needs: &[Need], scope: Scope) {
@@ -810,6 +905,20 @@ mod tests {
             let url = format!("{}/sessions/{}/actions/{}?wait=20", self.api, self.id, aid.as_str().unwrap());
             self.http.get(url).bearer_auth(&self.token).send().await.unwrap().json().await.unwrap()
         }
+    }
+
+    #[test]
+    fn pages_cover_the_output_on_char_boundaries() {
+        let text = "é".repeat(PAGE);
+        let mut got = String::new();
+        let mut from = Some(0);
+        while let Some(f) = from {
+            let p = page(&text, f);
+            got += &p.text;
+            from = p.next;
+        }
+        assert_eq!(got, text);
+        assert_eq!(page("", 0).next, None);
     }
 
     async fn prompt(m: &Manager) -> PromptView {
@@ -894,6 +1003,19 @@ mod tests {
         assert!(m.answer(&p.id, false, None).await.is_ok());
         assert!(m.answer(&p.id, false, None).await.is_err(), "a request is answered once");
         assert_eq!(agent.result(&aid).await["status"], "denied");
+
+        let aid = agent.act("run_command", json!({ "command": ["/usr/bin/whoami"] })).await;
+        assert!(m.answer(&prompt(&m).await.id, true, Some(Scope::Check)).await.is_ok());
+        let p = prompt(&m).await;
+        assert!(p.output.is_some(), "the result is held for a check");
+        assert!(m.answer(&p.id, false, None).await.is_ok());
+        let r = agent.result(&aid).await;
+        assert!(r["status"] == "denied" && r["output"].is_null(), "{r}");
+
+        let aid = agent.act("run_command", json!({ "command": ["/usr/bin/whoami"] })).await;
+        assert!(m.answer(&prompt(&m).await.id, true, Some(Scope::Check)).await.is_ok());
+        assert!(m.answer(&prompt(&m).await.id, true, None).await.is_ok());
+        assert_eq!(agent.result(&aid).await["status"], "approved");
 
         let r = agent.result(&agent.act("read_file", json!({ "path": "~/../etc/passwd" })).await).await;
         assert_eq!(r["status"], "rejected", "{r}");

@@ -84,17 +84,17 @@
     {
       "name": "critical can only be allowed once",
       "action": { "risk": "critical", "needs": [{ "kind": "Admin rights", "access": "elevate", "scope": "/usr/bin/sudo", "risk": "critical" }] },
-      "expect": ["once"]
+      "expect": ["once", "check"]
     },
     {
       "name": "a file need can be widened to its folder",
       "action": { "risk": "low", "needs": [{ "kind": "Files", "access": "read", "scope": "~/a.txt", "risk": "low" }] },
-      "expect": ["once", "session", "15m", "folder"]
+      "expect": ["once", "check", "session", "15m", "folder"]
     },
     {
       "name": "a program has no folder",
       "action": { "risk": "medium", "needs": [{ "kind": "Programs", "access": "run", "scope": "/usr/bin/log", "risk": "medium" }] },
-      "expect": ["once", "session", "15m"]
+      "expect": ["once", "check", "session", "15m"]
     }
   ],
   "grantsFrom": [

@@ -21,21 +21,22 @@ export function decide(a: { risk: Risk; needs: Need[] }, grants: Grant[], now: n
   return needs.length ? { ask: true, needs } : { ask: false }
 }
 
-export type Scope = 'once' | 'session' | '15m' | 'folder'
+export type Scope = 'once' | 'check' | 'session' | '15m' | 'folder'
 export const SCOPE_LABEL: Record<Scope, string> = {
   once: 'Once',
+  check: 'Once, check output',
   session: 'This session',
   '15m': '15 minutes',
   folder: 'This folder',
 }
 
 export function scopesFor(a: { risk: Risk; needs: Need[] }): Scope[] {
-  if (a.risk === 'critical') return ['once']
-  return a.needs.some((n) => n.kind === 'Files') ? ['once', 'session', '15m', 'folder'] : ['once', 'session', '15m']
+  if (a.risk === 'critical') return ['once', 'check']
+  return a.needs.some((n) => n.kind === 'Files') ? ['once', 'check', 'session', '15m', 'folder'] : ['once', 'check', 'session', '15m']
 }
 
 export function grantsFrom(needs: Need[], scope: Scope, now: number): Array<Need & { expiresAt?: number }> {
-  if (scope === 'once') return []
+  if (scope === 'once' || scope === 'check') return []
   return needs.map((n) => ({
     ...n,
     scope: scope === 'folder' && n.kind === 'Files' ? n.scope.replace(/\/[^/]*$/, '/**') : n.scope,
