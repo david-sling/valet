@@ -1,0 +1,62 @@
+---
+title: Privacy policy
+description: What Valet collects, where it goes, how long it's kept, and what stays on your Mac.
+---
+
+Last updated: 8 November 2026
+
+Valet is a free, open-source project maintained by one person. It's built to collect as little as it can: there are no accounts, no profiles and no advertising. This policy covers the Valet app for Mac, the hosted relay at valet.davidsling.in, and this website. If you use a relay someone else runs, including your own, its operator decides what happens to the data, not me.
+
+## What the relay handles
+
+The relay passes messages between a vendor's agent and the person using the Valet app. For each session it holds:
+
+- The vendor's name, the session's purpose and each request's reason, as the agent typed them.
+- Each request the agent makes: the command, path or host it asks for.
+- The output of requests the person allowed, such as command output or the contents of a file they let the agent read.
+- The permissions the person gave, and how each request was answered.
+- The signed log of the session, which has no command output or file contents.
+- Hashes of the session's tokens, never the tokens themselves.
+- The join code, which stops working once it's used or after 10 minutes.
+
+Valet doesn't filter or redact secrets from results. A file the person lets the agent read is sent as it is.
+
+The output of every request is deleted as soon as the session ends. Everything else is deleted 24 hours after the session ends, or after it expires if it never starts.
+
+## IP addresses
+
+The relay uses your IP address to rate limit starting sessions and joining them. It stores only a keyed hash of the address, for the length of the rate limit's window, at most one hour. My host, Vercel, may keep request logs that include IP addresses under its own policies.
+
+## What stays on your Mac
+
+The app keeps a record of each past session: who asked, why, when, how it ended, the permissions, and every request with what happened to it. It never keeps command output or file contents. These records aren't synced or uploaded. You can delete them in the app, one at a time or all at once, or have Valet delete them after 7, 30 or 90 days, except any you choose to keep. The key that signs session logs stays in your Mac's keychain.
+
+## What the app connects to
+
+- The relay, over HTTPS, only while you're joining or in a session.
+- GitHub, at launch and every 6 hours, to check for updates, and after an update to fetch its release notes. GitHub sees your IP address under its own policies. You can turn off automatic checks in Settings.
+
+The app has no analytics or crash reporting.
+
+## This website
+
+The website uses Vercel Web Analytics to count page views. It uses no cookies and doesn't track you across sites, and join codes in links are removed before a page view is sent. Fonts are served from this site, not a third party. The docs remember your theme and sidebar choice in your browser's local storage, which never leaves your device.
+
+## Sharing
+
+I don't sell or share data with anyone, and make no money from Valet. The results and log of a session go to the vendor whose agent ran it, because that's the service. Data is stored and processed by my providers, Vercel and a Redis host, only to run the relay.
+
+## Your choices
+
+- You decide what an agent can do in a session, and can end it at any time.
+- You can delete past session records in the app, or have them deleted automatically.
+- You can turn off automatic update checks.
+- Output is deleted from the relay when a session ends, and everything else 24 hours later. If you need it removed sooner, contact me with the session's details.
+
+## Changes
+
+If this policy changes, I'll update this page and its date.
+
+## Contact
+
+Questions about privacy: open an issue at [github.com/david-sling/valet](https://github.com/david-sling/valet/issues).

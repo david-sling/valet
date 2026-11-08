@@ -122,6 +122,8 @@ export function StubEnds({ stars, skill }: { stars: number | null; skill: string
           <a href="#clients">For clients</a>
           <a href="#vendors">For vendors</a>
           <a href="#security">Security</a>
+          <a href="/docs/privacy">Privacy</a>
+          <a href="/docs/terms">Terms</a>
         </nav>
         <StarButton stars={stars} />
         <p>© 2026 Valet</p>
