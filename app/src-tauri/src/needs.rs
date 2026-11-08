@@ -239,6 +239,33 @@ fn program_needs(program: &Path, argv: &[String]) -> Vec<Need> {
     needs
 }
 
+// A permission the agent proposes is rated here from its scope; the agent's own label can only raise it.
+pub fn rate(mut n: Need) -> Need {
+    let local = match n.kind {
+        Kind::Files if n.access != "read" && n.access != "write" => Risk::High,
+        Kind::Files => {
+            let folder = n.scope.ends_with("/**");
+            let base = n.scope.strip_suffix("/**").map(|b| if b.is_empty() { "/" } else { b }).unwrap_or(&n.scope);
+            match resolve(base) {
+                Ok(p) => {
+                    let f = file_need(&p, &n.access, folder);
+                    n.protected_label = f.protected_label.or(n.protected_label);
+                    f.risk
+                }
+                Err(_) => Risk::High,
+            }
+        }
+        Kind::Programs if n.scope.contains('*') => Risk::High,
+        Kind::Programs => resolve(&n.scope).map_or(Risk::High, |p| max_risk(&program_needs(&p, &[]))),
+        Kind::Network => Risk::High,
+        Kind::AdminRights => Risk::Critical,
+        Kind::Environment => Risk::Medium,
+        Kind::Processes => Risk::Low,
+    };
+    n.risk = n.risk.max(local);
+    n
+}
+
 pub fn network_need() -> Need {
     Need { kind: Kind::Network, access: "connect".into(), scope: "*".into(), risk: Risk::High, protected_label: None }
 }
@@ -323,6 +350,32 @@ pub fn plan(request: Request) -> Result<Plan, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn proposed(kind: Kind, access: &str, scope: &str, risk: Risk) -> Need {
+        Need { kind, access: access.into(), scope: scope.into(), risk, protected_label: None }
+    }
+
+    #[test]
+    fn rates_a_proposed_permission_from_its_scope_not_the_agents_label() {
+        let rated = |k, a, s| rate(proposed(k, a, s, Risk::Low)).risk;
+        assert_eq!(rated(Kind::Programs, "run", "/bin/zsh"), Risk::High);
+        assert_eq!(rated(Kind::Programs, "run", "/usr/bin/*"), Risk::High);
+        assert_eq!(rated(Kind::Programs, "run", "zsh"), Risk::High, "a bare name can't be checked");
+        assert_eq!(rated(Kind::Programs, "run", "/usr/bin/uname"), Risk::Medium);
+        assert_eq!(rated(Kind::Files, "write", "/usr/local/**"), Risk::High);
+        assert_eq!(rated(Kind::Files, "delete", "~/Documents/**"), Risk::High);
+        assert_eq!(rated(Kind::Files, "read", "*"), Risk::High);
+        assert_eq!(rated(Kind::Network, "connect", "*"), Risk::High);
+        assert_eq!(rated(Kind::AdminRights, "elevate", "/usr/bin/sudo"), Risk::Critical);
+        assert_eq!(rated(Kind::Files, "read", "~/Library/Logs/AcmeApp/**"), Risk::Low);
+        let keys = rate(proposed(Kind::Files, "read", "~/.ssh/**", Risk::Low));
+        assert_eq!((keys.risk, keys.protected_label.as_deref()), (Risk::High, Some("SSH keys")));
+    }
+
+    #[test]
+    fn keeps_a_higher_label_from_the_agent() {
+        assert_eq!(rate(proposed(Kind::Processes, "list", "all", Risk::Medium)).risk, Risk::Medium);
+    }
 
     #[test]
     fn rejects_relative_and_parent_paths() {

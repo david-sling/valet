@@ -9,7 +9,7 @@ use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 
 use crate::approve;
-use crate::needs::{normalise_scope, plan, tilde, Plan, Request};
+use crate::needs::{normalise_scope, plan, rate, tilde, Plan, Request};
 use crate::policy::{decide, grants_from, scopes_for, Scope};
 use crate::relay::{InboxAction, Relay, RelayError};
 use crate::sandbox::{self, Ran};
@@ -349,7 +349,7 @@ impl Manager {
             verified: false,
             template: j.template.into_iter().map(|mut n| {
                 n.scope = normalise_scope(&n.scope);
-                n
+                rate(n)
             }).collect(),
             created_at: j.created_at,
             review_until: j.review_until,
@@ -398,7 +398,16 @@ impl Manager {
         if self.phase(id) != Some(Phase::Joined) {
             return Err("This session has already started or ended.".into());
         }
-        if choices.iter().take(MAX_GRANTS).any(|c| c.on && c.need.risk >= Risk::High) {
+        let choices: Vec<(bool, Need)> = choices
+            .into_iter()
+            .take(MAX_GRANTS)
+            .map(|c| {
+                let mut need = c.need;
+                need.scope = normalise_scope(&need.scope);
+                (c.on, rate(need))
+            })
+            .collect();
+        if choices.iter().any(|(on, n)| *on && n.risk >= Risk::High) {
             let agent = self.lock().sessions.get(id).map(|s| s.view.sender_name.clone()).unwrap_or_default();
             approve::confirm(&format!("start a session where {} can do high-risk actions without asking", clip(&agent, 40))).await?;
         }
@@ -406,12 +415,9 @@ impl Manager {
             let mut st = self.lock();
             choices
                 .into_iter()
-                .take(MAX_GRANTS)
-                .map(|c| {
+                .map(|(on, need)| {
                     let n = st.next_id();
-                    let mut need = c.need;
-                    need.scope = normalise_scope(&need.scope);
-                    Grant { id: format!("g{n}"), on: c.on, source: Source::Proposed, need, expires_at: None }
+                    Grant { id: format!("g{n}"), on, source: Source::Proposed, need, expires_at: None }
                 })
                 .collect()
         };
