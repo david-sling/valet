@@ -42,7 +42,6 @@ export const Route = createRootRoute({
       { name: 'twitter:image:alt', content: IMAGE.alt },
     ],
     links: [
-      { rel: 'canonical', href: `${SITE}/` },
       { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
       { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
       { rel: 'preconnect', href: 'https://fonts.googleapis.com' },

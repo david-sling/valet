@@ -1,0 +1,44 @@
+---
+title: Sessions and the log
+description: How long a session lasts, how it ends, and how to fetch the signed record of everything that happened.
+---
+
+## Time limits
+
+- The join code works once and expires after **10 minutes**.
+- Once the customer joins, they have **10 minutes** to review and start.
+- A live session lasts **60 minutes**. Only the customer can extend it, 15 minutes at a time, up to **3 hours** in total.
+
+The agent sees the current end time as `ends_at` and is told by a `session.extended` event when it moves.
+
+## Is the customer still there?
+
+The session status includes `client_connected`. It turns `false` when the customer's app hasn't been in touch for 90 seconds, for example if their Mac went to sleep or lost its connection. The session stays open until it ends or reaches its time limit.
+
+## Ending a session
+
+End the session as soon as you're done:
+
+```sh
+curl -sS -X POST "https://valet.davidsling.in/api/v1/sessions/$SESSION_ID/end" \
+  -H "Authorization: Bearer $AGENT_TOKEN"
+```
+
+A session ends when either side ends it, or when it reaches its time limit. When it ends:
+
+- Requests still waiting are answered `ended`.
+- The customer's Mac stops every program the session started and drops every permission.
+- The signed log is sealed.
+
+## The signed log
+
+Every session produces a log of what happened: the starting permissions, each request with the program that actually ran and its arguments, each decision and how it was confirmed, the size of each result, and how the session ended. It records the size and hash of output, not the output itself.
+
+Each entry is chained to the one before it, and the customer's app signs the log when the session ends. Fetch it for up to **24 hours** afterwards:
+
+```sh
+curl -sS "https://valet.davidsling.in/api/v1/sessions/$SESSION_ID/log" \
+  -H "Authorization: Bearer $AGENT_TOKEN"
+```
+
+The log includes the public key that signed it. Because Valet has no accounts, the signature proves the log hasn't changed since it was signed, not who signed it.

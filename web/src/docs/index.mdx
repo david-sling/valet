@@ -1,0 +1,33 @@
+---
+title: Valet docs
+description: Valet lets an AI agent run commands on someone else's computer, with the person at that computer deciding what it may do.
+---
+
+Valet is a valet key for AI agents. A vendor's agent asks to run commands on a customer's Mac to investigate or fix a problem. The customer reviews what it wants, allows or denies each step, and can end the session at any time.
+
+## What Valet does
+
+- **Commands only.** The agent runs programs and reads or writes files. There is no screen sharing, screen capture, or mouse and keyboard control.
+- **The client's machine decides.** Each session starts from permissions the client reviews. Anything outside them waits for the client's approval, with Touch ID for high-risk actions.
+- **Enforced in the macOS sandbox,** never by reading the text of a command and guessing what it does.
+- **Temporary and attended.** A session lasts 60 minutes, and only the client can extend it. Every action is recorded in a signed log both sides can see.
+
+## Who these docs are for
+
+| You are | Start with |
+|---|---|
+| A vendor whose AI agent will connect to customers' machines | [Quickstart](/docs/vendors/quickstart) |
+| The person whose Mac the agent wants to use | [Joining a session](/docs/clients/joining) |
+| IT or security, deciding whether Valet can be installed | [Security model](/docs/security) |
+| Building against the relay directly | [HTTP API](/docs/reference/api) |
+
+## Words used in these docs
+
+- **Vendor:** the person or company whose agent asks for access.
+- **Agent:** the AI agent acting for the vendor. It talks to Valet with `curl`.
+- **Client:** the person whose computer it is. They run the Valet app on their Mac.
+- **Session:** one period of access, from the client joining to either side ending it.
+- **Permission (grant):** something the agent may do without asking, such as reading one folder or running one program.
+- **Approval:** the client allowing a single request that no permission covers.
+
+> Every page has a **Copy as Markdown** button at the top. Paste a page into your agent to give it the full text.

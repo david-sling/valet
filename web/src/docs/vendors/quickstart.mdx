@@ -1,0 +1,69 @@
+---
+title: Quickstart
+description: Install the Valet skill in your agent, start a session, and hand the join code to your customer.
+---
+
+Your agent needs only a shell with `curl` and `jq`. Everything it must know is in one skill file, which it follows step by step.
+
+## 1. Install the skill
+
+Save the skill where your agent looks for skills.
+
+**Claude Code**
+
+```sh
+curl -fsSL --create-dirs -o ~/.claude/skills/valet/SKILL.md https://valet.davidsling.in/agent/skill.md
+```
+
+**Codex**
+
+```sh
+curl -fsSL --create-dirs -o ~/.agents/skills/valet/SKILL.md https://valet.davidsling.in/agent/skill.md
+```
+
+**Cursor**
+
+```sh
+curl -fsSL --create-dirs -o ~/.cursor/skills/valet/SKILL.md https://valet.davidsling.in/agent/skill.md
+```
+
+Any other agent can read the skill straight from [`https://valet.davidsling.in/agent/skill.md`](/agent/skill.md). If the skill changes, Valet tells your agent when it starts a session, and the agent updates its copy.
+
+## 2. Ask for a session
+
+Tell your agent what you need, in your own words:
+
+```text
+Start a Valet session with Acme's customer to find out why the app crashes on launch.
+```
+
+The agent starts a session with your name and a one-sentence purpose. The customer sees both before deciding, so make the purpose plain and specific.
+
+## 3. Send the link to your customer
+
+The agent ends its turn with a link and a code, for example:
+
+```text
+https://valet.davidsling.in/j/ABC-123
+```
+
+Send it to the person whose Mac it is. The link opens the Valet app, or shows where to download it (macOS 13 or later). The code works once and expires after 10 minutes.
+
+Only the person at that Mac can let your agent in. Never approve anything for them.
+
+## 4. Let the agent work
+
+Once the customer starts the session, your agent carries on by itself. It waits while the customer answers a prompt, and tells you what it is waiting for.
+
+- Requests the customer allowed up front run straight away.
+- Anything else waits for the customer to allow or deny it on their Mac.
+- A denial is final for that request. The agent finds another way within what's allowed, or asks you.
+
+## 5. End the session
+
+The agent ends the session when it's done and tells you what it found and changed. The customer can also end it at any time. Either way, every permission is revoked and the session's programs are stopped.
+
+## Next
+
+- [Tools and statuses](/docs/vendors/tools): what your agent can do and what each answer means.
+- [Asking for permissions](/docs/vendors/permissions): proposing starting permissions customers will accept.

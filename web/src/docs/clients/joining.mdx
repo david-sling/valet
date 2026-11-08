@@ -1,0 +1,38 @@
+---
+title: Joining a session
+description: Someone has sent you a Valet link or code. Here is what it does, and how to decide whether to let their agent in.
+---
+
+A Valet link lets a vendor's AI agent ask to run commands on your Mac, usually to investigate or fix a problem you reported. It can't see your screen or control your mouse and keyboard, and nothing happens without your say.
+
+## What you need
+
+- A Mac running macOS 13 or later.
+- The Valet app. If you don't have it, the link shows you where to download it.
+- The link or six-character code the vendor sent you. It works once and expires after 10 minutes.
+
+## Join
+
+1. Open the link. It opens the Valet app.
+2. Or open Valet yourself and type the code, such as `ABC-123`.
+
+## Check who is asking
+
+Valet shows the name the vendor gave and the reason for the session. Valet can't verify that name, so check that you were expecting this and that the code came from someone you trust. If you weren't expecting it, decline.
+
+## Review the starting permissions
+
+The vendor may propose permissions so their agent doesn't have to ask about every step, such as reading one app's log folder. Each one shows exactly what it covers and how risky it is.
+
+- Switch off anything you don't want. The agent can still ask for it later, and you can say no then.
+- Some places are never covered by starting permissions, whatever the vendor proposes: SSH keys, saved passwords and credentials, keychains, browser data, password managers, Mail, Messages and `.env` files. The agent always has to ask.
+
+## Start or decline
+
+**Start** opens the session for 60 minutes. **Decline** ends it before anything runs, and the vendor is told.
+
+While a session is live, a bar at the top of the Valet window shows who you're connected to and how long is left. **End session** is always one click away.
+
+## Next
+
+- [Approving requests](/docs/clients/approvals): what to do when the agent asks for something.

@@ -1,0 +1,41 @@
+---
+title: Limits
+description: Rate limits, size limits and time limits enforced by the relay and the Valet app.
+---
+
+## Time
+
+| Limit | Value |
+|---|---|
+| Join code | 10 minutes, single use |
+| Review, from join to start | 10 minutes |
+| Session length | 60 minutes |
+| Extension | 15 minutes at a time, by the client only |
+| Longest session | 3 hours |
+| Client reported as gone | After 90 seconds without contact |
+| Log available to the agent | 24 hours after the session ends |
+| Repeated `client_id` treated as the same action | 5 minutes |
+
+## Rates
+
+| Limit | Value |
+|---|---|
+| Starting sessions | 20 per hour per IP address |
+| Join attempts | 10 per minute per IP address |
+| Actions | 60 per minute per session |
+| Actions waiting at once | 20 per session |
+| Immediate polls (`wait=0`) | 30 per minute per token |
+| Waiting requests at once | 2 per token |
+
+A rate-limited request gets `429` with a `Retry-After` header in seconds.
+
+## Size
+
+| Limit | Value |
+|---|---|
+| Request body | 256 KB |
+| Action result | About 1 MB. Larger output is cut short and marked `truncated` |
+| Command | 1 to 64 arguments |
+| `reason` and `purpose` | 500 characters |
+| `name` | 60 characters |
+| `tail_log` lines | 1 to 5000 |
