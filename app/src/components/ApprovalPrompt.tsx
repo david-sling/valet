@@ -16,6 +16,16 @@ const RIDGES = [
   'M19.2 16.6c-.3 1.3-.8 2.5-1.5 3.6',
 ]
 
+export function Fingerprint() {
+  return (
+    <svg className="fingerprint" viewBox="0 0 24 24" aria-label="with Touch ID">
+      {RIDGES.map((d) => (
+        <path key={d} d={d} />
+      ))}
+    </svg>
+  )
+}
+
 // A request waits until the person answers or the session ends. Focus starts on Deny; Escape denies. Allow is
 // disabled for the first 600 ms, and for high and critical risk the app asks macOS for Touch ID itself.
 export function ApprovalPrompt({
@@ -50,13 +60,7 @@ export function ApprovalPrompt({
 
   const allowLabel =
     scope === 'once' ? 'Allow once' : scope === 'check' ? 'Allow, check output' : `Allow for ${SCOPE_LABEL[scope].toLowerCase()}`
-  const fingerprint = (
-    <svg className="fingerprint" viewBox="0 0 24 24" aria-label="with Touch ID">
-      {RIDGES.map((d) => (
-        <path key={d} d={d} />
-      ))}
-    </svg>
-  )
+  const fingerprint = <Fingerprint />
   const extra = prompt.needs.filter((n) => n.scope !== prompt.program && !prompt.literal.includes(n.scope))
   const guarded = prompt.needs.find((n) => n.protectedLabel)?.protectedLabel
   const clock = <span className="request-clock">{waited < 1 ? 'Asked just now' : `Asked ${waited} min ago`}</span>

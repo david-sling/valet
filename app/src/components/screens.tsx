@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Grant } from '@valet/protocol'
 import { KINDS, SESSION_MINUTES, hhmm, clock, day, describe, minutes } from '../format'
 import { RiskBars } from './RiskBars'
+import { Fingerprint } from './ApprovalPrompt'
 import { Diff, DiffStat } from './Diff'
 import { ExportButton } from './ExportButton'
 import { MoreMenu } from './MoreMenu'
@@ -347,6 +348,7 @@ export function Review({
   grants,
   onStart,
   onToggle,
+  starting,
   onBegin,
   onBack,
 }: {
@@ -355,12 +357,14 @@ export function Review({
   start: Start
   hasTemplate: boolean
   grants: Grant[]
+  starting: boolean
   onStart: (s: Start) => void
   onToggle: (id: string) => void
   onBegin: () => void
   onBack: () => void
 }) {
   const count = grants.filter((g) => g.on).length
+  const touch = grants.some((g) => g.on && (g.risk === 'high' || g.risk === 'critical'))
   return (
     <div className="page is-flow">
       <PageHead
@@ -400,7 +404,8 @@ export function Review({
           <button className="mbtn mbtn-ghost" onClick={onBack}>
             Back
           </button>
-          <button className="mbtn mbtn-ink" onClick={onBegin}>
+          <button className="mbtn mbtn-ink" onClick={onBegin} disabled={starting}>
+            {touch && <Fingerprint />}
             Start session with {count} {count === 1 ? 'permission' : 'permissions'}
           </button>
         </div>
