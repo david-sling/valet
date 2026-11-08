@@ -65,9 +65,13 @@ html:has(.docs) { scroll-padding-top: 88px; }
 .docs-side-toggle:hover { color: var(--ink); background: var(--hover); }
 .docs-side-toggle svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .docs-menu-btn {
-  height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line);
-  background: var(--panel); font: 600 14px/1 var(--sans); color: var(--ink); cursor: pointer;
+  display: grid; place-items: center; width: 36px; height: 36px; padding: 0;
+  border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer;
 }
+.docs-menu-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+.docs-menu-btn path { transform-origin: center; transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.docs[data-menu="open"] .docs-menu-btn path:first-child { transform: translateY(3px) rotate(45deg); }
+.docs[data-menu="open"] .docs-menu-btn path:last-child { transform: translateY(-3px) rotate(-45deg); }
 @media (max-width: 420px) { .docs-star { display: none; } }
 
 .docs-body {
@@ -76,13 +80,18 @@ html:has(.docs) { scroll-padding-top: 88px; }
 }
 
 .docs-side-wrap {
-  display: none;
+  display: flex; flex-direction: column; gap: 32px;
   position: fixed; inset: var(--top) 0 0 0; z-index: 25;
   padding: 20px 16px 40px; overflow-y: auto;
   background: var(--ground);
 }
-.docs-side-wrap { flex-direction: column; gap: 32px; }
-.docs[data-menu="open"] .docs-side-wrap { display: flex; }
+@media (max-width: 1023.98px) {
+  .docs-side-wrap {
+    opacity: 0; visibility: hidden; transform: translateY(-8px);
+    transition: opacity 200ms ease, transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 260ms;
+  }
+  .docs[data-menu="open"] .docs-side-wrap { opacity: 1; visibility: visible; transform: none; }
+}
 .docs-side { display: grid; gap: 26px; }
 .docs-side-foot { margin-top: auto; padding-left: 12px; }
 .theme-pick { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line-2); }
@@ -215,22 +224,27 @@ html[data-docs-theme="dark"] .docs .shiki span { color: var(--shiki-dark) !impor
 
 @media (min-width: 1024px) {
   .docs-menu-btn { display: none; }
-  .docs-body { grid-template-columns: 15.5rem minmax(0, 1fr); }
-  .docs-main { border-left: 1px solid var(--line); }
-  .docs-side-toggle { display: grid; }
-  html[data-docs-side="collapsed"] .docs-body { grid-template-columns: minmax(0, 1fr); }
-  html[data-docs-side="collapsed"] .docs-side-wrap { display: none; }
-  html[data-docs-side="collapsed"] .docs-main { border-left: 0; }
-  .docs-side-wrap {
-    display: flex; position: sticky; inset: auto; top: var(--top); z-index: auto; align-self: start;
-    overscroll-behavior: contain;
-    height: calc(100vh - var(--top)); padding: 32px 12px 40px 20px; background: none;
+  .docs-body {
+    grid-template-columns: 15.5rem minmax(0, 1fr);
+    transition: grid-template-columns 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
   }
+  .docs-main { border-left: 1px solid var(--line); transition: border-color 280ms; }
+  .docs-side-toggle { display: grid; }
+  html[data-docs-side="collapsed"] .docs-body { grid-template-columns: 0 minmax(0, 1fr); }
+  html[data-docs-side="collapsed"] .docs-side-wrap { opacity: 0; visibility: hidden; }
+  html[data-docs-side="collapsed"] .docs-main { border-left-color: transparent; }
+  .docs-side-wrap {
+    position: sticky; inset: auto; top: var(--top); z-index: auto; align-self: start;
+    overflow-x: hidden; overscroll-behavior: contain;
+    height: calc(100vh - var(--top)); padding: 32px 12px 40px 20px; background: none;
+    transition: opacity 200ms ease, visibility 280ms;
+  }
+  .docs-side, .docs-side-foot { min-width: calc(15.5rem - 32px); }
 }
 
 @media (min-width: 1280px) {
   .docs-body { grid-template-columns: 15.5rem minmax(0, 1fr) 14rem; }
-  html[data-docs-side="collapsed"] .docs-body { grid-template-columns: minmax(0, 1fr) 14rem; }
+  html[data-docs-side="collapsed"] .docs-body { grid-template-columns: 0 minmax(0, 1fr) 14rem; }
   .docs-toc { display: block; background: var(--panel); }
   .docs-toc nav { position: sticky; top: var(--top); max-height: calc(100vh - var(--top)); padding: 56px 24px 40px 0; overflow-y: auto; }
   .docs-toc .docs-side-title { padding-left: 13px; }
