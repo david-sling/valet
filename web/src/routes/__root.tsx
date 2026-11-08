@@ -1,6 +1,7 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { Analytics } from '@vercel/analytics/react'
+import type { BeforeSendEvent } from '@vercel/analytics/react'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 
 import appCss from '../styles.css?url'
@@ -12,6 +13,9 @@ const TITLE = 'Valet · Secure remote control for agents'
 const DESCRIPTION =
   "Valet lets an AI agent run commands on your customer's machine: only what they approve, enforced on their machine, logged for both of you."
 const IMAGE = { url: `${SITE}/og.png`, width: '1200', height: '630', alt: 'Valet: Let your agent drive. Keep the trunk locked.' }
+
+// a join code in a link is a credential until it's used, so analytics sees only the route
+const maskJoinCodes = (event: BeforeSendEvent) => ({ ...event, url: event.url.replace(/\/j\/[^/?#]+/, '/j/[code]') })
 
 export const Route = createRootRoute({
   head: () => ({
@@ -71,7 +75,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           config={{ position: 'bottom-right' }}
           plugins={[{ name: 'TanStack Router', render: <TanStackRouterDevtoolsPanel /> }]}
         />
-        <Analytics />
+        <Analytics beforeSend={maskJoinCodes} />
         <Scripts />
       </body>
     </html>
