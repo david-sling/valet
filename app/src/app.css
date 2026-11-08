@@ -247,6 +247,17 @@ button:disabled { cursor: not-allowed; }
 .split-menu button[aria-checked="true"]::before { content: ""; position: absolute; left: 11px; top: 13px; width: 8px; height: 4px; border: solid var(--ink); border-width: 0 0 1.6px 1.6px; transform: rotate(-45deg); }
 .split-menu b { font-size: 13px; font-weight: 600; }
 .split-menu small { font-size: 12px; color: var(--ink-3); }
+.more { position: relative; }
+.more-btn { width: 36px; padding: 0; }
+.more-btn svg { width: 16px; height: 16px; fill: currentColor; }
+.more-menu { min-width: 17rem; }
+.more-menu button { padding-left: 36px; }
+.more-icon { position: absolute; left: 11px; top: 9px; }
+.more-icon svg, .side-kept svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.more-menu .is-danger { color: var(--peach-ink); }
+.more-menu .is-danger:hover { background: var(--peach-soft); }
+.side-kept { display: inline-flex; margin-right: 4px; vertical-align: -1px; color: var(--ink-3); }
+.side-kept svg { width: 12px; height: 12px; }
 
 .print-report { display: none; }
 @media print {
@@ -459,7 +470,4 @@ button:disabled { cursor: not-allowed; }
 .confirm-keep-list { display: grid; gap: 6px; margin-top: 10px; padding: 0; list-style: none; }
 .confirm-keep-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 13.5px; }
 .confirm-keep-list label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.keep-btn { gap: 6px; }
-.keep-btn[aria-pressed="true"] { border-color: var(--line-strong); color: var(--ink); }
-.keep-btn .check { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .confirm-keep-list span { color: var(--ink-3); white-space: nowrap; }

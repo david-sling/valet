@@ -4,6 +4,7 @@ import { KINDS, SESSION_MINUTES, hhmm, clock, day, describe, minutes } from '../
 import { RiskBars } from './RiskBars'
 import { Diff, DiffStat } from './Diff'
 import { ExportButton } from './ExportButton'
+import { MoreMenu } from './MoreMenu'
 import { OutcomeChart, type Slice } from './OutcomeChart'
 import type { FeedItem, Outcome, Settings } from '../api'
 
@@ -118,8 +119,12 @@ export function Sidebar({
                 <span>
                   <b>{s.vendor}</b>
                   <small className="is-past">
+                    {s.kept && (
+                      <span className="side-kept" role="img" aria-label="Never deleted automatically" title="Never deleted automatically">
+                        <PinIcon />
+                      </span>
+                    )}
                     {day(s.startedAt)} · {SIDE_ENDED_BY[s.endedBy]}
-                    {s.kept && ' · kept'}
                   </small>
                 </span>
               </button>
@@ -690,19 +695,27 @@ export function SessionRecord({
         }
       >
         <div className="page-actions">
-          <button
-            className="mbtn mbtn-ghost mbtn-sm keep-btn"
-            aria-pressed={s.kept}
-            title="Kept sessions are never deleted automatically. You can still delete them yourself."
-            onClick={onKeep}
-          >
-            {s.kept && <Check />}
-            {s.kept ? 'Kept' : 'Keep'}
-          </button>
-          <button className="mbtn mbtn-ghost mbtn-sm" onClick={onDelete}>
-            Delete
-          </button>
           <ExportButton onExport={(f) => (f === 'json' ? onExportJson() : onExportPdf().then(() => false))} />
+          <MoreMenu
+            label="More options"
+            items={[
+              {
+                key: 'keep',
+                label: s.kept ? 'Allow automatic deletion' : 'Never delete automatically',
+                hint: s.kept ? 'Delete it once it’s older than your retention period' : 'Keep it even when it’s older than your retention period',
+                icon: <PinIcon off={s.kept} />,
+                onPick: onKeep,
+              },
+              {
+                key: 'delete',
+                label: 'Delete session',
+                hint: 'Remove its record from this Mac now',
+                icon: <TrashIcon />,
+                danger: true,
+                onPick: onDelete,
+              },
+            ]}
+          />
         </div>
       </PageHead>
       <section className="page-sec">
@@ -918,6 +931,23 @@ export function SettingsPage({
         </div>
       </section>
     </div>
+  )
+}
+
+function PinIcon({ off = false }: { off?: boolean }) {
+  return (
+    <svg viewBox="0 0 16 16">
+      <path d="M6 2.5h4M6.6 2.5v3.6L4.5 9h7l-2.1-2.9V2.5M8 9v4.5" />
+      {off && <path d="M2.5 2.5l11 11" />}
+    </svg>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 16 16">
+      <path d="M2.5 4.5h11M6.5 4.5V3h3v1.5M4 4.5l.7 8.5h6.6l.7-8.5M6.8 7v3.5M9.2 7v3.5" />
+    </svg>
   )
 }
 
