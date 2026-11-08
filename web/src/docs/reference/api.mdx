@@ -33,6 +33,8 @@ Endpoints that take `?wait=` hold the request open for up to that many seconds (
 
 `expires_at` and `ends_at` are milliseconds since the epoch. `agent_token` is returned once; store it safely.
 
+An action's `output` is deleted from the relay when the session ends. After that, the action shows its `status` with `output_deleted: true` and no `output`.
+
 ## Client endpoints
 
 The Valet app uses these. They are listed for completeness.

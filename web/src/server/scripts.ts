@@ -14,8 +14,8 @@ local function wake(topics, seq)
 end
 `
 
-// ARGV: expireAt, allowed states (csv), fields (json), event (json), wake topics (csv), end actions ('1'), grants json or '',
-// sealed log or ''
+// ARGV: expireAt, allowed states (csv), fields (json), event (json), wake topics (csv), end actions ('1': also drops every
+// result's output, so it never outlives the session), grants json or '', sealed log or ''
 const TRANSITION = `${PRELUDE}
 local state = redis.call('HGET', KEYS[1], 'state')
 if not state then return {0, ''} end
@@ -29,6 +29,14 @@ if ARGV[8] ~= '' then redis.call('SET', KEYS[7], ARGV[8]) end
 if ARGV[6] == '1' then
   local all = redis.call('HGETALL', KEYS[5])
   for i = 1, #all, 2 do
+    if string.find(all[i], ':result$') then
+      local r = cjson.decode(all[i + 1])
+      if r.output ~= nil then
+        r.output = nil
+        r.output_deleted = true
+        redis.call('HSET', KEYS[5], all[i], cjson.encode(r))
+      end
+    end
     local a = not string.find(all[i], ':') and cjson.decode(all[i + 1])
     if a and a.status == 'pending' then
       a.status = 'ended'
