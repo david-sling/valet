@@ -715,9 +715,51 @@ const KEEP: Array<{ days: number | null; label: string }> = [
   { days: 7, label: '7 days' },
 ]
 
+const DAY_MS = 24 * 60 * 60 * 1000
+const fullDay = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+
+function ConfirmKeep({ days, old, onConfirm, onCancel }: { days: number; old: PastSession[]; onConfirm: () => void; onCancel: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    if (!ref.current?.open) ref.current?.showModal()
+  }, [])
+  const count = old.length === 1 ? '1 past session' : `${old.length} past sessions`
+  return (
+    <dialog ref={ref} className="whats-new confirm-keep" aria-labelledby="confirm-keep-title" onClose={onCancel}>
+      <h2 id="confirm-keep-title" className="m-title">
+        Keep past sessions for {days} days?
+      </h2>
+      <div className="whats-new-notes">
+        <p>
+          {count} older than {days} days will be deleted from this Mac straight away. This can't be undone.
+        </p>
+        <details>
+          <summary>Show {old.length === 1 ? 'the session' : `the ${old.length} sessions`}</summary>
+          <ul className="confirm-keep-list">
+            {old.map((s) => (
+              <li key={s.id}>
+                <b>{s.vendor}</b>
+                <span>{fullDay(s.startedAt)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      </div>
+      <form method="dialog">
+        <button className="mbtn mbtn-ghost mbtn-sm" autoFocus>
+          Cancel
+        </button>
+        <button type="button" className="mbtn mbtn-danger mbtn-sm" onClick={onConfirm}>
+          Delete {count}
+        </button>
+      </form>
+    </dialog>
+  )
+}
+
 export function SettingsPage({
   settings,
-  hasPast,
+  past,
   onChange,
   onDeleteAll,
   version,
@@ -728,7 +770,7 @@ export function SettingsPage({
   onRestart,
 }: {
   settings: Settings
-  hasPast: boolean
+  past: PastSession[]
   onChange: (s: Settings) => void
   onDeleteAll: () => void
   version: string
@@ -738,8 +780,25 @@ export function SettingsPage({
   ready: string | null
   onRestart: () => void
 }) {
+  const [asking, setAsking] = useState<{ days: number; old: PastSession[] } | null>(null)
+  const keep = (days: number | null) => {
+    const old = days === null ? [] : past.filter((p) => p.endedAt < Date.now() - days * DAY_MS)
+    if (days !== null && old.length) setAsking({ days, old })
+    else onChange({ ...settings, keepDays: days })
+  }
   return (
     <div className="page">
+      {asking && (
+        <ConfirmKeep
+          days={asking.days}
+          old={asking.old}
+          onCancel={() => setAsking(null)}
+          onConfirm={() => {
+            setAsking(null)
+            onChange({ ...settings, keepDays: asking.days })
+          }}
+        />
+      )}
       <header className="page-head">
         <div>
           <h1 className="m-title">Settings</h1>
@@ -814,13 +873,13 @@ export function SettingsPage({
         </p>
         <div className="seg" role="radiogroup" aria-label="Keep past sessions">
           {KEEP.map((k) => (
-            <button key={k.label} role="radio" aria-checked={settings.keepDays === k.days} onClick={() => onChange({ ...settings, keepDays: k.days })}>
+            <button key={k.label} role="radio" aria-checked={settings.keepDays === k.days} onClick={() => keep(k.days)}>
               {k.label}
             </button>
           ))}
         </div>
         <div>
-          <button className="mbtn mbtn-danger mbtn-sm" disabled={!hasPast} onClick={onDeleteAll}>
+          <button className="mbtn mbtn-danger mbtn-sm" disabled={!past.length} onClick={onDeleteAll}>
             Delete all past sessions
           </button>
         </div>
