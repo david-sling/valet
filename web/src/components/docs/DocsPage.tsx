@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ComponentProps } from 'react'
+import type { ComponentProps, MouseEvent } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { MDXComponents } from 'mdx/types'
 import { TextMorph } from 'torph/react'
@@ -158,6 +158,15 @@ function useActiveHeading(headings: Heading[]) {
   return active
 }
 
+function jumpTo(e: MouseEvent<HTMLAnchorElement>, id: string) {
+  const el = document.getElementById(id)
+  if (!el || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+  e.preventDefault()
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+  el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+  history.pushState(history.state, '', `#${id}`)
+}
+
 function Contents({ headings }: { headings: Heading[] }) {
   const active = useActiveHeading(headings)
   if (headings.length < 2) return <aside className="docs-toc" />
@@ -168,7 +177,7 @@ function Contents({ headings }: { headings: Heading[] }) {
         <ul>
           {headings.map((h) => (
             <li key={h.id} data-depth={h.depth}>
-              <a href={`#${h.id}`} aria-current={h.id === active ? 'location' : undefined}>
+              <a href={`#${h.id}`} aria-current={h.id === active ? 'location' : undefined} onClick={(e) => jumpTo(e, h.id)}>
                 {h.text}
               </a>
             </li>
@@ -228,9 +237,13 @@ export function DocsPage({ doc, stars }: { doc: Doc; stars: number | null }) {
             className="docs-menu-btn"
             aria-expanded={menuOpen}
             aria-controls="docs-side"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             onClick={() => setMenuOpen((o) => !o)}
           >
-            {menuOpen ? 'Close' : 'Menu'}
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4.5 9h15" />
+              <path d="M4.5 15h15" />
+            </svg>
           </button>
         </div>
       </header>
