@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Grant } from '@valet/protocol'
-import { KINDS, SESSION_MINUTES, hhmm, clock, day, describe, minutes } from '../format'
+import { KINDS, PLATFORM, SESSION_MINUTES, hhmm, clock, day, describe, minutes } from '../format'
 import { RiskBars } from './RiskBars'
 import { Fingerprint } from './ApprovalPrompt'
 import { Diff, DiffStat } from './Diff'
@@ -136,7 +136,7 @@ export function Sidebar({
               </button>
             ))
           ) : (
-            <p className="side-empty">Sessions you've had show up here. They're kept on this Mac only.</p>
+            <p className="side-empty">Sessions you've had show up here. They're kept on {PLATFORM.machine} only.</p>
           )}
         </div>
       </div>
@@ -750,7 +750,7 @@ export function SessionRecord({
             setAsking(null)
             onDelete()
           }} onCancel={() => setAsking(null)}>
-          <p>The record of your session with {s.vendor} is removed from this Mac. This can't be undone.</p>
+          <p>The record of your session with {s.vendor} is removed from {PLATFORM.machine}. This can't be undone.</p>
         </Confirm>
       )}
       {asking === 'unkeep' && (
@@ -759,7 +759,7 @@ export function SessionRecord({
             onKeep()
           }} onCancel={() => setAsking(null)}>
           <p>
-            This session is older than {keepDays} days, your retention period, so it will be deleted from this Mac straight away. This
+            This session is older than {keepDays} days, your retention period, so it will be deleted from {PLATFORM.machine} straight away. This
             can't be undone.
           </p>
         </Confirm>
@@ -789,7 +789,7 @@ export function SessionRecord({
               {
                 key: 'delete',
                 label: 'Delete session',
-                hint: 'Remove its record from this Mac now',
+                hint: `Remove its record from ${PLATFORM.machine} now`,
                 icon: <TrashIcon />,
                 danger: true,
                 onPick: () => setAsking('delete'),
@@ -882,7 +882,7 @@ function ConfirmKeep({
       onCancel={onCancel}
     >
       <p>
-        {gone ? `${count} older than ${days} days will be deleted from this Mac straight away. This can't be undone.` : 'Every older session is kept, so nothing will be deleted.'}
+        {gone ? `${count} older than ${days} days will be deleted from ${PLATFORM.machine} straight away. This can't be undone.` : 'Every older session is kept, so nothing will be deleted.'}
       </p>
       <details>
         <summary>Show {old.length === 1 ? 'the session' : `the ${old.length} sessions`}</summary>
@@ -962,13 +962,13 @@ export function SettingsPage({
           }}
           onCancel={() => setClearing(false)}
         >
-          <p>Every past session's record is removed from this Mac, including sessions you chose to keep. This can't be undone.</p>
+          <p>Every past session's record is removed from {PLATFORM.machine}, including sessions you chose to keep. This can't be undone.</p>
         </Confirm>
       )}
       <header className="page-head">
         <div>
           <h1 className="m-title">Settings</h1>
-          <p className="m-meta">Saved on this Mac only.</p>
+          <p className="m-meta">Saved on {PLATFORM.machine} only.</p>
         </div>
       </header>
       <section className="page-sec">
@@ -1034,7 +1034,7 @@ export function SettingsPage({
       <section className="page-sec">
         <h2 className="m-label">Past sessions</h2>
         <p className="m-body">
-          Records of past sessions stay on this Mac and never include command output or file contents. Choose how long to keep
+          Records of past sessions stay on {PLATFORM.machine} and never include command output or file contents. Choose how long to keep
           them; older ones are deleted straight away. Sessions you mark as kept are never deleted automatically.
         </p>
         <div className="seg" role="radiogroup" aria-label="Keep past sessions">
@@ -1070,7 +1070,7 @@ export function SettingsPage({
 }
 
 const LEGAL: Array<{ page: 'privacy' | 'terms'; title: string; blurb: string }> = [
-  { page: 'privacy', title: 'Privacy policy', blurb: "What Valet collects, where it goes, how long it's kept, and what stays on this Mac." },
+  { page: 'privacy', title: 'Privacy policy', blurb: `What Valet collects, where it goes, how long it's kept, and what stays on ${PLATFORM.machine}.` },
   { page: 'terms', title: 'Terms of use', blurb: 'The rules for using the Valet app, relay and website.' },
 ]
 
