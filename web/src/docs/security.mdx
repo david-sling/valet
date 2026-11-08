@@ -1,0 +1,60 @@
+---
+title: Security model
+description: How Valet limits what an agent can do on a Mac, what leaves the machine, and what to know before approving it for your organisation.
+---
+
+## Principles
+
+1. **The client's machine decides.** Permissions are checked and enforced on the Mac being used. The relay passes messages and never decides what is allowed.
+2. **Deny by default.** A session starts with nothing allowed beyond what the person accepted. Everything else asks.
+3. **Show the real action.** The person decides on the exact command, path or host, never on the agent's description of it.
+4. **If it isn't in the log, it didn't happen.** Every request, decision and result is recorded and signed.
+5. **No lingering access.** Everything ends with the session.
+
+## Enforcement
+
+- Every `run_command` runs under the macOS sandbox, with a profile built from the session's permissions at that moment. It starts from deny-all, then allows only the granted files and programs, plus the system paths a process needs to start.
+- Child processes inherit the same sandbox.
+- Network access is off unless the person allowed it from a prompt.
+- Valet never reads a command's text to decide whether it is safe. It works out what an action needs from what will actually run, after resolving paths and following symlinks.
+- The process environment is cleared, except variables the person allowed and a minimal `PATH`.
+- Each session's processes run in their own process group with limits on CPU time, memory and process count, and are stopped when the session ends.
+- Protected locations (SSH keys, credentials, keychains, browser data, password managers, Mail, Messages, `.env` files) are denied in the sandbox profile after every broader permission, and can be reached only through a prompt the person answered.
+- Programs that need raised privileges, such as `sudo`, can't start inside the sandbox.
+
+## Approvals
+
+- High and Critical requests need Touch ID, checked by macOS.
+- Prompts default to Deny, and Allow is briefly disabled when a prompt appears.
+- Every answer is logged with how it was confirmed: a click or Touch ID.
+
+## Network and identity
+
+- The Valet app connects out to the relay over HTTPS. It opens no ports and accepts no incoming connections.
+- There are no accounts. Every credential is created for one session and stops working when it ends.
+- Tokens are sent only in the `Authorization` header, never in a URL. The relay stores only their hashes.
+- The app holds its token in memory only, never on disk.
+- Join codes work once, expire after 10 minutes, and are rate limited.
+- The vendor's name is whatever they typed. The app shows it as unverified.
+
+## What leaves the Mac
+
+| Data | Where it goes | Kept |
+|---|---|---|
+| Results of actions the person allowed | To the agent, through the relay | Until the session's data expires: 24 hours after it ends |
+| The signed log (no command output or file contents) | To the relay, for the agent | 24 hours after the session ends |
+| Past session records | Nowhere. They stay on the Mac | Until the person deletes them |
+
+Valet doesn't filter or redact secrets from output. A file the person lets the agent read is sent as it is. The places that commonly hold secrets always need a prompt.
+
+## Updates
+
+The app is signed with an Apple Developer ID and notarised by Apple. It checks for updates at launch and every 6 hours, and installs only updates signed with Valet's update key. Restarting to update ends any live session first.
+
+## Known limits
+
+- macOS 13 or later only.
+- Network permission can't be limited to one host yet.
+- The macOS sandbox tool Valet uses (`sandbox-exec`) is deprecated by Apple, though it still ships and is used by comparable tools.
+- Some programs refuse to run in any sandbox, such as `log`. Valet's structured tools cover the common cases.
+- Without accounts, the log's signature proves the log hasn't changed, not who signed it.

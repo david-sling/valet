@@ -1,0 +1,31 @@
+---
+title: After a session
+description: What happens when a session ends, what Valet keeps on your Mac, and how to export a record.
+---
+
+## When a session ends
+
+A session ends when you end it, when the vendor ends it, or when it reaches its time limit. At that moment Valet:
+
+1. Stops accepting requests.
+2. Stops every program the session started.
+3. Drops every permission you gave.
+4. Seals and signs the session's log.
+
+Nothing carries over to another session. A new session starts from nothing, with a new code.
+
+If Valet quits while a session is open, it ends the session first. If your Mac loses power or Valet crashes, the session can't be resumed; it ends at its time limit, and the record shows "Valet closed before it ended".
+
+## Past sessions
+
+Valet keeps a record of each session in the **Past** list: who asked, why, when, how it ended, the permissions, and every request with what happened to it.
+
+It never keeps the output of commands or the contents of files. The record stays on your Mac and is not synced or uploaded. Declined sessions aren't kept.
+
+## Exporting a record
+
+Open a past session and choose **Export** to save it as JSON, or to print it or save it as a PDF. You can share it with your IT team or keep it for your own records.
+
+## The signed log
+
+When a session ends, Valet signs its log with a key kept in your Mac's keychain and uploads it, so the vendor can see the same record you can. The relay keeps it for 24 hours, then deletes it.

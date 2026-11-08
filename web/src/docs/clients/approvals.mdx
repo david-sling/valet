@@ -1,0 +1,44 @@
+---
+title: Approving requests
+description: What an approval prompt shows, how to answer it, and how long each kind of approval lasts.
+---
+
+When the agent wants to do something your permissions don't cover, Valet asks you first. The request waits until you answer, however long that takes.
+
+## What the prompt shows
+
+- **The exact action**, first and in full: the command and its arguments, the file path, or the host. This is what will actually run.
+- **What it needs**, such as reading a folder or running a program, and **how risky** it is: Low, Medium, High or Critical.
+- **The agent's reason**, underneath and labelled as the agent's. It is the agent's own description, so decide on the action itself.
+
+## Answering
+
+Deny is always the default. Focus starts on **Deny** and **Escape** denies, so a stray key press never allows anything. **Allow** can't be clicked for the first moment after a prompt appears.
+
+| Risk | To allow |
+|---|---|
+| Low, Medium | Click Allow |
+| High, Critical | Click Allow, then confirm with Touch ID |
+
+## How long an approval lasts
+
+Allow has a menu of choices. Not every request offers all of them.
+
+| Choice | What it allows |
+|---|---|
+| Once | Just this request |
+| Once, check output | This request, then shows you the result before it is sent. You can withhold it |
+| This session | The same kind of request until the session ends |
+| 15 minutes | The same kind of request for the next 15 minutes |
+| This folder | Files in the same folder as this one, until the session ends |
+
+Critical requests can only be allowed once.
+
+## If you deny
+
+The agent is told and won't send the same request again. It may try another way within what you've allowed, or ask its user what to do next.
+
+## Extending and ending
+
+- **Add 15 min** extends the session, up to 3 hours in total. Only you can do this.
+- **End session** stops it at once. Every program the session started is stopped and every permission is dropped.

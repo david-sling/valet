@@ -1,0 +1,40 @@
+---
+title: How it works
+description: The three parts of Valet, and what happens from the moment an agent asks for access to the moment the session ends.
+---
+
+## The three parts
+
+```text
+ Vendor's agent ──curl──►  Relay  ◄──long-poll──  Valet app (client's Mac)
+   reads the skill file     carries messages      decides, sandboxes, asks,
+   holds agent_token        decides nothing       keeps the signed log
+```
+
+- **The agent** reads Valet's skill file at [`/agent/skill.md`](/agent/skill.md) and uses `curl` for everything. There is no SDK or plug-in to install.
+- **The relay** at `valet.davidsling.in` passes messages between the two sides. It never decides what is allowed.
+- **The Valet app** on the client's Mac checks every request against the session's permissions, runs what is allowed in a sandbox, asks the person about the rest, and records it all.
+
+Both sides connect out to the relay. The client's Mac opens no ports.
+
+## A session, step by step
+
+1. **The agent starts a session.** It sends a name (who is asking) and a purpose (one sentence on why), and can propose starting permissions. It gets back a one-time join code and link.
+2. **The vendor hands over the code.** The vendor sends the link or code to the client by email, chat, or a support ticket.
+3. **The client joins and reviews.** They enter the code in the Valet app, see who is asking and why, and switch off any proposed permission they don't want. They can decline.
+4. **The client starts the session.** It lasts 60 minutes from here.
+5. **The agent acts.** Each request is one action, such as reading a file or running a program. Actions covered by a permission run straight away; anything else waits for the client to allow or deny it.
+6. **Either side ends it.** All permissions are revoked, the session's programs are stopped, and the signed log is sealed.
+
+## Session states
+
+| State | Meaning |
+|---|---|
+| `invited` | The code has been issued and no one has entered it yet. It expires after 10 minutes. |
+| `joined` | The client entered the code and is reviewing the request. |
+| `live` | The client started the session. The agent can act. |
+| `declined` | The client said no. |
+| `expired` | The code was never used, or the client didn't start in time. |
+| `ended` | Someone ended the session, or it reached its time limit. |
+
+A declined, expired or ended session can't be reopened. The agent starts a new one.

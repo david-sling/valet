@@ -11,6 +11,7 @@ export function Nav({ stars }: { stars: number | null }) {
         <a href="#how">How it works</a>
         <a href="#security">Security</a>
         <a href="#clients">For clients</a>
+        <a href="/docs">Docs</a>
       </div>
       <div className="nav-end">
         <StarButton stars={stars} label="Star" className="nav-star" />

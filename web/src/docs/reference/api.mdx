@@ -1,0 +1,85 @@
+---
+title: HTTP API
+description: The relay's endpoints for agents and for the client app, with authentication, long-polling and errors.
+---
+
+The base URL is `https://valet.davidsling.in/api/v1`. Requests and responses are JSON. Most agents never need this page: the [skill file](/agent/skill.md) covers everything an agent does.
+
+## Authentication
+
+There are no accounts or API keys. Starting a session returns an `agent_token`; joining one returns a `client_token`. Send it as a bearer token:
+
+```http
+Authorization: Bearer <agent_token>
+```
+
+Tokens are accepted only in this header, never in a URL or body. Each endpoint accepts one side's token: an agent token on a client endpoint gets `403`. A token works only for its own session.
+
+## Long-polling
+
+Endpoints that take `?wait=` hold the request open for up to that many seconds (0 to 50) and return as soon as something changes. Call them in a loop. Each token may hold at most two waiting requests at once.
+
+## Agent endpoints
+
+| Method and path | Body or query | Returns |
+|---|---|---|
+| `POST /sessions` | `name`, `purpose`, `template` (optional), `skill_version`. No token | `session_id`, `agent_token`, `code`, `join_url`, `expires_at`, `skill_update` |
+| `GET /sessions/{id}` | `?wait=` | `state`, `ends_at`, `grants`, `client_connected`, `last_seq` |
+| `POST /sessions/{id}/actions` | `tool`, `args`, `reason`, `client_id`; `?wait=` | The result if it finished in time, else `action_id` and `status: "pending"`, plus unseen `events` |
+| `GET /sessions/{id}/actions/{action_id}` | `?wait=` | The action, finished or still pending |
+| `GET /sessions/{id}/events` | `?after=N&wait=` | `events`, `last_seq` |
+| `POST /sessions/{id}/end` | none | `state: "ended"`, `log_url` |
+| `GET /sessions/{id}/log` | none | The sealed, signed log, once the session has ended |
+
+`expires_at` and `ends_at` are milliseconds since the epoch. `agent_token` is returned once; store it safely.
+
+## Client endpoints
+
+The Valet app uses these. They are listed for completeness.
+
+| Method and path | Body or query | Returns |
+|---|---|---|
+| `POST /join` | `code`. No token | `session_id`, `client_token`, `sender_name`, `purpose`, `template` |
+| `POST /sessions/{id}/start` | `grants` | `state: "live"`, `ends_at` |
+| `POST /sessions/{id}/decline` | none | `state: "declined"` |
+| `GET /sessions/{id}/inbox` | `?after=N&wait=` | `actions`, `last_seq`, `state` |
+| `POST /sessions/{id}/actions/{action_id}/result` | `status`, `output`, `error`, `method` | `ok` |
+| `PUT /sessions/{id}/grants` | `grants` | `ok` |
+| `POST /sessions/{id}/extend` | none | `ends_at`, or `409` past the 3-hour limit |
+| `POST /sessions/{id}/end` | none | `state: "ended"` |
+| `PUT /sessions/{id}/log` | The sealed log | `ok` |
+
+The grants the app sends are a copy for the agent to read. The relay never uses them to decide anything.
+
+## Events
+
+| Event | When |
+|---|---|
+| `session.joined` | The client entered the code |
+| `session.started` | The client started the session |
+| `session.declined` | The client declined |
+| `grants.changed` | The client's permissions changed |
+| `session.extended` | The client added time |
+| `action.result` | An action finished |
+| `session.ended` | Either side ended the session, or it timed out |
+
+## Errors
+
+Every error has the same shape:
+
+```json
+{ "error": { "code": "invalid_request", "message": "…", "hint": "…" } }
+```
+
+The `hint` says what to do.
+
+| HTTP | Meaning |
+|---|---|
+| `400` | The request is malformed. `hint` names the field |
+| `401` | Missing or wrong token |
+| `403` | The token belongs to the other side |
+| `404` | No such session or action |
+| `409` | The session is in the wrong state for this request |
+| `410` | The session is over, and nothing will bring it back |
+| `413` | The request body is over 256 KB |
+| `429` | Rate limited. Wait the seconds in `Retry-After`, then resend the same request |

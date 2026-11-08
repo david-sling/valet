@@ -42,7 +42,6 @@ export const Route = createRootRoute({
       { name: 'twitter:image:alt', content: IMAGE.alt },
     ],
     links: [
-      { rel: 'canonical', href: `${SITE}/` },
       { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
       { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
       { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -59,7 +58,7 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
         {/* the hero scene waits for its script to place it; without JavaScript it shows in its resting layout */}

@@ -1,0 +1,78 @@
+---
+title: Tools and statuses
+description: The six actions an agent can request, the rules every request must follow, and what each status means.
+---
+
+Each action is one HTTP request naming a tool, its arguments, a reason, and a `client_id`. The customer sees the exact command, path or host first, with your reason underneath as yours.
+
+```json
+{
+  "tool": "read_file",
+  "args": { "path": "~/Library/Logs/AcmeApp/main.log" },
+  "reason": "Read the app's log to see the error from the last launch.",
+  "client_id": "4f1c2a9e0b7d4e6a"
+}
+```
+
+## Tools
+
+Prefer a structured tool over `run_command` whenever one fits. Structured tools need no program permission and can't be stopped partway by the sandbox.
+
+| Tool | Arguments | Result |
+|---|---|---|
+| `list_processes` | none (`{}`) | `{ processes: [{ pid, name }] }` |
+| `read_file` | `path`, `max_bytes` (optional) | `{ content, hash, truncated }` |
+| `tail_log` | `path`, `lines` (optional, 1 to 5000) | `{ content, hash }` |
+| `list_dir` | `path` | `{ entries: [{ name, type, size }], truncated }` |
+| `run_command` | `command` (list of strings), `cwd` (optional) | `{ exit_code, stdout, stderr, truncated }` |
+| `write_file` | `path`, `content`, `base_hash` | `{ hash, bytes }` |
+
+### `run_command`
+
+`command` is a list of arguments, not a shell string. The first item is the program: an absolute path, or a bare name such as `ls` looked up in `/usr/bin`, `/bin`, `/usr/sbin`, `/sbin`, `/usr/local/bin` and `/opt/homebrew/bin`.
+
+```json
+{ "tool": "run_command", "args": { "command": ["/usr/sbin/system_profiler", "SPSoftwareDataType"] } }
+```
+
+Other items are passed as they are: `~` and `$VARS` are not expanded, so give absolute paths. For a pipeline, send `["/bin/sh", "-c", "…"]`. The customer sees exactly that, and it needs `/bin/sh` allowed.
+
+### `write_file`
+
+`write_file` replaces a whole file. `base_hash` must be the `hash` from your latest `read_file` or `tail_log` of that file. If the file changed since, the write is `rejected`, so read it again. To create a new file, send the hash of empty content:
+
+```text
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+```
+
+## Rules every request follows
+
+These are checked before anyone is asked. Breaking one returns HTTP 400 `invalid_request`, with a `hint` naming the field, or the status `rejected`.
+
+- `args` is always an object. A tool with no arguments takes `{}`.
+- `reason` is 1 to 500 characters.
+- `client_id` is 8 to 64 characters of `A-Z a-z 0-9 _ -`, new for each action. Resending the same `client_id` never runs an action twice, so it is safe to retry after a dropped connection.
+- `path` and `cwd` start with `/` or `~/` and contain no `..`. `~` is the customer's home folder.
+- `command` is a list of 1 to 64 strings.
+
+## What can't run
+
+- Commands run in a sandbox. They can read only the files, and start only the programs, the customer allowed. A `cwd` asks to read that folder.
+- macOS won't start programs with raised privileges (such as `sudo`, `su` and `ps`) inside a sandbox. They are `rejected` before the customer is asked. Use `list_processes` instead of `ps`.
+- macOS's `log` command refuses to run in a sandbox. Read log files with `tail_log`.
+
+## Statuses
+
+| Status | Meaning | What to do |
+|---|---|---|
+| `ok` | Covered by a permission, and done | Use the output |
+| `approved` | The customer allowed it when asked, and it ran | Use the output |
+| `pending` | Waiting for the customer | Wait for it again |
+| `denied` | The customer said no, or the sandbox stopped it partway | Don't send it again. Find another way within what's allowed |
+| `rejected` | Turned back before anyone was asked, such as a stale `base_hash` | Fix the request |
+| `failed` | It ran but couldn't finish | Read `error` |
+| `ended` | The session ended first | Stop |
+
+A `denied` whose `error` starts with `sandbox:` means the program tried to reach something not allowed. It is not the customer saying no. Read `stderr` to see what it needed, and ask for that with a structured tool.
+
+Every answer also carries `events`: what else changed since you last looked, such as `grants.changed`, `session.extended` or `session.ended`.

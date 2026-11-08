@@ -17,6 +17,7 @@ export const Route = createFileRoute('/')({
     const [stars, skill] = await Promise.all([getStars(), getSkillUrl()])
     return { stars, skill }
   },
+  head: () => ({ links: [{ rel: 'canonical', href: 'https://valet.davidsling.in/' }] }),
   component: Home,
 })
 
