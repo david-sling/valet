@@ -13,13 +13,18 @@ describe('skillUpdate', () => {
     expect(skillUpdate(String(SKILL_VERSION), ORIGIN)).toBeUndefined()
   })
 
-  it('tells an agent with an older or missing version where the latest skill is', () => {
+  it('has an agent with an older or missing version pass the update on to its user', () => {
     for (const sent of [SKILL_VERSION - 1, undefined]) {
       const u = skillUpdate(sent, ORIGIN)!
       expect(u).toMatchObject({ latest: SKILL_VERSION, url: `${ORIGIN}/agent/skill.md` })
-      expect(u.prompt).toContain(`${ORIGIN}/agent/skill.md`)
-      expect(u.prompt).toContain(`skill_version: ${SKILL_VERSION}`)
       expect(u.prompt).toContain(`curl -fsSL ${ORIGIN}/agent/skill.md -o "PATH"`)
+      expect(u.prompt).toMatch(/carry on with it from step 2/)
     }
+  })
+
+  it('never has the agent write or fetch its own skill file', () => {
+    const { prompt } = skillUpdate(SKILL_VERSION - 1, ORIGIN)!
+    expect(prompt).toMatch(/Don't download or write that file yourself/)
+    expect(prompt).not.toMatch(/replace|overwrite|reread/i)
   })
 })
