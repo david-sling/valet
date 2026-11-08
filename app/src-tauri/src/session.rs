@@ -978,6 +978,17 @@ mod tests {
     }
 
     #[test]
+    fn the_prompt_leaves_out_a_folder_choice_it_would_have_to_narrow() {
+        let read = |scope: &str| {
+            let need = Need { kind: Kind::Files, access: "read".into(), scope: scope.into(), risk: Risk::Low, protected_label: None };
+            offered(Risk::Low, &[need])
+        };
+        assert!(read("~/Documents/notes.txt").contains(&Scope::Folder));
+        assert!(!read("~/notes.txt").contains(&Scope::Folder), "~ holds the SSH keys");
+        assert!(read("~/notes.txt").contains(&Scope::Session), "the other choices stay");
+    }
+
+    #[test]
     fn forgets_only_the_finished_sessions_asked_for() {
         let store = Arc::new(Store::memory());
         for (id, ended_at) in [("old", 5), ("new", 50), ("kept", 5)] {
