@@ -5215,7 +5215,7 @@ dependencies = [
 
 [[package]]
 name = "valet"
-version = "0.1.10"
+version = "0.1.11"
 dependencies = [
  "block2",
  "ed25519-dalek",
