@@ -146,6 +146,7 @@ button:disabled { cursor: not-allowed; }
 .theme-pick button:hover { color: var(--ink); }
 .theme-pick button[aria-checked="true"] { background: var(--panel); color: var(--ink); box-shadow: var(--soft); }
 .theme-pick svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.side-item small.is-past { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side-item small.is-waiting { color: var(--ink); font-weight: 600; }
 .side-empty { padding: 0 8px; font-size: 12.5px; line-height: 1.5; color: var(--ink-3); }
 
@@ -156,6 +157,7 @@ button:disabled { cursor: not-allowed; }
 .page-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 18px 28px; }
 .page-head > :last-child:not(:nth-child(2)) { margin-left: auto; }
 .page-head .vendor-mark { width: 40px; height: 40px; background: var(--sky-soft); box-shadow: none; font-size: 18px; }
+.page-head .ended-by { font-weight: 600; color: var(--ok); }
 .page-sec { display: grid; align-content: start; gap: 16px; padding: 20px 28px; border-top: 1px solid var(--line); }
 /* joining: the page runs top to bottom, with its answer pinned along the bottom edge */
 .page.is-flow { display: flex; flex-direction: column; }
