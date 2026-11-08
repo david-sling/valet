@@ -602,11 +602,22 @@ a { color: inherit; }
 
 .site-foot {
   width: 100%; max-width: 72rem; margin: clamp(48px, 9vh, 96px) auto 0; padding: 24px 0 calc(28px + env(safe-area-inset-bottom, 0px));
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;
+  display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 20px 24px;
   border-top: 1px solid var(--line); font-size: 14px; color: var(--ink-3);
 }
 .site-foot .brand { padding: 0; background: none; border: 0; backdrop-filter: none; font-size: 18px; }
-.site-foot nav { display: flex; flex-wrap: wrap; gap: 4px 20px; }
+.site-foot-id { align-self: stretch; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.site-foot nav { display: flex; gap: clamp(40px, 8vw, 96px); }
+.site-foot nav div { display: flex; flex-direction: column; gap: 10px; }
+.site-foot-id p a { color: #157790; text-decoration: none; text-decoration-color: #67d0e8; text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+.site-foot-id p a:hover { text-decoration-line: underline; }
+.site-foot-id p:first-of-type { color: var(--ink-2); }
+.site-foot-id p:has(.claude-mark) { display: flex; align-items: center; gap: 5px; margin-top: auto; }
+.claude-mark { width: 14px; height: 14px; fill: #d97757; }
+.site-foot h3 { margin: 0 0 4px; font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.site-foot-base {
+  grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
 .site-foot nav a { color: var(--ink-2); text-decoration: none; }
 .site-foot nav a:hover { color: var(--ink); }
 .site-foot p { margin: 0; }

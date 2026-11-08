@@ -4,7 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { Ticket } from '../hero/Ticket'
 import { createTear } from '../hero/tear'
 import { DOWNLOAD } from '#/lib/links'
-import { InstallSkill, StarButton } from '../Links'
+import { ClaudeMark, InstallSkill, StarButton } from '../Links'
 
 // The closing: the ticket story ends where it began. The two halves come back in from either side and meet at the
 // perforation, the hero's tear run backwards, because at the end of a session both sides hold matching halves: the
@@ -113,20 +113,35 @@ export function StubEnds({ stars, skill }: { stars: number | null; skill: string
       </div>
 
       <footer className="site-foot">
-        <a className="brand" href="/">
-          <img src="/brand/valet-mark.svg" alt="" width="22" height="22" />
-          Valet
-        </a>
+        <div className="site-foot-id">
+          <a className="brand" href="/">
+            <img src="/brand/valet-mark.svg" alt="" width="22" height="22" />
+            Valet
+          </a>
+          <p>Secure remote control for agents.</p>
+          <p>
+            Built with <ClaudeMark /> by <a href="https://davidsling.in">davidsling</a>
+          </p>
+        </div>
         <nav aria-label="Footer">
-          <a href="#how">How it works</a>
-          <a href="#clients">For clients</a>
-          <a href="#vendors">For vendors</a>
-          <a href="#security">Security</a>
-          <a href="/docs/privacy">Privacy</a>
-          <a href="/docs/terms">Terms</a>
+          <div>
+            <h3>Product</h3>
+            <a href="#how">How it works</a>
+            <a href="#clients">For clients</a>
+            <a href="#vendors">For vendors</a>
+            <a href="#security">Security</a>
+          </div>
+          <div>
+            <h3>Resources</h3>
+            <a href="/docs">Docs</a>
+            <a href="/docs/privacy">Privacy</a>
+            <a href="/docs/terms">Terms</a>
+          </div>
         </nav>
-        <StarButton stars={stars} />
-        <p>© 2026 Valet</p>
+        <div className="site-foot-base">
+          <p>© 2026 Valet</p>
+          <StarButton stars={stars} />
+        </div>
       </footer>
     </section>
   )
