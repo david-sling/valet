@@ -19,6 +19,7 @@ jobs:
           version=$(jq -r .version app/src-tauri/tauri.conf.json)
           file="app/release-notes/$version.md"
           grep -q '[^[:space:]]' "$file" 2>/dev/null || { echo "::error::Write the release notes for $version in $file"; exit 1; }
+          ! sed -n '/[^[:space:]]/{p;q;}' "$file" | grep -q '^[[:space:]]*\[DRAFT\]' || { echo "::error::Remove [DRAFT] from $file before tagging"; exit 1; }
           { echo 'body<<VALET_NOTES'; cat "$file"; echo; echo; echo 'Signed and notarised for macOS 13 or later, on Apple silicon and Intel.'; echo 'VALET_NOTES'; } >> "$GITHUB_OUTPUT"
 
       - uses: pnpm/action-setup@v4
