@@ -9,7 +9,14 @@ use crate::types::{Kind, Need, Risk};
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "tool", content = "args", rename_all = "snake_case")]
 pub enum Request {
-    RunCommand { command: Vec<String>, cwd: Option<String> },
+    // network: the agent says the command reaches the network, so the person is asked for it even when the program
+    // (a shell, say) doesn't show it
+    RunCommand {
+        command: Vec<String>,
+        cwd: Option<String>,
+        #[serde(default)]
+        network: bool,
+    },
     ReadFile { path: String, max_bytes: Option<u64> },
     WriteFile { path: String, content: String, base_hash: String },
     ListDir { path: String },
@@ -253,7 +260,7 @@ pub fn plan(request: Request) -> Result<Plan, String> {
     let mut cwd = None;
     let mut path = None;
     let (literal, needs) = match &request {
-        Request::RunCommand { command, cwd: dir } => {
+        Request::RunCommand { command, cwd: dir, network } => {
             let first = command.first().ok_or("The command is empty.")?;
             let prog = find_program(first)?;
             if is_setuid(&prog) {
@@ -263,6 +270,9 @@ pub fn plan(request: Request) -> Result<Plan, String> {
                 ));
             }
             let mut needs = program_needs(&prog, command);
+            if *network && !needs.iter().any(|n| n.kind == Kind::Network) {
+                needs.push(network_need());
+            }
             if let Some(dir) = dir {
                 let d = resolve(dir)?;
                 if !d.is_dir() {
@@ -338,16 +348,16 @@ mod tests {
 
     #[test]
     fn a_shell_is_high_risk_and_admin_tools_are_critical() {
-        let p = plan(Request::RunCommand { command: vec!["sh".into(), "-c".into(), "ls".into()], cwd: None }).unwrap();
+        let p = plan(Request::RunCommand { command: vec!["sh".into(), "-c".into(), "ls".into()], cwd: None, network: false }).unwrap();
         assert_eq!(p.risk, Risk::High);
-        let p = plan(Request::RunCommand { command: vec!["launchctl".into(), "list".into()], cwd: None }).unwrap();
+        let p = plan(Request::RunCommand { command: vec!["launchctl".into(), "list".into()], cwd: None, network: false }).unwrap();
         assert_eq!(p.risk, Risk::Critical);
     }
 
     #[test]
     fn setuid_programs_are_turned_back_before_anyone_is_asked() {
         for prog in ["/bin/ps", "/usr/bin/sudo"] {
-            let e = plan(Request::RunCommand { command: vec![prog.into()], cwd: None }).unwrap_err();
+            let e = plan(Request::RunCommand { command: vec![prog.into()], cwd: None, network: false }).unwrap_err();
             assert!(e.contains("setuid"), "{e}");
         }
     }
@@ -361,9 +371,9 @@ mod tests {
 
     #[test]
     fn network_programs_need_the_network() {
-        let p = plan(Request::RunCommand { command: vec!["/usr/bin/curl".into(), "https://example.com".into()], cwd: None }).unwrap();
+        let p = plan(Request::RunCommand { command: vec!["/usr/bin/curl".into(), "https://example.com".into()], cwd: None, network: false }).unwrap();
         assert!(p.needs.iter().any(|n| n.kind == Kind::Network));
-        let p = plan(Request::RunCommand { command: vec!["git".into(), "status".into()], cwd: None });
+        let p = plan(Request::RunCommand { command: vec!["git".into(), "status".into()], cwd: None, network: false });
         if let Ok(p) = p {
             assert!(!p.needs.iter().any(|n| n.kind == Kind::Network));
         }
@@ -371,7 +381,7 @@ mod tests {
 
     #[test]
     fn a_working_folder_needs_reading_it() {
-        let p = plan(Request::RunCommand { command: vec!["ls".into()], cwd: Some("/usr/share".into()) }).unwrap();
+        let p = plan(Request::RunCommand { command: vec!["ls".into()], cwd: Some("/usr/share".into()), network: false }).unwrap();
         assert!(p.needs.iter().any(|n| n.kind == Kind::Files && n.scope == "/usr/share/**"));
     }
 
@@ -380,6 +390,19 @@ mod tests {
         assert_eq!(normalise_scope("/tmp/**"), "/private/tmp/**");
         assert_eq!(normalise_scope("*"), "*");
         assert_eq!(normalise_scope("api.acme.com:443"), "api.acme.com:443");
+    }
+
+    #[test]
+    fn a_command_that_says_it_needs_the_network_asks_for_it() {
+        let p = plan(Request::RunCommand { command: vec!["sh".into()], cwd: None, network: false }).unwrap();
+        assert!(!p.needs.iter().any(|n| n.kind == Kind::Network));
+        let p = plan(Request::RunCommand { command: vec!["sh".into()], cwd: None, network: true }).unwrap();
+        assert_eq!(p.needs.iter().filter(|n| n.kind == Kind::Network).count(), 1);
+        assert_eq!(p.risk, Risk::High);
+        let args = serde_json::json!({ "command": ["sh", "-c", "git fetch"], "network": true });
+        assert!(matches!(Request::parse("run_command", &args), Ok(Request::RunCommand { network: true, .. })));
+        let args = serde_json::json!({ "command": ["sh"] });
+        assert!(matches!(Request::parse("run_command", &args), Ok(Request::RunCommand { network: false, .. })));
     }
 
     #[test]

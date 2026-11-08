@@ -12,7 +12,8 @@ use crate::types::{now_ms, Grant, Kind, Need, Source};
 const OUTPUT_CAP: usize = 256 * 1024;
 const WALL_LIMIT: Duration = Duration::from_secs(300);
 const CPU_SECONDS: libc::rlim_t = 300;
-const FILE_BYTES: libc::rlim_t = 256 * 1024 * 1024;
+// Large enough for a debug build's libraries (rustc writes 300 MB and more), small enough to stop a runaway write filling the disk
+const FILE_BYTES: libc::rlim_t = 2 * 1024 * 1024 * 1024;
 
 const BASE: &str = r#"(version 1)
 (deny default)
@@ -166,7 +167,19 @@ fn environment(grants: &[Grant], tmp: &Path) -> Vec<(String, String)> {
     if !env.iter().any(|(k, _)| k == "LANG") {
         env.push(("LANG".into(), "en_US.UTF-8".into()));
     }
+    // git stops with "unable to access ~/.gitconfig" when it can't read it; unless the session grants it,
+    // git runs with an empty global config instead, which every git command can live without
+    if !reads_git_config(grants, now) && !env.iter().any(|(k, _)| k == "GIT_CONFIG_GLOBAL") {
+        env.push(("GIT_CONFIG_GLOBAL".into(), "/dev/null".into()));
+    }
     env
+}
+
+fn reads_git_config(grants: &[Grant], now: i64) -> bool {
+    ["read", "write"].iter().any(|access| {
+        let need = Need { kind: Kind::Files, access: access.to_string(), scope: "~/.gitconfig".into(), risk: crate::types::Risk::Low, protected_label: None };
+        grants.iter().any(|g| crate::policy::covers(g, &need, now))
+    })
 }
 
 async fn capture(mut r: impl AsyncRead + Unpin) -> (Vec<u8>, bool) {
@@ -182,6 +195,12 @@ async fn capture(mut r: impl AsyncRead + Unpin) -> (Vec<u8>, bool) {
         truncated |= n > room;
     }
     (kept, truncated)
+}
+
+// What programs print when the sandbox stops them: EPERM from a system call, or the sandbox's own wording when it
+// stops dyld or a framework from opening a file (as xcrun does inside /usr/bin/git)
+fn blocked(stderr: &str) -> bool {
+    ["Operation not permitted", "sandbox blocked", "deny(1)", "Sandbox: "].iter().any(|s| stderr.contains(s))
 }
 
 fn kill_group(pgid: i32, signal: i32) {
@@ -252,6 +271,14 @@ pub async fn run(
     let (stdout, t1) = out.await.unwrap_or_default();
     let (stderr, t2) = err.await.unwrap_or_default();
     let stderr = String::from_utf8_lossy(&stderr).into_owned();
+    {
+        use std::os::unix::process::ExitStatusExt;
+        match status.signal() {
+            Some(libc::SIGXFSZ) => return Ran::Failed("The command tried to write a file larger than 2 GB, Valet's limit, and was stopped.".into()),
+            Some(libc::SIGXCPU) => return Ran::Failed("The command used 5 minutes of CPU time, Valet's limit, and was stopped.".into()),
+            _ => {}
+        }
+    }
     let exit_code = status.code().unwrap_or(-1);
     let result = json!({
         "exit_code": exit_code,
@@ -259,7 +286,7 @@ pub async fn run(
         "stderr": stderr,
         "truncated": t1 || t2,
     });
-    if exit_code == 71 && stderr.contains("execvp()") || exit_code != 0 && stderr.contains("Operation not permitted") {
+    if exit_code == 71 && stderr.contains("execvp()") || exit_code != 0 && blocked(&stderr) {
         return Ran::Blocked(result);
     }
     Ran::Done(result)
@@ -289,6 +316,20 @@ mod tests {
     async fn sh(script: &str, grants: &[Grant]) -> Ran {
         let argv = vec!["/bin/sh".into(), "-c".into(), script.into()];
         run(Path::new("/bin/sh"), &argv, None, grants, &[], &tmp(), &CancellationToken::new()).await
+    }
+
+    #[test]
+    fn recognises_the_ways_a_sandbox_block_is_reported() {
+        assert!(blocked("ls: /Users/x/.ssh: Operation not permitted"));
+        assert!(blocked("xcrun: error: unable to load libxcrun (... (file system sandbox blocked open()), ...)"));
+        assert!(!blocked("fatal: not a git repository"));
+    }
+
+    #[test]
+    fn git_skips_its_global_config_unless_the_session_grants_it() {
+        let git_global = |grants: &[Grant]| environment(grants, &tmp()).into_iter().any(|(k, _)| k == "GIT_CONFIG_GLOBAL");
+        assert!(git_global(&[]));
+        assert!(!git_global(&[grant(Kind::Files, "read", "~/**", Source::Proposed)]));
     }
 
     #[tokio::test]
