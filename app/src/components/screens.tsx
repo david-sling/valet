@@ -696,7 +696,7 @@ export function SessionRecord({
           <>
             {day(s.startedAt)}–{hhmm(s.endedAt)} · {minutes(s.endedAt - s.startedAt)} ·{' '}
             <span className="ended-by">{ENDED_BY[s.endedBy]}</span>
-            {keepDays !== null && !s.kept && <> · Auto-deletes on {fullDay(s.endedAt + keepDays * DAY_MS)}</>}
+            {s.kept ? <> · Does not auto-delete</> : keepDays !== null && <> · Auto-deletes on {fullDay(s.endedAt + keepDays * DAY_MS)}</>}
           </>
         }
       >
