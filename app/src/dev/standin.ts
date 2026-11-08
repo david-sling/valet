@@ -23,6 +23,12 @@ async function fakeUpdate() {
   send('update-ready', '0.1.2')
   return '0.1.2'
 }
+// ?notes in the URL opens What's new as if Valet had just updated
+const NOTES = [
+  { version: '0.1.7', body: '### New\n- **What\'s new** shows after an update, like this.\n- Release notes come from `GitHub releases`.\n\nSmaller fixes to the join code.' },
+  { version: '0.1.6', body: '- Shows who ended a past session.' },
+]
+
 let sessions: Session[] = []
 let n = 0
 
@@ -179,6 +185,8 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
       return '0.1.0'
     case 'check_update':
       return fakeUpdate()
+    case 'whats_new':
+      return new URLSearchParams(location.search).has('notes') ? NOTES : []
     case 'plugin:event|listen':
       if (args.event === 'sessions') listeners.push(args.handler as number)
       else others.set(args.event as string, [...(others.get(args.event as string) ?? []), args.handler as number])
