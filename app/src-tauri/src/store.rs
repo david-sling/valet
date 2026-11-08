@@ -55,11 +55,19 @@ pub fn without_content(item: &FeedItem) -> FeedItem {
 
 impl Store {
     pub fn open(path: &Path) -> rusqlite::Result<Self> {
-        use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
-        if let Some(dir) = path.parent() {
-            let _ = std::fs::DirBuilder::new().recursive(true).mode(0o700).create(dir);
+        // On Windows the app data folder is already private to the person; on macOS the modes make it so
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
+            if let Some(dir) = path.parent() {
+                let _ = std::fs::DirBuilder::new().recursive(true).mode(0o700).create(dir);
+            }
+            let _ = std::fs::OpenOptions::new().create(true).append(true).mode(0o600).open(path);
         }
-        let _ = std::fs::OpenOptions::new().create(true).append(true).mode(0o600).open(path);
+        #[cfg(windows)]
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
         let conn = Connection::open(path)?;
         Self::init(conn)
     }

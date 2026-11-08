@@ -12,6 +12,7 @@ mod types;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+#[cfg(target_os = "macos")]
 use tauri::menu::{Menu, MenuItem};
 use tauri::{AppHandle, Emitter, Manager as _, RunEvent, State, Url};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -175,6 +176,8 @@ async fn keep_updated(app: AppHandle) {
     }
 }
 
+// macOS apps keep "Check for Updates…" in the app menu; Windows has no app menu, and the update check runs in the background
+#[cfg(target_os = "macos")]
 fn add_update_item(app: &AppHandle) -> tauri::Result<()> {
     let menu = Menu::default(app)?;
     if let Some(valet) = menu.items()?.first().and_then(|m| m.as_submenu()) {
@@ -192,7 +195,17 @@ fn add_update_item(app: &AppHandle) -> tauri::Result<()> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let base = std::env::var("VALET_RELAY").unwrap_or_else(|_| DEFAULT_RELAY.into());
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // Windows starts a second copy of the app to open a valet:// link; this hands the link to the copy already running
+    #[cfg(windows)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.unminimize();
+            let _ = w.show();
+            let _ = w.set_focus();
+        }
+    }));
+    builder
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
@@ -205,12 +218,20 @@ pub fn run() {
             });
             let store = app.path().app_data_dir().ok().and_then(|dir| store::Store::open(&dir.join("valet.db")).ok()).map(Arc::new);
             app.manage(Manager::new(Relay::new(&base), emit, store));
+            // The installer registers valet:// on Windows; a development build registers itself
+            #[cfg(all(windows, debug_assertions))]
+            let _ = app.deep_link().register_all();
             let handle = app.handle().clone();
             app.deep_link().on_open_url(move |event| open_links(&handle, &event.urls()));
             if let Ok(Some(urls)) = app.deep_link().get_current() {
                 open_links(app.handle(), &urls);
             }
+            #[cfg(target_os = "macos")]
             add_update_item(app.handle())?;
+            #[cfg(windows)]
+            if let Some(hwnd) = app.get_webview_window("main").and_then(|w| w.hwnd().ok()) {
+                approve::set_window(hwnd.0 as isize);
+            }
             if !cfg!(debug_assertions) {
                 tauri::async_runtime::spawn(keep_updated(app.handle().clone()));
             }

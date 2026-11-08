@@ -91,7 +91,7 @@ export const ResultBody = z.object({
   output: z.unknown().optional(),
   hash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
   error: z.string().max(2000).optional(),
-  method: z.enum(['click', 'touch_id']).optional(),
+  method: z.enum(['click', 'touch_id', 'windows_hello']).optional(),
 })
 
 export const WaitQuery = z.object({

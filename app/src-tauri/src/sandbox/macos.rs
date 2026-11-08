@@ -2,16 +2,13 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
 
-use serde_json::{json, Value};
-use tokio::io::{AsyncRead, AsyncReadExt};
+use serde_json::json;
 use tokio_util::sync::CancellationToken;
 
-use crate::needs::{home, protected_roots, SEARCH_PATH};
-use crate::types::{now_ms, Grant, Kind, Need, Source};
+use super::{capture, environment, live, Ran, CPU_SECONDS, WALL_LIMIT};
+use crate::needs::{protected_roots, scope_path};
+use crate::types::{Grant, Kind, Need};
 
-const OUTPUT_CAP: usize = 256 * 1024;
-const WALL_LIMIT: Duration = Duration::from_secs(300);
-const CPU_SECONDS: libc::rlim_t = 300;
 const FILE_BYTES: libc::rlim_t = 256 * 1024 * 1024;
 
 const BASE: &str = r#"(version 1)
@@ -60,35 +57,12 @@ fn filter(scope: &str) -> Option<String> {
     if scope == "*" {
         return Some("(subpath \"/\")".into());
     }
-    let (base, glob) = match scope.strip_suffix("/**") {
-        Some(b) => (b, true),
-        None => (scope, false),
-    };
-    let p = if base == "~" {
-        home()
-    } else if let Some(rest) = base.strip_prefix("~/") {
-        home().join(rest)
-    } else if base.starts_with('/') {
-        PathBuf::from(base)
-    } else {
-        return None;
-    };
+    let (p, glob) = scope_path(scope)?;
     Some(format!("({} {})", if glob { "subpath" } else { "literal" }, quoted(&p)))
 }
 
-struct Allowed<'a> {
-    need: &'a Need,
-    approved: bool,
-}
-
 pub fn profile(grants: &[Grant], approved: &[Need], program: &Path, tmp: &Path) -> String {
-    let now = now_ms();
-    let live: Vec<Allowed> = grants
-        .iter()
-        .filter(|g| g.on && g.expires_at.is_none_or(|at| at >= now))
-        .map(|g| Allowed { need: &g.need, approved: g.source == Source::Approved })
-        .chain(approved.iter().map(|n| Allowed { need: n, approved: true }))
-        .collect();
+    let live = live(grants, approved);
     let files = |access: &[&str], only_approved: bool| -> Vec<String> {
         live.iter()
             .filter(|a| a.need.kind == Kind::Files && access.contains(&a.need.access.as_str()))
@@ -148,55 +122,12 @@ pub fn profile(grants: &[Grant], approved: &[Need], program: &Path, tmp: &Path) 
     sb
 }
 
-fn environment(grants: &[Grant], tmp: &Path) -> Vec<(String, String)> {
-    let now = now_ms();
-    let names: Vec<&str> = grants
-        .iter()
-        .filter(|g| g.on && g.need.kind == Kind::Environment && g.expires_at.is_none_or(|at| at >= now))
-        .map(|g| g.need.scope.as_str())
-        .collect();
-    let mut env: Vec<(String, String)> = std::env::vars()
-        .filter(|(k, _)| names.contains(&"*") || names.contains(&k.as_str()))
-        .filter(|(k, _)| !k.starts_with("VALET_"))
-        .collect();
-    env.retain(|(k, _)| !["PATH", "HOME", "TMPDIR"].contains(&k.as_str()));
-    env.push(("PATH".into(), SEARCH_PATH.join(":")));
-    env.push(("HOME".into(), home().display().to_string()));
-    env.push(("TMPDIR".into(), format!("{}/", tmp.display())));
-    if !env.iter().any(|(k, _)| k == "LANG") {
-        env.push(("LANG".into(), "en_US.UTF-8".into()));
-    }
-    env
-}
-
-async fn capture(mut r: impl AsyncRead + Unpin) -> (Vec<u8>, bool) {
-    let mut kept = Vec::new();
-    let mut chunk = [0u8; 16 * 1024];
-    let mut truncated = false;
-    while let Ok(n) = r.read(&mut chunk).await {
-        if n == 0 {
-            break;
-        }
-        let room = OUTPUT_CAP.saturating_sub(kept.len());
-        kept.extend_from_slice(&chunk[..n.min(room)]);
-        truncated |= n > room;
-    }
-    (kept, truncated)
-}
-
 fn kill_group(pgid: i32, signal: i32) {
     if pgid > 0 {
         unsafe {
             libc::killpg(pgid, signal);
         }
     }
-}
-
-pub enum Ran {
-    Done(Value),
-    Blocked(Value),
-    Failed(String),
-    Stopped,
 }
 
 pub async fn run(
@@ -217,7 +148,7 @@ pub async fn run(
     cmd.process_group(0).kill_on_drop(true);
     unsafe {
         cmd.pre_exec(|| {
-            let cpu = libc::rlimit { rlim_cur: CPU_SECONDS, rlim_max: CPU_SECONDS };
+            let cpu = libc::rlimit { rlim_cur: CPU_SECONDS as libc::rlim_t, rlim_max: CPU_SECONDS as libc::rlim_t };
             let fsize = libc::rlimit { rlim_cur: FILE_BYTES, rlim_max: FILE_BYTES };
             let core = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
             libc::setrlimit(libc::RLIMIT_CPU, &cpu);
@@ -268,7 +199,7 @@ pub async fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::Risk;
+    use crate::types::{Risk, Source};
 
     fn grant(kind: Kind, access: &str, scope: &str, source: Source) -> Grant {
         Grant {

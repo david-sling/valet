@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { SCOPE_LABEL } from '@valet/protocol/policy'
 import type { Scope } from '@valet/protocol'
-import { VERB, describe } from '../format'
+import { PLATFORM, VERB, describe } from '../format'
 import { RiskBars } from './RiskBars'
 import { Diff, DiffStat } from './Diff'
 import { SplitButton } from './SplitButton'
@@ -17,7 +17,7 @@ const RIDGES = [
 ]
 
 // A request waits until the person answers or the session ends. Focus starts on Deny; Escape denies. Allow is
-// disabled for the first 600 ms, and for high and critical risk the app asks macOS for Touch ID itself.
+// disabled for the first 600 ms, and for high and critical risk the app asks the system itself (Touch ID or Windows Hello).
 export function ApprovalPrompt({
   vendor,
   prompt,
@@ -51,7 +51,7 @@ export function ApprovalPrompt({
   const allowLabel =
     scope === 'once' ? 'Allow once' : scope === 'check' ? 'Allow, check output' : `Allow for ${SCOPE_LABEL[scope].toLowerCase()}`
   const fingerprint = (
-    <svg className="fingerprint" viewBox="0 0 24 24" aria-label="with Touch ID">
+    <svg className="fingerprint" viewBox="0 0 24 24" aria-label={`with ${PLATFORM.verify}`}>
       {RIDGES.map((d) => (
         <path key={d} d={d} />
       ))}
@@ -138,7 +138,7 @@ export function ApprovalPrompt({
                 <path key={d} d={d} />
               ))}
             </svg>
-            Confirm with Touch ID to allow
+            Confirm with {PLATFORM.verify} to allow
           </div>
         ) : (
           <div className="request-actions">

@@ -316,6 +316,19 @@ For each action, Rust:
 - Some programs refuse to run under any sandbox (`/usr/bin/log` exits with "Cannot run while sandboxed") or cannot be started inside one (setuid programs such as `/bin/ps`). `list_processes` and `tail_log` cover the common cases.
 - A sandbox denial inside a running command surfaces as an `EPERM` error. The action returns `denied` with `reason: "sandbox"` and the stderr, and the agent can ask for the specific grant through a structured tool.
 
+### 9.2.1 Sandbox (Windows)
+
+Windows has no path-based sandbox, so each `run_command` gets a new AppContainer (`app/src-tauri/src/sandbox/windows.rs`):
+
+- **Identity.** A fresh AppContainer profile and SID per command, never reused, deleted afterwards. It starts with no access to the person's profile and reads system folders through "ALL APPLICATION PACKAGES", as an app from the Store does.
+- **Files.** Each file grant becomes an allow entry for that SID, written just before the command starts and removed when it ends. A folder grant writes one entry on every file and folder inside it, without inheritance pushing anything down, so protected places and `.env` files are left with no entry unless the person approved them. The container's access check does not honour deny entries, so closing a place means never opening it. A folder holding more than 20,000 items is turned back, asking for a narrower grant, and a grant for every file (`*`) is refused.
+- **Programs.** Windows cannot restrict which programs a process may start by path. With only the command's own program granted, the Job's child-process policy blocks starting any other program. Once the session grants a second program, the command can start any program, which is weaker than macOS's per-program `process-exec` list.
+- **Network.** The `internetClient` and `privateNetworkClientServer` capabilities, added only for a grant the person approved. AppContainers cannot reach `localhost`. Isolation is enforced by Windows Firewall, so it needs the firewall service running.
+- **Job Object.** 5 minutes of CPU, no clipboard, other windows or desktop switching, and stopping the session kills every process in the job. There is no file-size limit as on macOS.
+- **Leftovers.** If Valet dies mid-command, the entries it added stay behind but name a SID nothing runs as any more, so they grant nothing.
+- **Programs that start.** Only `.exe` and `.com` start directly. `.bat`, `.cmd` and `.ps1` must go through their interpreter, which is high risk. Arguments are quoted for the C runtime, except that everything after `cmd /c` is passed as written, because cmd reads it itself.
+- **Approvals.** High and critical risk confirm with Windows Hello (`UserConsentVerifier`), parented to Valet's window, and are recorded as `windows_hello`.
+
 ### 9.3 Approvals
 
 - Prompts are shown in the main window's live feed, as in the mockup. DESIGN.md calls for a separate always-on-top native window, so the app also raises a notification and an always-on-top prompt window when the main window is hidden.

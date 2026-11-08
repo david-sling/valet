@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Grant } from '@valet/protocol'
-import { KINDS, SESSION_MINUTES, hhmm, clock, day, describe, minutes } from '../format'
+import { KINDS, PLATFORM, SESSION_MINUTES, hhmm, clock, day, describe, minutes } from '../format'
 import { RiskBars } from './RiskBars'
 import { Diff, DiffStat } from './Diff'
 import { ExportButton } from './ExportButton'
@@ -126,7 +126,7 @@ export function Sidebar({
             </button>
           ))
         ) : (
-          <p className="side-empty">Sessions you've had show up here. They're kept on this Mac only.</p>
+          <p className="side-empty">Sessions you've had show up here. They're kept on {PLATFORM.machine} only.</p>
         )}
       </div>
 

@@ -223,11 +223,17 @@ fn output_text(tool: &str, v: &Value) -> String {
 }
 
 fn session_tmp(id: &str) -> std::io::Result<PathBuf> {
-    use std::os::unix::fs::DirBuilderExt;
     let short: String = id.chars().filter(|c| c.is_ascii_alphanumeric()).take(12).collect();
     let dir = std::env::temp_dir().join(format!("valet-{short}-{}", now_ms()));
-    std::fs::DirBuilder::new().mode(0o700).create(&dir)?;
-    std::fs::canonicalize(dir)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        std::fs::DirBuilder::new().mode(0o700).create(&dir)?;
+    }
+    // %TEMP% is inside the person's profile, which only they can open
+    #[cfg(windows)]
+    std::fs::create_dir(&dir)?;
+    crate::needs::real(&dir)
 }
 
 impl Manager {
@@ -572,7 +578,7 @@ impl Manager {
             }
             let p = s.prompts.remove(i);
             if let Some(tx) = p.reply {
-                let _ = tx.send(Answer::Allow { scope, method: "touch_id" });
+                let _ = tx.send(Answer::Allow { scope, method: approve::METHOD });
             }
         }
         self.changed();
@@ -675,7 +681,11 @@ impl Manager {
                 tool: a.tool.clone(),
                 literal,
                 outcome: outcome.into(),
-                method: method.map(|m: &str| if m == "touch_id" { "Touch ID".to_string() } else { "Click".to_string() }),
+                method: method.map(|m: &str| match m {
+                    "touch_id" => "Touch ID".to_string(),
+                    "windows_hello" => "Windows Hello".to_string(),
+                    _ => "Click".to_string(),
+                }),
                 output,
                 diff,
                 note: done.error.clone(),

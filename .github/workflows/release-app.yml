@@ -8,7 +8,31 @@ permissions:
   contents: write
 
 jobs:
+  # One draft release that both builds upload into, so neither creates its own and the update feed lists both platforms
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.create.outputs.id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches the app version
+        run: |
+          version=$(jq -r .version app/src-tauri/tauri.conf.json)
+          [ "$GITHUB_REF_NAME" = "app-v$version" ] || { echo "Tag $GITHUB_REF_NAME doesn't match version $version"; exit 1; }
+
+      - name: Create the draft release
+        id: create
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --draft --verify-tag             --title "Valet ${GITHUB_REF_NAME#app-v}"             --notes "Signed and notarised for macOS 13 or later, on Apple silicon and Intel. For Windows 10 and 11 (x64)."
+          id=$(gh api "repos/$GITHUB_REPOSITORY/releases" --jq ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | .id" | head -n1)
+          [ -n "$id" ] || { echo "The draft release wasn't found"; exit 1; }
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
   macos:
+    needs: release
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,11 +48,6 @@ jobs:
         with:
           workspaces: app/src-tauri
       - run: pnpm install --frozen-lockfile
-
-      - name: Check the tag matches the app version
-        run: |
-          version=$(jq -r .version app/src-tauri/tauri.conf.json)
-          [ "$GITHUB_REF_NAME" = "app-v$version" ] || { echo "Tag $GITHUB_REF_NAME doesn't match version $version"; exit 1; }
 
       - name: Write the App Store Connect key
         env:
@@ -52,10 +71,7 @@ jobs:
           projectPath: app
           tauriScript: pnpm tauri
           args: --target universal-apple-darwin
-          tagName: app-v__VERSION__
-          releaseName: Valet __VERSION__
-          releaseBody: Signed and notarised for macOS 13 or later, on Apple silicon and Intel.
-          releaseDraft: true
+          releaseId: ${{ needs.release.outputs.id }}
 
       - name: Attach the disk image under a fixed name
         env:
@@ -67,3 +83,38 @@ jobs:
       - name: Remove the App Store Connect key
         if: always()
         run: rm -f "$RUNNER_TEMP/AuthKey.p8"
+
+  windows:
+    needs: release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+      - run: pnpm install --frozen-lockfile
+
+      # The installer isn't Authenticode-signed yet, so SmartScreen warns on first run; the update feed is still signed
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: app
+          tauriScript: pnpm tauri
+          releaseId: ${{ needs.release.outputs.id }}
+
+      - name: Attach the installer under a fixed name
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp app/src-tauri/target/release/bundle/nsis/*-setup.exe "$RUNNER_TEMP/Valet-setup.exe"
+          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/Valet-setup.exe" --clobber

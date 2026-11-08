@@ -4,6 +4,10 @@ export const KINDS: Kind[] = ['Files', 'Programs', 'Network', 'Environment', 'Pr
 export const RISK_WORD: Record<Risk, string> = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' }
 export const SESSION_MINUTES = 60
 
+// What the app calls the person's computer and the check it runs before allowing anything risky
+const WINDOWS = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
+export const PLATFORM = WINDOWS ? { verify: 'Windows Hello', machine: 'this PC' } : { verify: 'Touch ID', machine: 'this Mac' }
+
 export const VERB: Record<string, string> = {
   run_command: 'run a command',
   read_file: 'read a file',
