@@ -114,6 +114,7 @@ export function App() {
     setJoinError('')
     return api.join(code).then(
       (s) => {
+        setLinkCode('')
         setOpenId(s.id)
         setStart(s.template.length ? 'template' : 'none')
         setDraft(fromTemplate(s))

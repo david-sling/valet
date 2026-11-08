@@ -72,62 +72,64 @@ export function Sidebar({
         <b>Join a session</b>
       </button>
 
-      {ongoing.length > 0 && (
-        <div className="side-group">
-          <h2 className="m-label">Ongoing</h2>
-          {ongoing.map((o) => (
-            <button
-              key={o.id}
-              className="side-item"
-              aria-current={openLive === o.id ? 'page' : undefined}
-              onClick={() => onLive(o.id)}
-            >
-              <span className="tile" aria-hidden="true">
-                {o.vendor[0]}
-              </span>
-              <span>
-                <b>{o.vendor}</b>
-                {o.waiting > 0 && openLive !== o.id ? (
-                  <small className="is-waiting">
-                    <span className="dot" aria-hidden="true" />
-                    {o.waiting === 1 ? 'A request is waiting' : `${o.waiting} requests waiting`}
-                  </small>
-                ) : (
-                  <small>
-                    <span className="dot" aria-hidden="true" />
-                    Live · {Math.max(0, Math.ceil((o.endsAt - now) / 60_000))} min left
-                  </small>
-                )}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="side-group">
-        <h2 className="m-label">Past</h2>
-        {past.length ? (
-          past.map((s) => (
-            <button
-              key={s.id}
-              className="side-item"
-              aria-current={openPast === s.id ? 'page' : undefined}
-              onClick={() => onPast(s.id)}
-            >
-              <span className="tile" aria-hidden="true">
-                {s.vendor[0]}
-              </span>
-              <span>
-                <b>{s.vendor}</b>
-                <small className="is-past">
-                  {day(s.startedAt)} · {SIDE_ENDED_BY[s.endedBy]}
-                </small>
-              </span>
-            </button>
-          ))
-        ) : (
-          <p className="side-empty">Sessions you've had show up here. They're kept on this Mac only.</p>
+      <div className="side-scroll">
+        {ongoing.length > 0 && (
+          <div className="side-group">
+            <h2 className="m-label">Ongoing</h2>
+            {ongoing.map((o) => (
+              <button
+                key={o.id}
+                className="side-item"
+                aria-current={openLive === o.id ? 'page' : undefined}
+                onClick={() => onLive(o.id)}
+              >
+                <span className="tile" aria-hidden="true">
+                  {o.vendor[0]}
+                </span>
+                <span>
+                  <b>{o.vendor}</b>
+                  {o.waiting > 0 && openLive !== o.id ? (
+                    <small className="is-waiting">
+                      <span className="dot" aria-hidden="true" />
+                      {o.waiting === 1 ? 'A request is waiting' : `${o.waiting} requests waiting`}
+                    </small>
+                  ) : (
+                    <small>
+                      <span className="dot" aria-hidden="true" />
+                      Live · {Math.max(0, Math.ceil((o.endsAt - now) / 60_000))} min left
+                    </small>
+                  )}
+                </span>
+              </button>
+            ))}
+          </div>
         )}
+
+        <div className="side-group">
+          <h2 className="m-label">Past</h2>
+          {past.length ? (
+            past.map((s) => (
+              <button
+                key={s.id}
+                className="side-item"
+                aria-current={openPast === s.id ? 'page' : undefined}
+                onClick={() => onPast(s.id)}
+              >
+                <span className="tile" aria-hidden="true">
+                  {s.vendor[0]}
+                </span>
+                <span>
+                  <b>{s.vendor}</b>
+                  <small className="is-past">
+                    {day(s.startedAt)} · {SIDE_ENDED_BY[s.endedBy]}
+                  </small>
+                </span>
+              </button>
+            ))
+          ) : (
+            <p className="side-empty">Sessions you've had show up here. They're kept on this Mac only.</p>
+          )}
+        </div>
       </div>
 
       <div className="side-foot">
