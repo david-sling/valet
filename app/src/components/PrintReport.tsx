@@ -1,7 +1,7 @@
 import { VERB, hhmm, minutes } from '../format'
 import type { PastSession } from './screens'
 
-const ENDED_BY = { you: 'You', vendor: 'The requester', time: 'Time limit', closed: 'Valet was closed' }
+const ENDED_BY = { you: 'You', vendor: 'The requester', time: 'Time limit', closed: 'Valet was closed', unknown: 'Not recorded' }
 
 const date = (t: number) =>
   new Date(t).toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })

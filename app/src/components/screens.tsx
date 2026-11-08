@@ -13,7 +13,7 @@ export type PastSession = {
   purpose: string
   startedAt: number
   endedAt: number
-  endedBy: 'you' | 'vendor' | 'time' | 'closed'
+  endedBy: 'you' | 'vendor' | 'time' | 'closed' | 'unknown'
   feed: FeedItem[]
 }
 
@@ -119,7 +119,9 @@ export function Sidebar({
               </span>
               <span>
                 <b>{s.vendor}</b>
-                <small>{day(s.startedAt)}</small>
+                <small className="is-past">
+                  {day(s.startedAt)} · {SIDE_ENDED_BY[s.endedBy]}
+                </small>
               </span>
             </button>
           ))
@@ -659,6 +661,15 @@ const ENDED_BY = {
   vendor: 'Ended by the vendor',
   time: 'Reached its time limit',
   closed: 'Valet closed before it ended',
+  unknown: 'Ended',
+}
+
+const SIDE_ENDED_BY = {
+  you: 'you ended',
+  vendor: 'they ended',
+  time: 'timed out',
+  closed: 'cut off',
+  unknown: 'ended',
 }
 
 export function SessionRecord({
@@ -682,7 +693,12 @@ export function SessionRecord({
     <div className="page">
       <PageHead
         vendor={s.vendor}
-        meta={`${day(s.startedAt)}–${hhmm(s.endedAt)} · ${minutes(s.endedAt - s.startedAt)} · ${ENDED_BY[s.endedBy]}`}
+        meta={
+          <>
+            {day(s.startedAt)}–{hhmm(s.endedAt)} · {minutes(s.endedAt - s.startedAt)} ·{' '}
+            <span className="ended-by">{ENDED_BY[s.endedBy]}</span>
+          </>
+        }
       >
         <ExportButton onExport={(f) => (f === 'json' ? onExportJson() : onExportPdf().then(() => false))} />
       </PageHead>

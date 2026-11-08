@@ -558,7 +558,7 @@ impl Manager {
                     backoff = Duration::from_secs(1);
                     if inbox.state != "live" {
                         let by = self.relay.status(&id, &token).await.ok().and_then(|s| s.ended_by);
-                        self.close(&id, Phase::Ended, by.or(Some("agent".into())));
+                        self.close(&id, Phase::Ended, by);
                         return;
                     }
                     if let Some(at) = inbox.ends_at {

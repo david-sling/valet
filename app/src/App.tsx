@@ -181,7 +181,7 @@ export function App() {
       purpose: s.purpose,
       startedAt: s.startedAt ?? s.createdAt,
       endedAt: s.endedAt ?? now,
-      endedBy: ENDED_BY[s.endedBy ?? 'agent'],
+      endedBy: s.endedBy ? ENDED_BY[s.endedBy] : 'unknown',
       feed: s.feed,
     }))
   const record = screen === 'past' ? past.find((p) => p.id === openId) : undefined
