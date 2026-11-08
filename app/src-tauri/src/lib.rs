@@ -10,6 +10,7 @@ mod tools;
 mod types;
 mod whats_new;
 
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -17,6 +18,7 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::{AppHandle, Emitter, Manager as _, RunEvent, State, Url};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_updater::UpdaterExt;
 
 use policy::Scope;
@@ -54,6 +56,34 @@ fn open_links(app: &AppHandle, urls: &[Url]) {
         let _ = w.show();
         let _ = w.set_focus();
     }
+}
+
+// Only the vendor's name goes in the notification, so the command never shows on a locked screen.
+fn notify_new_requests(app: &AppHandle, seen: &Mutex<HashSet<String>>, views: &[SessionView]) {
+    let mut seen = seen.lock().unwrap_or_else(|e| e.into_inner());
+    let mut fresh = vec![];
+    let mut current = HashSet::new();
+    for v in views {
+        for p in &v.prompts {
+            if !seen.contains(&p.id) {
+                fresh.push((v.sender_name.as_str(), p.output.is_some()));
+            }
+            current.insert(p.id.clone());
+        }
+    }
+    *seen = current;
+    let Some(&(vendor, output)) = fresh.first() else { return };
+    let Some(w) = app.get_webview_window("main") else { return };
+    if w.is_focused().unwrap_or(false) {
+        return;
+    }
+    let body = match (fresh.len(), output) {
+        (1, false) => format!("{vendor} is waiting for your approval."),
+        (1, true) => format!("{vendor} wants to send you output to check."),
+        (n, _) => format!("{n} requests are waiting for your approval."),
+    };
+    let _ = app.notification().builder().title("Valet").body(body).show();
+    let _ = w.request_user_attention(Some(tauri::UserAttentionType::Informational));
 }
 
 #[tauri::command]
@@ -211,12 +241,15 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(JoinLink::default())
         .manage(Installed::default())
         .manage(whats_new::Pending::default())
         .setup(move |app| {
             let handle = app.handle().clone();
+            let seen = Mutex::new(HashSet::new());
             let emit = Arc::new(move |views: Vec<SessionView>| {
+                notify_new_requests(&handle, &seen, &views);
                 let _ = handle.emit("sessions", views);
             });
             let dir = app.path().app_data_dir().ok();
