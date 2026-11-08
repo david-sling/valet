@@ -87,6 +87,7 @@ export const api = {
   onUpdateFailed: (f: () => void) => listen('update-failed', f),
   takeJoinLink: () => invoke<string | null>('take_join_link'),
   paste: () => invoke<string | null>('paste'),
+  openLegal: (page: 'privacy' | 'terms') => invoke<void>('open_legal', { page }),
   onJoinLink: (f: () => void) => listen('join-link', f),
   whatsNew: () => invoke<ReleaseNote[]>('whats_new'),
   forget: (id: string) => invoke<boolean>('forget', { id }),

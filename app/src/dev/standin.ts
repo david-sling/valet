@@ -206,6 +206,9 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
       return null
     case 'paste':
       return navigator.clipboard.readText().catch(() => null)
+    case 'open_legal':
+      window.open(`https://valet.davidsling.in/docs/${args.page as string}`, '_blank')
+      return null
     case 'export_json':
       return wait(400).then(() => true)
     case 'print_report':

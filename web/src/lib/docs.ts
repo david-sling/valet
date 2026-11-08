@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import type { MDXComponents } from 'mdx/types'
 import GithubSlugger from 'github-slugger'
+import { REPO_URL } from '#/lib/github'
 
 type Frontmatter = { title: string; description: string }
 type Module = { default: ComponentType<{ components?: MDXComponents }>; frontmatter: Frontmatter }
@@ -12,6 +13,7 @@ export type Doc = Frontmatter & {
   Content: Module['default']
   markdown: string
   headings: Heading[]
+  history: string | null
 }
 
 export const SECTIONS: Array<{ title: string; side?: 'agent' | 'client'; pages: string[] }> = [
@@ -22,6 +24,8 @@ export const SECTIONS: Array<{ title: string; side?: 'agent' | 'client'; pages: 
   { title: 'Reference', pages: ['reference/api', 'reference/limits'] },
   { title: 'Legal', pages: ['privacy', 'terms'] },
 ]
+
+const WITH_HISTORY = new Set(['privacy', 'terms'])
 
 const modules = import.meta.glob<Module>('../docs/**/*.mdx', { eager: true })
 const sources = import.meta.glob<string>('../docs/**/*.mdx', { eager: true, query: '?raw', import: 'default' })
@@ -70,6 +74,7 @@ const DOCS = new Map<string, Doc>(
         Content: mod.default,
         markdown: `# ${title}\n\n> ${description}\n\n${content}\n`,
         headings: headingsOf(content),
+        history: WITH_HISTORY.has(slug) ? `${REPO_URL}/commits/main/web/src/docs/${slug}.mdx` : null,
       },
     ]
   }),

@@ -304,6 +304,7 @@ export function Join({
   createdAt,
   onContinue,
   onDecline,
+  onOpenLegal,
 }: {
   vendor: string
   verified: boolean
@@ -311,6 +312,7 @@ export function Join({
   createdAt: number
   onContinue: () => void
   onDecline: () => void
+  onOpenLegal: (page: 'privacy' | 'terms') => void
 }) {
   const [known, setKnown] = useState(false)
   const first = vendor.split(' ')[0]
@@ -349,6 +351,17 @@ export function Join({
         </dl>
       </section>
       <footer className="page-foot">
+        <p className="agree">
+          Continuing means you agree to Valet's{' '}
+          <button className="link" onClick={() => onOpenLegal('terms')}>
+            terms of use
+          </button>{' '}
+          and{' '}
+          <button className="link" onClick={() => onOpenLegal('privacy')}>
+            privacy policy
+          </button>
+          .
+        </p>
         {!verified && (
           <label className="check-row">
             <input type="checkbox" checked={known} onChange={(e) => setKnown(e.target.checked)} />I know {first} and
@@ -905,6 +918,7 @@ export function SettingsPage({
   onCheckUpdate,
   ready,
   onRestart,
+  onOpenLegal,
 }: {
   settings: Settings
   past: PastSession[]
@@ -916,6 +930,7 @@ export function SettingsPage({
   onCheckUpdate: () => void
   ready: string | null
   onRestart: () => void
+  onOpenLegal: (page: 'privacy' | 'terms') => void
 }) {
   const [asking, setAsking] = useState<{ days: number; old: PastSession[] } | null>(null)
   const [clearing, setClearing] = useState(false)
@@ -1035,9 +1050,29 @@ export function SettingsPage({
           </button>
         </div>
       </section>
+      <section className="page-sec">
+        <h2 className="m-label">Legal</h2>
+        <p className="m-body">These open valet.davidsling.in in your browser.</p>
+        {LEGAL.map((l) => (
+          <div className="setting" key={l.page}>
+            <div>
+              <b>{l.title}</b>
+              <p className="m-meta">{l.blurb}</p>
+            </div>
+            <button className="mbtn mbtn-ghost mbtn-sm" onClick={() => onOpenLegal(l.page)}>
+              Read
+            </button>
+          </div>
+        ))}
+      </section>
     </div>
   )
 }
+
+const LEGAL: Array<{ page: 'privacy' | 'terms'; title: string; blurb: string }> = [
+  { page: 'privacy', title: 'Privacy policy', blurb: "What Valet collects, where it goes, how long it's kept, and what stays on this Mac." },
+  { page: 'terms', title: 'Terms of use', blurb: 'The rules for using the Valet app, relay and website.' },
+]
 
 function PinIcon({ off = false }: { off?: boolean }) {
   return (

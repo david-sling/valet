@@ -42,6 +42,22 @@ const MarkdownIcon = () => (
   </svg>
 )
 
+const HistoryIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 6.5V12l4 2.2" />
+  </svg>
+)
+
+function ViewHistory({ href, title }: { href: string; title: string }) {
+  return (
+    <a className="docs-history" href={href} target="_blank" rel="noreferrer" aria-label={`View the change history of the ${title.toLowerCase()} on GitHub`}>
+      <HistoryIcon />
+      <span>View history</span>
+    </a>
+  )
+}
+
 function CopyMarkdown({ doc }: { doc: Doc }) {
   const [state, copy] = useCopy()
   return (
@@ -260,6 +276,7 @@ export function DocsPage({ doc, stars }: { doc: Doc; stars: number | null }) {
           <article className="docs-article">
             <header className="docs-head">
               <div className="docs-actions">
+                {doc.history && <ViewHistory href={doc.history} title={doc.title} />}
                 <CopyMarkdown doc={doc} />
               </div>
               <h1>{doc.title}</h1>
