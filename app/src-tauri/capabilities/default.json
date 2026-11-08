@@ -10,6 +10,7 @@
     "allow-decline",
     "allow-start",
     "allow-answer",
+    "allow-output-page",
     "allow-set-grant",
     "allow-extend",
     "allow-end",

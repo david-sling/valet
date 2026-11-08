@@ -296,7 +296,7 @@ For each action, Rust:
 
 1. Resolves the program to an absolute path using the session's cleared environment. It resolves paths, expands `~`, follows symlinks and rejects `..` escapes.
 2. Computes the action's needs (kind, access, scope, risk) from what will actually run, never from `reason`.
-3. Flags protected locations: `~/.ssh` and other credential folders (`~/.aws`, `~/.kube`, `~/.config/gh`, …), keychains, browser data, password managers, Mail, Messages and any `.env` file. These are covered only by grants the person allowed from a prompt, and the sandbox profile denies them after every broad allow.
+3. Flags protected locations: `~/.ssh` and other credential folders (`~/.aws`, `~/.kube`, `~/.config/gh`, …), keychains, browser data, password managers, Mail, Messages and any `.env` file. These are covered only by a grant the person allowed from a prompt for the place itself; a broad grant never covers one, whatever its source. The sandbox profile denies them after every other allow, and re-allows only those approved grants.
 4. For `write_file`, compares `base_hash` with the file's current sha256; on a mismatch it returns `rejected` without asking. It checks again after an approval, before writing.
 5. Runs `decide`. If nothing is needed, it runs the action. Otherwise it raises a prompt and holds the action until the person answers or the session ends.
 
@@ -307,10 +307,11 @@ For each action, Rust:
   - `file-read*` and `file-write*` for granted subpaths, plus the system paths a process needs to start
   - `process-exec` for granted programs
   - `network-outbound` only if network is granted
+  - a deny of the protected locations after all of those, and last, the approved grants for a protected location itself
 - Child processes inherit the profile.
 - `sandbox-exec` is deprecated but still shipped and used by comparable tools. Its future is a risk to track (§13).
 - Process environment is cleared, except granted variables and a minimal `PATH`.
-- Each session's processes run in their own process group with resource limits (CPU time, memory, process count). Output is capped and marked truncated.
+- Each session's processes run in their own process group with resource limits (CPU time, file size, and a process ceiling set from what the person is already running, since macOS counts processes per user). Output is capped and marked truncated.
 - Structured tools (`read_file`, `write_file`, `list_dir`, `tail_log`, `list_processes`) are carried out by Rust directly after the policy check, with paths re-resolved immediately before the operation.
 - Network access is allowed in the profile only by a grant the person approved from a prompt, never by a starting grant alone.
 - Some programs refuse to run under any sandbox (`/usr/bin/log` exits with "Cannot run while sandboxed") or cannot be started inside one (setuid programs such as `/bin/ps`). `list_processes` and `tail_log` cover the common cases.
@@ -321,7 +322,7 @@ For each action, Rust:
 - Prompts are shown in the main window's live feed, as in the mockup. DESIGN.md calls for a separate always-on-top native window, so the app also raises a notification and an always-on-top prompt window when the main window is hidden.
 - Focus starts on Deny; Return, Space and Escape deny. Allow is disabled for the first 600 ms.
 - Medium risk: a click. High and critical: Touch ID through LocalAuthentication, called from Rust. Critical risk can only be allowed once.
-- Choices: once, this session, 15 minutes, this folder (file needs only), following `scopesFor`.
+- Choices: once, this session, 15 minutes, this folder (file needs only, and never where the folder would take in a protected location), following `scopesFor`.
 - Every answer is written to the log with how it was confirmed.
 
 ### 9.4 Session end on the client

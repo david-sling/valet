@@ -9,13 +9,13 @@ use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 
 use crate::approve;
-use crate::needs::{normalise_scope, plan, rate, tilde, Plan, Request};
+use crate::needs::{can_widen, normalise_scope, plan, rate, tilde, Plan, Request};
 use crate::policy::{decide, grants_from, scopes_for, Scope};
 use crate::relay::{InboxAction, Relay, RelayError};
 use crate::sandbox::{self, Ran};
 use crate::store::Store;
 use crate::tools::{self, Failure};
-use crate::types::{now_ms, Grant, Need, Risk, Source};
+use crate::types::{now_ms, Grant, Kind, Need, Risk, Source};
 
 const ARMING: Duration = Duration::from_millis(600);
 const FEED_OUTPUT: usize = 64 * 1024;
@@ -221,6 +221,19 @@ fn output_text(tool: &str, v: &Value) -> String {
         "write_file" => format!("wrote {} bytes", v["bytes"]),
         _ => String::new(),
     }
+}
+
+// "This folder" is offered only while every file it would widen stays clear of a protected place.
+fn offered(risk: Risk, needs: &[Need]) -> Vec<Scope> {
+    let mut scopes = scopes_for(risk, needs);
+    if !widens_safely(needs) {
+        scopes.retain(|s| *s != Scope::Folder);
+    }
+    scopes
+}
+
+fn widens_safely(needs: &[Need]) -> bool {
+    needs.iter().filter(|n| n.kind == Kind::Files).all(|n| can_widen(&n.scope))
 }
 
 fn session_tmp(id: &str) -> std::io::Result<PathBuf> {
@@ -796,7 +809,7 @@ impl Manager {
                         needs: asked.clone(),
                         risk: p.risk,
                         reason: a.reason.clone(),
-                        scopes: scopes_for(p.risk, &asked),
+                        scopes: offered(p.risk, &asked),
                         asked_at: now_ms(),
                         diff,
                         output: None,
@@ -881,6 +894,8 @@ impl Manager {
     }
 
     fn add_grants(&self, id: &str, needs: &[Need], scope: Scope) {
+        // a folder that would reach over a protected place keeps the file's own scope, for the same stretch of time
+        let scope = if scope == Scope::Folder && !widens_safely(needs) { Scope::Session } else { scope };
         let added = grants_from(needs, scope, now_ms());
         if added.is_empty() {
             return;
@@ -889,7 +904,8 @@ impl Manager {
             let mut st = self.lock();
             let ids: Vec<u64> = added.iter().map(|_| st.next_id()).collect();
             let Some(s) = st.sessions.get_mut(id) else { return };
-            for ((need, expires_at), n) in added.into_iter().zip(ids) {
+            let room = MAX_GRANTS.saturating_sub(s.view.grants.len());
+            for ((need, expires_at), n) in added.into_iter().take(room).zip(ids) {
                 s.view.grants.push(Grant { id: format!("a{n}"), on: true, source: Source::Approved, need, expires_at });
             }
             (s.token.clone(), s.view.grants.clone())

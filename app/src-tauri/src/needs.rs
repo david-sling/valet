@@ -171,6 +171,24 @@ pub fn protected_label(p: &Path) -> Option<&'static str> {
         .map(|(_, label)| label)
 }
 
+// The real place a grant scope points at; "*" and anything relative name none.
+pub fn scope_path(scope: &str) -> Option<PathBuf> {
+    expand(scope.strip_suffix("/**").unwrap_or(scope)).ok()
+}
+
+// Whether the scope names a protected place itself, rather than merely holding one.
+pub fn scope_protects(scope: &str) -> bool {
+    scope_path(scope).is_some_and(|p| protected_label(&p).is_some())
+}
+
+// "This folder" widens a file to its folder, which must not reach over a protected place: one click on a
+// file in the home folder would otherwise carry the SSH keys and keychains with it.
+pub fn can_widen(scope: &str) -> bool {
+    let Some((parent, _)) = scope.rsplit_once('/') else { return false };
+    let Some(folder) = scope_path(if parent.is_empty() { "/" } else { parent }) else { return false };
+    !protected_roots().iter().any(|r| r.starts_with(&folder))
+}
+
 pub fn protected_roots() -> Vec<PathBuf> {
     let h = home();
     PROTECTED
@@ -390,6 +408,23 @@ mod tests {
         assert_eq!(protected_label(&h.join("code/app/.env.local")), Some(".env file"));
         assert_eq!(protected_label(&h.join(".sshx/notes")), None);
         assert_eq!(protected_label(&h.join("Library/Logs/x.log")), None);
+    }
+
+    #[test]
+    fn a_folder_grant_may_not_reach_over_a_protected_place() {
+        assert!(can_widen("~/Documents/notes.txt"));
+        assert!(!can_widen("~/notes.txt"), "widening to ~ would open the SSH keys");
+        assert!(!can_widen("~/Library/Application Support/acme.json"), "widening would open the browser data");
+        assert!(!can_widen("/private/etc/hosts"), "widening would open sudoers");
+        assert!(!can_widen("*"));
+    }
+
+    #[test]
+    fn a_scope_protects_only_the_place_itself() {
+        assert!(scope_protects("~/.ssh/**"));
+        assert!(scope_protects("~/code/app/.env"));
+        assert!(!scope_protects("~/**"));
+        assert!(!scope_protects("*"));
     }
 
     #[test]
