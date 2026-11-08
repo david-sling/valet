@@ -18,7 +18,7 @@ use std::time::Duration;
 use tauri::menu::{Menu, MenuItem};
 use tauri::{AppHandle, Emitter, Manager as _, RunEvent, State, Url};
 use tauri_plugin_deep_link::DeepLinkExt;
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_updater::UpdaterExt;
 
@@ -160,35 +160,22 @@ async fn export_json(app: AppHandle, m: State<'_, Manager>, id: String, name: St
     Ok(true)
 }
 
-fn confirm(app: &AppHandle, title: &str, text: &str) -> bool {
-    app.dialog()
-        .message(text)
-        .title(title)
-        .kind(MessageDialogKind::Warning)
-        .buttons(MessageDialogButtons::OkCancelCustom("Delete".into(), "Cancel".into()))
-        .blocking_show()
+// The app confirms every deletion before calling these
+#[tauri::command]
+fn forget(m: State<'_, Manager>, id: String) -> bool {
+    m.forget(|s| s.id == id) > 0
 }
 
 #[tauri::command]
-async fn forget(app: AppHandle, m: State<'_, Manager>, id: String) -> Result<bool, String> {
-    let Some(vendor) = m.snapshot().into_iter().find(|s| s.id == id).map(|s| s.sender_name) else { return Ok(false) };
-    if !confirm(&app, "Delete this session?", &format!("The record of your session with {vendor} is removed from this Mac. This can't be undone.")) {
-        return Ok(false);
-    }
-    Ok(m.forget(|s| s.id == id) > 0)
+fn forget_all(m: State<'_, Manager>) -> bool {
+    m.forget(|_| true) > 0
 }
 
+// Un-keeping a session already past the retention period deletes it at once, as the app warns
 #[tauri::command]
-async fn forget_all(app: AppHandle, m: State<'_, Manager>) -> Result<bool, String> {
-    if !confirm(&app, "Delete all past sessions?", "Every past session's record is removed from this Mac. This can't be undone.") {
-        return Ok(false);
-    }
-    Ok(m.forget(|_| true) > 0)
-}
-
-#[tauri::command]
-fn keep(m: State<'_, Manager>, id: String, kept: bool) {
-    m.keep(&id, kept)
+fn keep(prefs: State<'_, Prefs>, m: State<'_, Manager>, id: String, kept: bool) {
+    m.keep(&id, kept);
+    prune(&m, prefs.get());
 }
 
 #[tauri::command]

@@ -194,6 +194,9 @@ export function App() {
       feed: s.feed,
     }))
   const record = screen === 'past' ? past.find((p) => p.id === openId) : undefined
+  useEffect(() => {
+    if (screen === 'past' && !record) setScreen('home')
+  }, [screen, record])
 
   return (
     <>
@@ -292,7 +295,7 @@ export function App() {
                 onExportPdf={() => attempt(api.printReport())}
                 keepDays={settings?.keepDays ?? null}
                 onKeep={() => attempt(api.keep(record.id, !record.kept)).catch(() => undefined)}
-                onDelete={() => attempt(api.forget(record.id)).then((gone) => gone && setScreen('home'), () => undefined)}
+                onDelete={() => attempt(api.forget(record.id)).catch(() => undefined)}
               />
             )}
             {screen === 'settings' && settings && (

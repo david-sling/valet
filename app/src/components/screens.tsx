@@ -688,8 +688,29 @@ export function SessionRecord({
     { key: 'denied', label: 'Denied or turned back', value: n('Denied') + n('Rejected') },
   ]
   if (n('Failed')) slices.push({ key: 'failed', label: 'Ran but failed', value: n('Failed') })
+  const [asking, setAsking] = useState<'delete' | 'unkeep' | null>(null)
+  const expired = keepDays !== null && s.endedAt + keepDays * DAY_MS < Date.now()
   return (
     <div className="page">
+      {asking === 'delete' && (
+        <Confirm title="Delete this session?" action="Delete session" onConfirm={() => {
+            setAsking(null)
+            onDelete()
+          }} onCancel={() => setAsking(null)}>
+          <p>The record of your session with {s.vendor} is removed from this Mac. This can't be undone.</p>
+        </Confirm>
+      )}
+      {asking === 'unkeep' && (
+        <Confirm title="Allow automatic deletion?" action="Delete session" onConfirm={() => {
+            setAsking(null)
+            onKeep()
+          }} onCancel={() => setAsking(null)}>
+          <p>
+            This session is older than {keepDays} days, your retention period, so it will be deleted from this Mac straight away. This
+            can't be undone.
+          </p>
+        </Confirm>
+      )}
       <PageHead
         vendor={s.vendor}
         meta={
@@ -710,7 +731,7 @@ export function SessionRecord({
                 label: s.kept ? 'Allow automatic deletion' : 'Never delete automatically',
                 hint: s.kept ? 'Delete it once it’s older than your retention period' : 'Keep it even when it’s older than your retention period',
                 icon: <PinIcon off={s.kept} />,
-                onPick: onKeep,
+                onPick: () => (s.kept && expired ? setAsking('unkeep') : onKeep()),
               },
               {
                 key: 'delete',
@@ -718,7 +739,7 @@ export function SessionRecord({
                 hint: 'Remove its record from this Mac now',
                 icon: <TrashIcon />,
                 danger: true,
-                onPick: onDelete,
+                onPick: () => setAsking('delete'),
               },
             ]}
           />
@@ -748,6 +769,43 @@ const KEEP: Array<{ days: number | null; label: string }> = [
 ]
 
 
+function Confirm({
+  title,
+  action,
+  danger = true,
+  onConfirm,
+  onCancel,
+  children,
+}: {
+  title: string
+  action: string
+  danger?: boolean
+  onConfirm: () => void
+  onCancel: () => void
+  children: React.ReactNode
+}) {
+  const ref = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    if (!ref.current?.open) ref.current?.showModal()
+  }, [])
+  return (
+    <dialog ref={ref} className="whats-new confirm" aria-labelledby="confirm-title" onClose={onCancel}>
+      <h2 id="confirm-title" className="m-title">
+        {title}
+      </h2>
+      <div className="whats-new-notes">{children}</div>
+      <form method="dialog">
+        <button className="mbtn mbtn-ghost mbtn-sm" autoFocus>
+          Cancel
+        </button>
+        <button type="button" className={`mbtn mbtn-sm ${danger ? 'mbtn-danger' : 'mbtn-ink'}`} onClick={onConfirm}>
+          {action}
+        </button>
+      </form>
+    </dialog>
+  )
+}
+
 function ConfirmKeep({
   days,
   old,
@@ -759,51 +817,40 @@ function ConfirmKeep({
   onConfirm: (keep: string[]) => void
   onCancel: () => void
 }) {
-  const ref = useRef<HTMLDialogElement>(null)
   const [keep, setKeep] = useState<string[]>([])
-  useEffect(() => {
-    if (!ref.current?.open) ref.current?.showModal()
-  }, [])
   const gone = old.length - keep.length
   const count = gone === 1 ? '1 past session' : `${gone} past sessions`
   return (
-    <dialog ref={ref} className="whats-new confirm-keep" aria-labelledby="confirm-keep-title" onClose={onCancel}>
-      <h2 id="confirm-keep-title" className="m-title">
-        Keep past sessions for {days} days?
-      </h2>
-      <div className="whats-new-notes">
-        <p>
-          {gone ? `${count} older than ${days} days will be deleted from this Mac straight away. This can't be undone.` : 'Every older session is kept, so nothing will be deleted.'}
-        </p>
-        <details>
-          <summary>Show {old.length === 1 ? 'the session' : `the ${old.length} sessions`}</summary>
-          <p className="m-meta">Tick a session to keep it. Kept sessions are never deleted automatically.</p>
-          <ul className="confirm-keep-list">
-            {old.map((s) => (
-              <li key={s.id}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={keep.includes(s.id)}
-                    onChange={(e) => setKeep((k) => (e.target.checked ? [...k, s.id] : k.filter((x) => x !== s.id)))}
-                  />
-                  <b>{s.vendor}</b>
-                </label>
-                <span>{fullDay(s.startedAt)}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      </div>
-      <form method="dialog">
-        <button className="mbtn mbtn-ghost mbtn-sm" autoFocus>
-          Cancel
-        </button>
-        <button type="button" className={`mbtn mbtn-sm ${gone ? 'mbtn-danger' : 'mbtn-ink'}`} onClick={() => onConfirm(keep)}>
-          {gone ? `Delete ${count}` : 'Keep them all'}
-        </button>
-      </form>
-    </dialog>
+    <Confirm
+      title={`Keep past sessions for ${days} days?`}
+      action={gone ? `Delete ${count}` : 'Keep them all'}
+      danger={gone > 0}
+      onConfirm={() => onConfirm(keep)}
+      onCancel={onCancel}
+    >
+      <p>
+        {gone ? `${count} older than ${days} days will be deleted from this Mac straight away. This can't be undone.` : 'Every older session is kept, so nothing will be deleted.'}
+      </p>
+      <details>
+        <summary>Show {old.length === 1 ? 'the session' : `the ${old.length} sessions`}</summary>
+        <p className="m-meta">Tick a session to keep it. Kept sessions are never deleted automatically.</p>
+        <ul className="confirm-keep-list">
+          {old.map((s) => (
+            <li key={s.id}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={keep.includes(s.id)}
+                  onChange={(e) => setKeep((k) => (e.target.checked ? [...k, s.id] : k.filter((x) => x !== s.id)))}
+                />
+                <b>{s.vendor}</b>
+              </label>
+              <span>{fullDay(s.startedAt)}</span>
+            </li>
+          ))}
+        </ul>
+      </details>
+    </Confirm>
   )
 }
 
@@ -831,6 +878,7 @@ export function SettingsPage({
   onRestart: () => void
 }) {
   const [asking, setAsking] = useState<{ days: number; old: PastSession[] } | null>(null)
+  const [clearing, setClearing] = useState(false)
   const keep = (days: number | null) => {
     const old = days === null ? [] : past.filter((p) => !p.kept && p.endedAt < Date.now() - days * DAY_MS)
     if (days !== null && old.length) setAsking({ days, old })
@@ -848,6 +896,19 @@ export function SettingsPage({
             onChange({ ...settings, keepDays: asking.days }, keep)
           }}
         />
+      )}
+      {clearing && (
+        <Confirm
+          title="Delete all past sessions?"
+          action={past.length === 1 ? 'Delete 1 session' : `Delete ${past.length} sessions`}
+          onConfirm={() => {
+            setClearing(false)
+            onDeleteAll()
+          }}
+          onCancel={() => setClearing(false)}
+        >
+          <p>Every past session's record is removed from this Mac, including sessions you chose to keep. This can't be undone.</p>
+        </Confirm>
       )}
       <header className="page-head">
         <div>
@@ -929,7 +990,7 @@ export function SettingsPage({
           ))}
         </div>
         <div>
-          <button className="mbtn mbtn-danger mbtn-sm" disabled={!past.length} onClick={onDeleteAll}>
+          <button className="mbtn mbtn-danger mbtn-sm" disabled={!past.length} onClick={() => setClearing(true)}>
             Delete all past sessions
           </button>
         </div>

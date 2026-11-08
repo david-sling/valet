@@ -157,6 +157,7 @@ button:disabled { cursor: not-allowed; }
 .page { min-height: 100%; display: grid; align-content: start; background: var(--panel); }
 .page-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 18px 28px; }
 .page-head > :last-child:not(:first-child, :nth-child(2)) { margin-left: auto; }
+.page-head > div:has(> .m-title) { flex: 1 1 0; min-width: 0; }
 .page-head .vendor-mark { width: 40px; height: 40px; background: var(--sky-soft); box-shadow: none; font-size: 18px; }
 .page-head .ended-by { font-weight: 600; color: var(--ok); }
 .page-sec { display: grid; align-content: start; gap: 16px; padding: 20px 28px; border-top: 1px solid var(--line); }
@@ -222,7 +223,7 @@ button:disabled { cursor: not-allowed; }
 .row-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 .row-actions.is-left { justify-content: flex-start; }
 .page-head .split { margin-left: auto; }
-.page-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.page-actions { display: flex; flex: none; align-items: center; gap: 8px; margin-left: auto; }
 .page-actions .mbtn { height: 36px; }
 .setting { display: flex; align-items: center; justify-content: space-between; gap: 24px; max-width: 44rem; }
 .setting b { font-size: 14px; font-weight: 600; }
@@ -457,7 +458,8 @@ button:disabled { cursor: not-allowed; }
 .update-bar button { margin-left: auto; padding: 0; border: 0; background: none; color: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 
 /* what's new: once, on the first open after an update */
-.whats-new { width: min(440px, calc(100vw - 48px)); max-height: min(560px, calc(100vh - 64px)); padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); color: var(--ink); box-shadow: var(--lift); }
+/* WebKit stretches a modal dialog to its max-height unless told to fit its content */
+.whats-new { width: min(440px, calc(100vw - 48px)); height: -webkit-fit-content; height: fit-content; max-height: min(560px, calc(100vh - 64px)); padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); color: var(--ink); box-shadow: var(--lift); }
 .whats-new[open] { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 14px; }
 .whats-new::backdrop { background: rgba(21, 22, 26, 0.32); }
 .whats-new-notes { overflow-y: auto; display: grid; gap: 16px; color: var(--ink-2); }
@@ -466,7 +468,7 @@ button:disabled { cursor: not-allowed; }
 .whats-new-notes ul { display: grid; gap: 4px; padding-left: 18px; list-style: disc; }
 .whats-new-notes code { font-size: 0.9em; }
 .whats-new form { display: flex; justify-content: flex-end; gap: 8px; }
-.confirm-keep summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+.confirm summary { cursor: pointer; font-weight: 600; color: var(--ink); }
 .confirm-keep-list { display: grid; gap: 6px; margin-top: 10px; padding: 0; list-style: none; }
 .confirm-keep-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 13.5px; }
 .confirm-keep-list label { display: flex; align-items: center; gap: 8px; cursor: pointer; }

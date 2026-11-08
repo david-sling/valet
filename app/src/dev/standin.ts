@@ -177,18 +177,20 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
       }))
       return null
     case 'forget':
-      if (!confirm('Delete this session?')) return false
       sessions = sessions.filter((s) => s.id !== id)
       emit()
       return true
     case 'forget_all':
-      if (!confirm('Delete all past sessions?')) return false
       sessions = sessions.filter((s) => s.phase !== 'ended')
       emit()
       return true
-    case 'keep':
+    case 'keep': {
+      const cutoff = Date.now() - (settings.keepDays ?? Infinity) * 86_400_000
       patch(id, (s) => ({ ...s, kept: args.kept as boolean }))
+      sessions = sessions.filter((s) => s.kept || s.phase !== 'ended' || (s.endedAt ?? s.createdAt) >= cutoff)
+      emit()
       return null
+    }
     case 'settings':
       return settings
     case 'set_settings': {
