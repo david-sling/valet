@@ -30,6 +30,9 @@ const CHECKING: Record<Checking, string> = {
 
 export type OngoingItem = { id: string; vendor: string; endsAt: number; waiting: number }
 
+const DAY_MS = 24 * 60 * 60 * 1000
+const fullDay = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+
 export function Sidebar({
   joining,
   ongoing,
@@ -668,12 +671,14 @@ export function SessionRecord({
   onExportPdf,
   onKeep,
   onDelete,
+  keepDays,
 }: {
   s: PastSession
   onExportJson: () => Promise<boolean>
   onExportPdf: () => Promise<void>
   onKeep: () => void
   onDelete: () => void
+  keepDays: number | null
 }) {
   const acts = s.feed.filter((f): f is Extract<FeedItem, { type: 'action' }> => f.type === 'action')
   const n = (o: Outcome) => acts.filter((a) => a.outcome === o).length
@@ -691,6 +696,7 @@ export function SessionRecord({
           <>
             {day(s.startedAt)}–{hhmm(s.endedAt)} · {minutes(s.endedAt - s.startedAt)} ·{' '}
             <span className="ended-by">{ENDED_BY[s.endedBy]}</span>
+            {keepDays !== null && !s.kept && <> · Auto-deletes on {fullDay(s.endedAt + keepDays * DAY_MS)}</>}
           </>
         }
       >
@@ -741,8 +747,6 @@ const KEEP: Array<{ days: number | null; label: string }> = [
   { days: 7, label: '7 days' },
 ]
 
-const DAY_MS = 24 * 60 * 60 * 1000
-const fullDay = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 
 function ConfirmKeep({
   days,

@@ -290,6 +290,7 @@ export function App() {
                 s={record}
                 onExportJson={() => attempt(api.exportJson(record.id, `Valet session - ${record.vendor} - ${isoDay(record.startedAt)}.json`))}
                 onExportPdf={() => attempt(api.printReport())}
+                keepDays={settings?.keepDays ?? null}
                 onKeep={() => attempt(api.keep(record.id, !record.kept)).catch(() => undefined)}
                 onDelete={() => attempt(api.forget(record.id)).then((gone) => gone && setScreen('home'), () => undefined)}
               />
