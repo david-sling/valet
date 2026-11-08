@@ -361,6 +361,8 @@ Past sessions are kept in a SQLite database in the app's data folder (`~/Library
 - **Content:** session start and grants, each grant change, each action (tool, resolved program, args, needs, risk), each decision and how it was confirmed, output size and truncation, and session end.
 - **Output in the log:** sizes and hashes of output, not the output itself.
 - **Sealing:** at end the client signs the final hash, stores the log locally, and uploads it with `PUT /sessions/{id}/log`. The agent fetches it from `GET /sessions/{id}/log` within 24 h.
+- **Shape:** `{ format: "valet-sealed-log", version: 1, algorithm: "ed25519", app_version, entries, seal, signature }`, where `seal` is `{ session_id, sealed_at, final_hash, public_key }` and `signature` is Ed25519 over its canonical JSON. Canonical JSON sorts object keys and leaves out whitespace; the first entry's `prev_hash` is 64 zeros. Entry types: `session.start`, `session.extend`, `grant.changed`, `action`, `decision`, `result`, `session.end`.
+- **Size:** the relay takes 2 MB. A longer log still reaches the local record, and the agent gets none.
 - **Export:** JSON in v1; PDF later.
 - **Verification:** the public key is included in the log. With no accounts it proves the log hasn't changed since signing, not who the signer is.
 

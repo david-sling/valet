@@ -143,4 +143,9 @@ impl Relay {
     pub async fn grants(&self, id: &str, token: &str, grants: &[Grant]) -> Result<Value, RelayError> {
         self.send(self.http.put(self.url(id, "/grants")).bearer_auth(token).json(&json!({ "grants": grants }))).await
     }
+
+    // The relay only takes the sealed log once it holds the session as ended.
+    pub async fn put_log(&self, id: &str, token: &str, log: &Value) -> Result<Value, RelayError> {
+        self.send(self.http.put(self.url(id, "/log")).bearer_auth(token).json(log)).await
+    }
 }

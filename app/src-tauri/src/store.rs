@@ -30,7 +30,14 @@ CREATE TABLE IF NOT EXISTS feed (
 ";
 
 // Each entry moves the database up one version from the one before
-const MIGRATIONS: &[&str] = &["", "ALTER TABLE sessions ADD COLUMN kept INTEGER NOT NULL DEFAULT 0;"];
+const MIGRATIONS: &[&str] = &[
+    "",
+    "ALTER TABLE sessions ADD COLUMN kept INTEGER NOT NULL DEFAULT 0;",
+    "CREATE TABLE IF NOT EXISTS logs (
+       session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+       log TEXT NOT NULL
+     );",
+];
 
 pub struct Store {
     db: Mutex<Connection>,
@@ -120,6 +127,17 @@ impl Store {
             )?;
         }
         tx.commit()
+    }
+
+    // The sealed log holds no output, no file contents and no token, so it keeps the same company as the rest of the record.
+    pub fn save_log(&self, id: &str, log: &str) -> rusqlite::Result<()> {
+        self.conn()
+            .execute("INSERT OR REPLACE INTO logs (session_id, log) VALUES (?1, ?2)", params![id, log])
+            .map(|_| ())
+    }
+
+    pub fn load_log(&self, id: &str) -> Option<String> {
+        self.conn().query_row("SELECT log FROM logs WHERE session_id = ?1", params![id], |r| r.get(0)).ok()
     }
 
     pub fn set_kept(&self, id: &str, kept: bool) -> rusqlite::Result<()> {
@@ -254,10 +272,13 @@ mod tests {
         let mut ended = view(Phase::Ended);
         ended.ended_at = Some(9);
         store.save(&ended, &[FeedItem::Event { id: 1, at: 6, text: "Session started".into() }]).unwrap();
+        store.save_log("s1", "{\"format\":\"valet-sealed-log\"}").unwrap();
+        assert!(store.load_log("s1").is_some());
         store.forget("s1").unwrap();
         assert!(store.load().unwrap().is_empty());
         let rows: i64 = store.conn().query_row("SELECT COUNT(*) FROM feed", [], |r| r.get(0)).unwrap();
         assert_eq!(rows, 0);
+        assert_eq!(store.load_log("s1"), None, "the sealed log goes with the session");
     }
 
     #[test]
@@ -272,7 +293,7 @@ mod tests {
         store.set_kept("s1", true).unwrap();
         assert!(store.load().unwrap()[0].kept);
         let version: i64 = store.conn().query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-        assert_eq!(version, 2);
+        assert_eq!(version, MIGRATIONS.len() as i64);
     }
 
     #[test]

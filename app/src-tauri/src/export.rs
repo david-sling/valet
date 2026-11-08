@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use crate::session::{Phase, SessionView};
 use crate::store::without_content;
 
-pub fn record(s: &SessionView, app_version: &str, exported_at: i64) -> Option<Value> {
+pub fn record(s: &SessionView, app_version: &str, exported_at: i64, log: Option<Value>) -> Option<Value> {
     if s.phase != Phase::Ended {
         return None;
     }
@@ -23,6 +23,7 @@ pub fn record(s: &SessionView, app_version: &str, exported_at: i64) -> Option<Va
             "endedAt": s.ended_at,
             "endedBy": s.ended_by,
             "activity": s.feed.iter().map(without_content).collect::<Vec<_>>(),
+            "sealedLog": log,
         },
     }))
 }
@@ -72,17 +73,18 @@ mod tests {
             diff: Some(vec!["+x".into()]),
             note: None,
         }]);
-        let r = record(&s, "0.1.1", 9).unwrap();
+        let r = record(&s, "0.1.1", 9, None).unwrap();
         let text = r.to_string();
         assert!(!text.contains("secret contents") && !text.contains("\"diff\""));
         assert_eq!(r["session"]["activity"][0]["literal"], "read ~/a");
+        assert!(r["session"]["sealedLog"].is_null());
     }
 
     #[test]
     fn only_exports_ended_sessions() {
         let mut s = ended(vec![]);
         s.phase = Phase::Live;
-        assert!(record(&s, "0.1.1", 9).is_none());
+        assert!(record(&s, "0.1.1", 9, None).is_none());
     }
 
     #[test]
