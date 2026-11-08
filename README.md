@@ -31,7 +31,7 @@ Both sides connect outward to the relay; the client opens no ports. The relay ca
 | `app/` | The macOS client. Tauri v2: a Rust core for policy, sandbox and approvals, and a React webview |
 | `packages/protocol/` | Shared schemas and types, with test vectors |
 | `tools/` | `fake-agent.ts` and `fake-client.ts`, stand-ins for either side when testing the relay |
-| `claude-plugin/` | `valet-cards`, a Claude Code plugin that shows a session's calls as cards in a pane beside the chat |
+| `plugins/valet-cards/` | A Claude Code plugin that shows a session's calls as cards in a pane beside the chat |
 
 ## Claude Code pane
 

@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "valet-cards",
-      "source": "./claude-plugin"
+      "source": "./plugins/valet-cards"
     }
   ]
 }

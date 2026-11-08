@@ -16,4 +16,4 @@ node_modules
 target
 
 # Claude Code writes the plugin API types here when it loads the mod
-claude-plugin/.claude-plugin/types/
+plugins/*/.claude-plugin/types/
