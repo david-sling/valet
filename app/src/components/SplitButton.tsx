@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 export type SplitOption<K extends string> = { key: K; label: string; hint?: string }
 
@@ -25,7 +25,24 @@ export function SplitButton<K extends string>({
   onPick: (k: K) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [up, setUp] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    if (!open || !ref.current || !menuRef.current) return setUp(false)
+    let top = 0
+    let bottom = window.innerHeight
+    for (let el = ref.current.parentElement; el; el = el.parentElement) {
+      if (getComputedStyle(el).overflowY === 'visible') continue
+      const r = el.getBoundingClientRect()
+      top = Math.max(top, r.top)
+      bottom = Math.min(bottom, r.bottom)
+    }
+    const r = ref.current.getBoundingClientRect()
+    const need = menuRef.current.offsetHeight + 6
+    setUp(bottom - r.bottom < need && r.top - top > bottom - r.bottom)
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -55,7 +72,7 @@ export function SplitButton<K extends string>({
         </svg>
       </button>
       {open && (
-        <div className="split-menu" role="menu">
+        <div className={up ? 'split-menu is-up' : 'split-menu'} role="menu" ref={menuRef}>
           {options.map((o) => (
             <button
               key={o.key}
