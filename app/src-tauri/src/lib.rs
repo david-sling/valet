@@ -187,6 +187,11 @@ async fn forget_all(app: AppHandle, m: State<'_, Manager>) -> Result<bool, Strin
 }
 
 #[tauri::command]
+fn keep(m: State<'_, Manager>, id: String, kept: bool) {
+    m.keep(&id, kept)
+}
+
+#[tauri::command]
 fn settings(prefs: State<'_, Prefs>) -> Settings {
     prefs.get()
 }
@@ -202,7 +207,7 @@ fn set_settings(prefs: State<'_, Prefs>, m: State<'_, Manager>, settings: Settin
 fn prune(m: &Manager, s: Settings) {
     let Some(days) = s.keep_days else { return };
     let cutoff = types::now_ms() - i64::from(days) * DAY_MS;
-    m.forget(|v| v.ended_at.unwrap_or(v.created_at) < cutoff);
+    m.forget(|v| !v.kept && v.ended_at.unwrap_or(v.created_at) < cutoff);
 }
 
 async fn keep_pruned(app: AppHandle) {
@@ -332,7 +337,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, output_page, set_grant, extend, end, restart, check_update, export_json, print_report, take_join_link, whats_new, forget, forget_all, settings, set_settings])
+        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, output_page, set_grant, extend, end, restart, check_update, export_json, print_report, take_join_link, whats_new, forget, forget_all, keep, settings, set_settings])
         .build(tauri::generate_context!())
         .expect("error while building Valet")
         .run(|app, event| {

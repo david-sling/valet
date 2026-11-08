@@ -27,8 +27,10 @@ CREATE TABLE IF NOT EXISTS feed (
   item TEXT NOT NULL,
   PRIMARY KEY (session_id, id)
 );
-PRAGMA user_version = 1;
 ";
+
+// Each entry moves the database up one version from the one before
+const MIGRATIONS: &[&str] = &["", "ALTER TABLE sessions ADD COLUMN kept INTEGER NOT NULL DEFAULT 0;"];
 
 pub struct Store {
     db: Mutex<Connection>,
@@ -72,6 +74,10 @@ impl Store {
     fn init(conn: Connection) -> rusqlite::Result<Self> {
         conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA secure_delete = ON;")?;
         conn.execute_batch(SCHEMA)?;
+        let version: usize = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+        for (i, step) in MIGRATIONS.iter().enumerate().skip(version) {
+            conn.execute_batch(&format!("BEGIN; {step} PRAGMA user_version = {}; COMMIT;", i + 1))?;
+        }
         Ok(Self { db: Mutex::new(conn) })
     }
 
@@ -116,6 +122,10 @@ impl Store {
         tx.commit()
     }
 
+    pub fn set_kept(&self, id: &str, kept: bool) -> rusqlite::Result<()> {
+        self.conn().execute("UPDATE sessions SET kept = ?2 WHERE id = ?1", params![id, kept]).map(|_| ())
+    }
+
     // secure_delete zeroes the freed pages; the checkpoint clears the copies the WAL still holds
     pub fn forget(&self, id: &str) -> rusqlite::Result<()> {
         let conn = self.conn();
@@ -127,7 +137,7 @@ impl Store {
         let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, phase, sender_name, purpose, verified, template, created_at, review_until, started_at, ends_at,
-               ended_at, ended_by, grants
+               ended_at, ended_by, grants, kept
              FROM sessions WHERE phase != 'declined' ORDER BY created_at DESC",
         )?;
         let mut sessions: Vec<(SessionView, String)> = stmt
@@ -147,6 +157,7 @@ impl Store {
                         ends_at: r.get(9)?,
                         ended_at: r.get(10)?,
                         ended_by: r.get(11)?,
+                        kept: r.get(13)?,
                         grants: serde_json::from_str(&r.get::<_, String>(12)?).unwrap_or_default(),
                         feed: vec![],
                         prompts: vec![],
@@ -195,6 +206,7 @@ mod tests {
             ends_at: Some(4),
             ended_at: None,
             ended_by: None,
+            kept: false,
             grants: vec![],
             feed: vec![],
             prompts: vec![],
@@ -246,6 +258,21 @@ mod tests {
         assert!(store.load().unwrap().is_empty());
         let rows: i64 = store.conn().query_row("SELECT COUNT(*) FROM feed", [], |r| r.get(0)).unwrap();
         assert_eq!(rows, 0);
+    }
+
+    #[test]
+    fn adds_the_kept_column_to_a_version_1_database() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA).unwrap();
+        conn.execute_batch("PRAGMA user_version = 1;").unwrap();
+        let store = Store::init(conn).unwrap();
+        let mut ended = view(Phase::Ended);
+        ended.ended_at = Some(9);
+        store.save(&ended, &[]).unwrap();
+        store.set_kept("s1", true).unwrap();
+        assert!(store.load().unwrap()[0].kept);
+        let version: i64 = store.conn().query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+        assert_eq!(version, 2);
     }
 
     #[test]

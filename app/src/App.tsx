@@ -190,6 +190,7 @@ export function App() {
       startedAt: s.startedAt ?? s.createdAt,
       endedAt: s.endedAt ?? now,
       endedBy: s.endedBy ? ENDED_BY[s.endedBy] : 'unknown',
+      kept: s.kept,
       feed: s.feed,
     }))
   const record = screen === 'past' ? past.find((p) => p.id === openId) : undefined
@@ -289,6 +290,7 @@ export function App() {
                 s={record}
                 onExportJson={() => attempt(api.exportJson(record.id, `Valet session - ${record.vendor} - ${isoDay(record.startedAt)}.json`))}
                 onExportPdf={() => attempt(api.printReport())}
+                onKeep={() => attempt(api.keep(record.id, !record.kept)).catch(() => undefined)}
                 onDelete={() => attempt(api.forget(record.id)).then((gone) => gone && setScreen('home'), () => undefined)}
               />
             )}
@@ -296,7 +298,9 @@ export function App() {
               <SettingsPage
                 settings={settings}
                 past={past}
-                onChange={(s) => attempt(api.setSettings(s)).then(() => setSettings(s), () => undefined)}
+                onChange={(s, keep = []) =>
+                  attempt(Promise.all(keep.map((id) => api.keep(id, true))).then(() => api.setSettings(s))).then(() => setSettings(s), () => undefined)
+                }
                 onDeleteAll={() => attempt(api.forgetAll()).catch(() => undefined)}
                 version={version}
                 checking={checking}

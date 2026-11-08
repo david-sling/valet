@@ -51,6 +51,7 @@ export type Session = {
   endsAt: number | null
   endedAt: number | null
   endedBy: 'client' | 'agent' | 'time' | 'closed' | null
+  kept: boolean
   grants: Grant[]
   feed: FeedItem[]
   prompts: Prompt[]
@@ -89,6 +90,7 @@ export const api = {
   whatsNew: () => invoke<ReleaseNote[]>('whats_new'),
   forget: (id: string) => invoke<boolean>('forget', { id }),
   forgetAll: () => invoke<boolean>('forget_all'),
+  keep: (id: string, kept: boolean) => invoke<void>('keep', { id, kept }),
   settings: () => invoke<Settings>('settings'),
   setSettings: (settings: Settings) => invoke<void>('set_settings', { settings }),
 }

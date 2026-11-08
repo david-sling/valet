@@ -94,6 +94,7 @@ pub struct SessionView {
     pub ends_at: Option<i64>,
     pub ended_at: Option<i64>,
     pub ended_by: Option<String>,
+    pub kept: bool,
     pub grants: Vec<Grant>,
     pub feed: Vec<FeedItem>,
     pub prompts: Vec<PromptView>,
@@ -252,6 +253,16 @@ impl Manager {
         Self { relay, state: Arc::new(Mutex::new(state)), emit, store }
     }
 
+    pub fn keep(&self, id: &str, kept: bool) {
+        let found = self.lock().sessions.get_mut(id).map(|s| s.view.kept = kept).is_some();
+        if let (true, Some(store)) = (found, &self.store) {
+            let _ = store.set_kept(id, kept);
+        }
+        if found {
+            (self.emit)(self.snapshot());
+        }
+    }
+
     // Only finished sessions; a live one keeps its record until it ends.
     pub fn forget(&self, which: impl Fn(&SessionView) -> bool) -> usize {
         let gone: Vec<String> = {
@@ -346,6 +357,7 @@ impl Manager {
             ends_at: None,
             ended_at: None,
             ended_by: None,
+            kept: false,
             grants: vec![],
             feed: vec![],
             prompts: vec![],
@@ -933,7 +945,7 @@ mod tests {
     #[test]
     fn forgets_only_the_finished_sessions_asked_for() {
         let store = Arc::new(Store::memory());
-        for (id, ended_at) in [("old", 5), ("new", 50)] {
+        for (id, ended_at) in [("old", 5), ("new", 50), ("kept", 5)] {
             let view = SessionView {
                 id: id.into(),
                 phase: Phase::Ended,
@@ -947,18 +959,26 @@ mod tests {
                 ends_at: Some(60),
                 ended_at: Some(ended_at),
                 ended_by: Some("client".into()),
+                kept: id == "kept",
                 grants: vec![],
                 feed: vec![],
                 prompts: vec![],
             };
             store.save(&view, &[]).unwrap();
+            store.set_kept(id, view.kept).unwrap();
         }
         let m = Manager::new(Relay::new("http://localhost:9"), Arc::new(|_| {}), Some(store.clone()));
-        assert_eq!(m.forget(|v| v.ended_at < Some(10)), 1);
-        let ids = |vs: Vec<SessionView>| vs.into_iter().map(|v| v.id).collect::<Vec<_>>();
-        assert_eq!(ids(m.snapshot()), ["new"]);
-        assert_eq!(ids(store.load().unwrap()), ["new"]);
-        assert_eq!(m.forget(|_| true), 1);
+        assert_eq!(m.forget(|v| !v.kept && v.ended_at < Some(10)), 1);
+        let ids = |vs: Vec<SessionView>| {
+            let mut ids = vs.into_iter().map(|v| v.id).collect::<Vec<_>>();
+            ids.sort();
+            ids
+        };
+        assert_eq!(ids(m.snapshot()), ["kept", "new"]);
+        assert_eq!(ids(store.load().unwrap()), ["kept", "new"]);
+        m.keep("kept", false);
+        assert!(!store.load().unwrap().iter().any(|v| v.kept));
+        assert_eq!(m.forget(|_| true), 2);
         assert!(m.snapshot().is_empty());
     }
 

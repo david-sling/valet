@@ -93,6 +93,7 @@ function join(code: string): Session {
     endsAt: null,
     endedAt: null,
     endedBy: null,
+    kept: false,
     grants: [],
     feed: [],
     prompts: [],
@@ -185,12 +186,15 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
       sessions = sessions.filter((s) => s.phase !== 'ended')
       emit()
       return true
+    case 'keep':
+      patch(id, (s) => ({ ...s, kept: args.kept as boolean }))
+      return null
     case 'settings':
       return settings
     case 'set_settings': {
       const next = args.settings as typeof settings
       const cutoff = Date.now() - (next.keepDays ?? Infinity) * 86_400_000
-      const old = sessions.filter((s) => s.phase === 'ended' && (s.endedAt ?? s.createdAt) < cutoff)
+      const old = sessions.filter((s) => s.phase === 'ended' && !s.kept && (s.endedAt ?? s.createdAt) < cutoff)
       sessions = sessions.filter((s) => !old.includes(s))
       settings = next
       emit()

@@ -22,6 +22,7 @@
     "allow-whats-new",
     "allow-forget",
     "allow-forget-all",
+    "allow-keep",
     "allow-settings",
     "allow-set-settings"
   ]

@@ -14,6 +14,7 @@ export type PastSession = {
   startedAt: number
   endedAt: number
   endedBy: 'you' | 'vendor' | 'time' | 'closed' | 'unknown'
+  kept: boolean
   feed: FeedItem[]
 }
 
@@ -118,6 +119,7 @@ export function Sidebar({
                   <b>{s.vendor}</b>
                   <small className="is-past">
                     {day(s.startedAt)} · {SIDE_ENDED_BY[s.endedBy]}
+                    {s.kept && ' · kept'}
                   </small>
                 </span>
               </button>
@@ -659,11 +661,13 @@ export function SessionRecord({
   s,
   onExportJson,
   onExportPdf,
+  onKeep,
   onDelete,
 }: {
   s: PastSession
   onExportJson: () => Promise<boolean>
   onExportPdf: () => Promise<void>
+  onKeep: () => void
   onDelete: () => void
 }) {
   const acts = s.feed.filter((f): f is Extract<FeedItem, { type: 'action' }> => f.type === 'action')
@@ -686,6 +690,15 @@ export function SessionRecord({
         }
       >
         <div className="page-actions">
+          <button
+            className="mbtn mbtn-ghost mbtn-sm keep-btn"
+            aria-pressed={s.kept}
+            title="Kept sessions are never deleted automatically. You can still delete them yourself."
+            onClick={onKeep}
+          >
+            {s.kept && <Check />}
+            {s.kept ? 'Kept' : 'Keep'}
+          </button>
           <button className="mbtn mbtn-ghost mbtn-sm" onClick={onDelete}>
             Delete
           </button>
@@ -718,12 +731,24 @@ const KEEP: Array<{ days: number | null; label: string }> = [
 const DAY_MS = 24 * 60 * 60 * 1000
 const fullDay = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 
-function ConfirmKeep({ days, old, onConfirm, onCancel }: { days: number; old: PastSession[]; onConfirm: () => void; onCancel: () => void }) {
+function ConfirmKeep({
+  days,
+  old,
+  onConfirm,
+  onCancel,
+}: {
+  days: number
+  old: PastSession[]
+  onConfirm: (keep: string[]) => void
+  onCancel: () => void
+}) {
   const ref = useRef<HTMLDialogElement>(null)
+  const [keep, setKeep] = useState<string[]>([])
   useEffect(() => {
     if (!ref.current?.open) ref.current?.showModal()
   }, [])
-  const count = old.length === 1 ? '1 past session' : `${old.length} past sessions`
+  const gone = old.length - keep.length
+  const count = gone === 1 ? '1 past session' : `${gone} past sessions`
   return (
     <dialog ref={ref} className="whats-new confirm-keep" aria-labelledby="confirm-keep-title" onClose={onCancel}>
       <h2 id="confirm-keep-title" className="m-title">
@@ -731,14 +756,22 @@ function ConfirmKeep({ days, old, onConfirm, onCancel }: { days: number; old: Pa
       </h2>
       <div className="whats-new-notes">
         <p>
-          {count} older than {days} days will be deleted from this Mac straight away. This can't be undone.
+          {gone ? `${count} older than ${days} days will be deleted from this Mac straight away. This can't be undone.` : 'Every older session is kept, so nothing will be deleted.'}
         </p>
         <details>
           <summary>Show {old.length === 1 ? 'the session' : `the ${old.length} sessions`}</summary>
+          <p className="m-meta">Tick a session to keep it. Kept sessions are never deleted automatically.</p>
           <ul className="confirm-keep-list">
             {old.map((s) => (
               <li key={s.id}>
-                <b>{s.vendor}</b>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={keep.includes(s.id)}
+                    onChange={(e) => setKeep((k) => (e.target.checked ? [...k, s.id] : k.filter((x) => x !== s.id)))}
+                  />
+                  <b>{s.vendor}</b>
+                </label>
                 <span>{fullDay(s.startedAt)}</span>
               </li>
             ))}
@@ -749,8 +782,8 @@ function ConfirmKeep({ days, old, onConfirm, onCancel }: { days: number; old: Pa
         <button className="mbtn mbtn-ghost mbtn-sm" autoFocus>
           Cancel
         </button>
-        <button type="button" className="mbtn mbtn-danger mbtn-sm" onClick={onConfirm}>
-          Delete {count}
+        <button type="button" className={`mbtn mbtn-sm ${gone ? 'mbtn-danger' : 'mbtn-ink'}`} onClick={() => onConfirm(keep)}>
+          {gone ? `Delete ${count}` : 'Keep them all'}
         </button>
       </form>
     </dialog>
@@ -771,7 +804,7 @@ export function SettingsPage({
 }: {
   settings: Settings
   past: PastSession[]
-  onChange: (s: Settings) => void
+  onChange: (s: Settings, keep?: string[]) => void
   onDeleteAll: () => void
   version: string
   checking: Checking
@@ -782,7 +815,7 @@ export function SettingsPage({
 }) {
   const [asking, setAsking] = useState<{ days: number; old: PastSession[] } | null>(null)
   const keep = (days: number | null) => {
-    const old = days === null ? [] : past.filter((p) => p.endedAt < Date.now() - days * DAY_MS)
+    const old = days === null ? [] : past.filter((p) => !p.kept && p.endedAt < Date.now() - days * DAY_MS)
     if (days !== null && old.length) setAsking({ days, old })
     else onChange({ ...settings, keepDays: days })
   }
@@ -793,9 +826,9 @@ export function SettingsPage({
           days={asking.days}
           old={asking.old}
           onCancel={() => setAsking(null)}
-          onConfirm={() => {
+          onConfirm={(keep) => {
             setAsking(null)
-            onChange({ ...settings, keepDays: asking.days })
+            onChange({ ...settings, keepDays: asking.days }, keep)
           }}
         />
       )}
@@ -869,7 +902,7 @@ export function SettingsPage({
         <h2 className="m-label">Past sessions</h2>
         <p className="m-body">
           Records of past sessions stay on this Mac and never include command output or file contents. Choose how long to keep
-          them; older ones are deleted straight away.
+          them; older ones are deleted straight away. Sessions you mark as kept are never deleted automatically.
         </p>
         <div className="seg" role="radiogroup" aria-label="Keep past sessions">
           {KEEP.map((k) => (
