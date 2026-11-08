@@ -172,6 +172,7 @@ button:disabled { cursor: not-allowed; }
   padding: 14px 28px; background: var(--panel); border-top: 1px solid var(--line);
 }
 .page-foot .row-actions { margin-left: auto; }
+.page-foot .agree { flex-basis: 100%; margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-3); }
 .check-row { display: inline-flex; align-items: center; gap: 8px; }
 .check-row input { margin: 0; }
 .page-foot .check-row { color: var(--ink); }

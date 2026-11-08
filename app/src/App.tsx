@@ -164,6 +164,7 @@ export function App() {
   }, [checking])
 
   const restart = () => attempt(api.restart()).catch(() => undefined)
+  const openLegal = (page: 'privacy' | 'terms') => attempt(api.openLegal(page)).catch(() => undefined)
   const end = (id: string) => attempt(api.end(id)).catch(() => undefined)
   const live = sessions.filter((s) => s.phase === 'live')
   const shown = screen === 'live' && open?.phase === 'live' ? open : undefined
@@ -257,6 +258,7 @@ export function App() {
                 createdAt={open.createdAt}
                 onContinue={() => setScreen('review')}
                 onDecline={() => attempt(api.decline(open.id)).finally(() => setScreen('home')).catch(() => undefined)}
+                onOpenLegal={openLegal}
               />
             )}
             {screen === 'review' && open && (
@@ -324,6 +326,7 @@ export function App() {
                 onCheckUpdate={checkUpdate}
                 ready={update}
                 onRestart={restart}
+                onOpenLegal={openLegal}
               />
             )}
           </div>

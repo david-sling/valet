@@ -21,6 +21,7 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_notification::NotificationExt;
+use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_updater::UpdaterExt;
 
 use policy::Scope;
@@ -28,7 +29,8 @@ use relay::Relay;
 use session::{GrantChoice, Manager, SessionView};
 use settings::{Prefs, Settings};
 
-const DEFAULT_RELAY: &str = "https://valet.davidsling.in";
+const SITE: &str = "https://valet.davidsling.in";
+const DEFAULT_RELAY: &str = SITE;
 const UPDATE_EVERY: Duration = Duration::from_secs(6 * 60 * 60);
 const PRUNE_EVERY: Duration = Duration::from_secs(60 * 60);
 const DAY_MS: i64 = 24 * 60 * 60 * 1000;
@@ -99,6 +101,15 @@ fn take_join_link(link: State<'_, JoinLink>) -> Option<String> {
 #[tauri::command]
 fn paste(app: AppHandle) -> Option<String> {
     app.clipboard().read_text().ok()
+}
+
+// Only these two pages, so a page in the webview can never open a link of its own.
+#[tauri::command]
+fn open_legal(app: AppHandle, page: String) -> Result<(), String> {
+    if page != "privacy" && page != "terms" {
+        return Err("That page doesn't exist.".into());
+    }
+    app.opener().open_url(format!("{SITE}/docs/{page}"), None::<&str>).map_err(|_| "Couldn't open your browser.".to_string())
 }
 
 #[tauri::command]
@@ -300,6 +311,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(JoinLink::default())
         .manage(Installed::default())
         .manage(whats_new::Pending::default())
@@ -331,7 +343,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, output_page, set_grant, extend, end, restart, check_update, export_json, print_report, take_join_link, paste, whats_new, forget, forget_all, keep, settings, set_settings])
+        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, output_page, set_grant, extend, end, restart, check_update, export_json, print_report, take_join_link, paste, open_legal, whats_new, forget, forget_all, keep, settings, set_settings])
         .build(tauri::generate_context!())
         .expect("error while building Valet")
         .run(|app, event| {

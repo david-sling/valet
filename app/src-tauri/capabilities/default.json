@@ -25,6 +25,7 @@
     "allow-forget-all",
     "allow-keep",
     "allow-settings",
-    "allow-set-settings"
+    "allow-set-settings",
+    "allow-open-legal"
   ]
 }

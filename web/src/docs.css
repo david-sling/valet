@@ -134,15 +134,16 @@ html:has(.docs) { scroll-padding-top: 88px; }
   .docs-head .docs-actions { grid-column: 2; grid-row: 1; margin: 6px 0 0; }
   .docs-head h1, .docs-head .docs-lead { grid-column: 1; }
 }
-.docs-copy-md {
+.docs-copy-md, .docs-history {
   display: inline-flex; align-items: center; gap: 8px;
   height: 34px; padding: 0 12px 0 10px; border-radius: 8px;
   border: 1px solid var(--line); background: var(--panel-2);
   font: 600 14px/1 var(--sans); color: var(--ink); cursor: pointer;
   transition: border-color 160ms, background-color 160ms;
 }
-.docs-copy-md:hover { border-color: var(--line-strong); background: var(--panel); }
-.docs-copy-md svg, .docs-code-copy svg {
+.docs-history { text-decoration: none; white-space: nowrap; }
+.docs-copy-md:hover, .docs-history:hover { border-color: var(--line-strong); background: var(--panel); }
+.docs-copy-md svg, .docs-history svg, .docs-code-copy svg {
   width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
 }
 .docs-copy-md[data-state="copied"] { border-color: var(--mint-line); background: var(--mint-soft); color: var(--mint-ink); }
