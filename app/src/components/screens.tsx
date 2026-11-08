@@ -180,7 +180,17 @@ const clean = (v: string) =>
     .replace(/[^A-Z0-9]/g, '')
     .slice(0, 6)
 
-export function Home({ code: linked = '', onJoin, error }: { code?: string; onJoin: (code: string) => Promise<void>; error: string }) {
+export function Home({
+  code: linked = '',
+  onJoin,
+  onPaste,
+  error,
+}: {
+  code?: string
+  onJoin: (code: string) => Promise<void>
+  onPaste: () => Promise<string | null>
+  error: string
+}) {
   const [code, setCode] = useState(clean(linked))
   const [focused, setFocused] = useState(false)
   const [joining, setJoining] = useState(false)
@@ -200,67 +210,87 @@ export function Home({ code: linked = '', onJoin, error }: { code?: string; onJo
   )
   return (
     <div className="screen home">
-      <img src="/valet-mark.svg" alt="" width={44} height={44} />
-      <h1 className="m-title">Join a session</h1>
-      <p className="m-body">
-        Enter the code your vendor gave you, or open their link. Valet never starts a session on its own.
-      </p>
-      <form
-        className="code-form"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (code.length < 6 || joining) return
-          setJoining(true)
-          onJoin(`${code.slice(0, 3)}-${code.slice(3)}`).finally(() => setJoining(false))
-        }}
-      >
-        <label htmlFor="code" className="m-label">
-          Join code
-        </label>
-        <div className="code-row">
-          <div className="otp" aria-invalid={!!error}>
-            <input
-              ref={input}
-              id="code"
-              value={code}
-              onChange={(e) => setCode(clean(e.target.value))}
-              onPaste={(e) => {
-                e.preventDefault()
-                setCode(clean(e.clipboardData.getData('text')))
-              }}
-              onFocus={(e) => {
-                setFocused(true)
-                toEnd(e.currentTarget)
-              }}
-              onMouseUp={(e) => toEnd(e.currentTarget)}
-              onKeyDown={(e) => {
-                if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) e.preventDefault()
-              }}
-              onBlur={() => setFocused(false)}
-              autoComplete="one-time-code"
-              autoCapitalize="characters"
-              spellCheck={false}
-              autoFocus
-              aria-invalid={!!error}
-              aria-describedby={error ? 'code-error' : undefined}
-            />
-            <span className="otp-group">{[0, 1, 2].map(box)}</span>
-            <span className="otp-dash" aria-hidden="true">
-              –
-            </span>
-            <span className="otp-group">{[3, 4, 5].map(box)}</span>
-          </div>
-          <button className="mbtn mbtn-ink" disabled={code.length < 6 || joining} aria-busy={joining}>
-            {joining && <span className="spinner" aria-hidden="true" />}
-            {joining ? 'Joining…' : 'Join'}
-          </button>
-        </div>
-        {error && (
-          <p id="code-error" className="m-error">
-            {error}
+      <div className="ticket">
+        <div className="ticket-body">
+          <h1 className="m-title">Join a session</h1>
+          <p className="m-body">
+            Enter the code your vendor gave you, or open their link. Valet never starts a session on its own.
           </p>
-        )}
-      </form>
+        </div>
+        <form
+          className="ticket-stub code-form"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (code.length < 6 || joining) return
+            setJoining(true)
+            onJoin(`${code.slice(0, 3)}-${code.slice(3)}`).finally(() => setJoining(false))
+          }}
+        >
+          <label htmlFor="code" className="m-label">
+            Join code
+          </label>
+          <div className="code-row">
+            <div className="otp" aria-invalid={!!error}>
+              <input
+                ref={input}
+                id="code"
+                value={code}
+                onChange={(e) => setCode(clean(e.target.value))}
+                onPaste={(e) => {
+                  e.preventDefault()
+                  setCode(clean(e.clipboardData.getData('text')))
+                }}
+                onFocus={(e) => {
+                  setFocused(true)
+                  toEnd(e.currentTarget)
+                }}
+                onMouseUp={(e) => toEnd(e.currentTarget)}
+                onKeyDown={(e) => {
+                  if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) e.preventDefault()
+                }}
+                onBlur={() => setFocused(false)}
+                autoComplete="one-time-code"
+                autoCapitalize="characters"
+                spellCheck={false}
+                autoFocus
+                aria-invalid={!!error}
+                aria-describedby={error ? 'code-error' : undefined}
+              />
+              <span className="otp-group">{[0, 1, 2].map(box)}</span>
+              <span className="otp-dash" aria-hidden="true">
+                –
+              </span>
+              <span className="otp-group">{[3, 4, 5].map(box)}</span>
+            </div>
+            <button
+              type="button"
+              className="code-paste"
+              aria-label="Paste code"
+              title="Paste"
+              onClick={() =>
+                onPaste()
+                  .then((t) => t && setCode(clean(t)))
+                  .catch(() => undefined)
+                  .finally(() => input.current?.focus())
+              }
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="5" y="4.5" width="14" height="16" rx="2.5" />
+                <path d="M9 4.5V4a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 4v.5" />
+              </svg>
+            </button>
+            <button className="mbtn mbtn-ink" disabled={code.length < 6 || joining} aria-busy={joining}>
+              {joining && <span className="spinner" aria-hidden="true" />}
+              {joining ? 'Joining…' : 'Join'}
+            </button>
+          </div>
+          {error && (
+            <p id="code-error" className="m-error">
+              {error}
+            </p>
+          )}
+        </form>
+      </div>
     </div>
   )
 }

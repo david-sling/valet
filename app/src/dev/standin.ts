@@ -204,6 +204,8 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
     }
     case 'take_join_link':
       return null
+    case 'paste':
+      return navigator.clipboard.readText().catch(() => null)
     case 'export_json':
       return wait(400).then(() => true)
     case 'print_report':

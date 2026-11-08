@@ -19,6 +19,7 @@
     "allow-export-json",
     "allow-print-report",
     "allow-take-join-link",
+    "allow-paste",
     "allow-whats-new",
     "allow-forget",
     "allow-forget-all",
