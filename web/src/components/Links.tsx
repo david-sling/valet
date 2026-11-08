@@ -119,3 +119,11 @@ export function Check() {
     </svg>
   )
 }
+
+export function ClaudeMark() {
+  return (
+    <svg className="claude-mark" viewBox="0 0 24 24" role="img" aria-label="Claude" focusable="false">
+      <path d={AGENTS[0].mark} />
+    </svg>
+  )
+}
