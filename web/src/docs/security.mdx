@@ -41,15 +41,15 @@ description: How Valet limits what an agent can do on a Mac, what leaves the mac
 
 | Data | Where it goes | Kept |
 |---|---|---|
-| Results of actions the person allowed | To the agent, through the relay | Until the session's data expires: 24 hours after it ends |
+| Results of actions the person allowed | To the agent, through the relay | Until the session ends |
 | The signed log (no command output or file contents) | To the relay, for the agent | 24 hours after the session ends |
-| Past session records | Nowhere. They stay on the Mac | Until the person deletes them |
+| Past session records | Nowhere. They stay on the Mac | Until the person deletes them, or after 7, 30 or 90 days if they choose, except sessions they keep |
 
 Valet doesn't filter or redact secrets from output. A file the person lets the agent read is sent as it is. The places that commonly hold secrets always need a prompt.
 
 ## Updates
 
-The app is signed with an Apple Developer ID and notarised by Apple. It checks for updates at launch and every 6 hours, and installs only updates signed with Valet's update key. Restarting to update ends any live session first.
+The app is signed with an Apple Developer ID and notarised by Apple. It checks for updates at launch and every 6 hours, unless the person turns that off in Settings, and installs only updates signed with Valet's update key. Restarting to update ends any live session first.
 
 ## Known limits
 

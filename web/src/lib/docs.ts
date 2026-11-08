@@ -20,6 +20,7 @@ export const SECTIONS: Array<{ title: string; side?: 'agent' | 'client'; pages: 
   { title: 'For clients', side: 'client', pages: ['clients/joining', 'clients/approvals', 'clients/after-a-session'] },
   { title: 'For IT and security', pages: ['security'] },
   { title: 'Reference', pages: ['reference/api', 'reference/limits'] },
+  { title: 'Legal', pages: ['privacy', 'terms'] },
 ]
 
 const modules = import.meta.glob<Module>('../docs/**/*.mdx', { eager: true })
