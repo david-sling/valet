@@ -5,6 +5,7 @@ import { getRedis } from '../redis'
 import { isClosed } from './binding'
 import { callerOf } from './caller'
 import { handleOf } from './handle'
+import { probing, record } from './probe'
 import { isMcpSessionId, newMcpSessionId } from './session-id'
 import { MCP_WAIT_S, buildServer, closeConnection } from './tools'
 import type { Context } from './tools'
@@ -18,9 +19,20 @@ function reply(status: number, message?: string, headers: Record<string, string>
 
 const isInitialize = (body: unknown) => [body].flat().some((m) => (m as { method?: unknown } | null)?.method === 'initialize')
 
+// On a probe deployment every call is recorded before its response goes back, so what a client actually sends can be
+// read afterwards. The clone is taken first because serving consumes the body, and a failed recording is swallowed:
+// the probe must never be able to break the call it is watching.
+export async function handleMcp(request: Request, options: { waitSeconds?: number } = {}) {
+  if (!probing()) return serve(request, options)
+  const copy = request.clone()
+  const res = await serve(request, options)
+  await record(copy, res.status).catch(() => {})
+  return res
+}
+
 // The SDK runs stateless, a fresh server per request, so any instance can answer any call. The session lives in the
 // Mcp-Session-Id this route mints at initialize and in the Redis binding start_session makes from it
-export async function handleMcp(request: Request, { waitSeconds = MCP_WAIT_S }: { waitSeconds?: number } = {}) {
+async function serve(request: Request, { waitSeconds = MCP_WAIT_S }: { waitSeconds?: number } = {}) {
   // DNS-rebinding hygiene for browsers; authorisation comes only from the bound session
   const origin = request.headers.get('origin')
   if (origin && origin !== getConfig().host) return reply(403, 'This origin may not call the Valet MCP server.')

@@ -20,6 +20,7 @@ export const keys = {
   mcpClosed: (hash: string) => `${ns()}:mcp:closed:${hash}`,
   mcpCaller: (hash: string) => `${ns()}:mcp:caller:${hash}`,
   mcpHandle: (hash: string) => `${ns()}:mcp:handle:${hash}`,
+  probe: () => `${ns()}:probe:mcp`,
 } as const
 
 export const sessionKeys = (id: string) => [

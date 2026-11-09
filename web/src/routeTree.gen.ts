@@ -16,6 +16,7 @@ import { Route as McpAppDotjsRouteImport } from './routes/mcp-app[.]js'
 import { Route as MockupRouteImport } from './routes/mockup'
 import { Route as AgentSkillDotmdRouteImport } from './routes/agent/skill[.]md'
 import { Route as ApiSplatRouteImport } from './routes/api/$'
+import { Route as ApiProbeRouteImport } from './routes/api/probe'
 import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
 import { Route as JCodeRouteImport } from './routes/j/$code'
@@ -69,6 +70,11 @@ const AgentSkillDotmdRoute = AgentSkillDotmdRouteImport.update({
 const ApiSplatRoute = ApiSplatRouteImport.update({
   id: '/api/$',
   path: '/api/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProbeRoute = ApiProbeRouteImport.update({
+  id: '/api/probe',
+  path: '/api/probe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsIndexRoute = DocsIndexRouteImport.update({
@@ -177,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/mockup': typeof MockupRoute
   '/agent/skill.md': typeof AgentSkillDotmdRoute
   '/api/$': typeof ApiSplatRoute
+  '/api/probe': typeof ApiProbeRoute
   '/docs/$': typeof DocsSplatRoute
   '/j/$code': typeof JCodeRoute
   '/docs/': typeof DocsIndexRoute
@@ -205,6 +212,7 @@ export interface FileRoutesByTo {
   '/mockup': typeof MockupRoute
   '/agent/skill.md': typeof AgentSkillDotmdRoute
   '/api/$': typeof ApiSplatRoute
+  '/api/probe': typeof ApiProbeRoute
   '/docs/$': typeof DocsSplatRoute
   '/j/$code': typeof JCodeRoute
   '/docs': typeof DocsIndexRoute
@@ -234,6 +242,7 @@ export interface FileRoutesById {
   '/mockup': typeof MockupRoute
   '/agent/skill.md': typeof AgentSkillDotmdRoute
   '/api/$': typeof ApiSplatRoute
+  '/api/probe': typeof ApiProbeRoute
   '/docs/$': typeof DocsSplatRoute
   '/j/$code': typeof JCodeRoute
   '/docs/': typeof DocsIndexRoute
@@ -264,6 +273,7 @@ export interface FileRouteTypes {
     | '/mockup'
     | '/agent/skill.md'
     | '/api/$'
+    | '/api/probe'
     | '/docs/$'
     | '/j/$code'
     | '/docs/'
@@ -292,6 +302,7 @@ export interface FileRouteTypes {
     | '/mockup'
     | '/agent/skill.md'
     | '/api/$'
+    | '/api/probe'
     | '/docs/$'
     | '/j/$code'
     | '/docs'
@@ -320,6 +331,7 @@ export interface FileRouteTypes {
     | '/mockup'
     | '/agent/skill.md'
     | '/api/$'
+    | '/api/probe'
     | '/docs/$'
     | '/j/$code'
     | '/docs/'
@@ -349,6 +361,7 @@ export interface RootRouteChildren {
   MockupRoute: typeof MockupRoute
   AgentSkillDotmdRoute: typeof AgentSkillDotmdRoute
   ApiSplatRoute: typeof ApiSplatRoute
+  ApiProbeRoute: typeof ApiProbeRoute
   DocsSplatRoute: typeof DocsSplatRoute
   JCodeRoute: typeof JCodeRoute
   DocsIndexRoute: typeof DocsIndexRoute
@@ -407,6 +420,13 @@ declare module '@tanstack/react-router' {
       path: '/api/$'
       fullPath: '/api/$'
       preLoaderRoute: typeof ApiSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/probe': {
+      id: '/api/probe'
+      path: '/api/probe'
+      fullPath: '/api/probe'
+      preLoaderRoute: typeof ApiProbeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs/': {
@@ -621,6 +641,7 @@ const rootRouteChildren: RootRouteChildren = {
   MockupRoute: MockupRoute,
   AgentSkillDotmdRoute: AgentSkillDotmdRoute,
   ApiSplatRoute: ApiSplatRoute,
+  ApiProbeRoute: ApiProbeRoute,
   DocsSplatRoute: DocsSplatRoute,
   JCodeRoute: JCodeRoute,
   DocsIndexRoute: DocsIndexRoute,
