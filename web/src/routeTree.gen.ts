@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DownloadRouteImport } from './routes/download'
 import { Route as McpRouteImport } from './routes/mcp'
+import { Route as McpAppDotjsRouteImport } from './routes/mcp-app[.]js'
 import { Route as MockupRouteImport } from './routes/mockup'
 import { Route as AgentSkillDotmdRouteImport } from './routes/agent/skill[.]md'
 import { Route as ApiSplatRouteImport } from './routes/api/$'
@@ -48,6 +49,11 @@ const DownloadRoute = DownloadRouteImport.update({
 const McpRoute = McpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpAppDotjsRoute = McpAppDotjsRouteImport.update({
+  id: '/mcp-app.js',
+  path: '/mcp-app.js',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MockupRoute = MockupRouteImport.update({
@@ -167,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/download': typeof DownloadRoute
   '/mcp': typeof McpRoute
+  '/mcp-app.js': typeof McpAppDotjsRoute
   '/mockup': typeof MockupRoute
   '/agent/skill.md': typeof AgentSkillDotmdRoute
   '/api/$': typeof ApiSplatRoute
@@ -194,6 +201,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/download': typeof DownloadRoute
   '/mcp': typeof McpRoute
+  '/mcp-app.js': typeof McpAppDotjsRoute
   '/mockup': typeof MockupRoute
   '/agent/skill.md': typeof AgentSkillDotmdRoute
   '/api/$': typeof ApiSplatRoute
@@ -222,6 +230,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/download': typeof DownloadRoute
   '/mcp': typeof McpRoute
+  '/mcp-app.js': typeof McpAppDotjsRoute
   '/mockup': typeof MockupRoute
   '/agent/skill.md': typeof AgentSkillDotmdRoute
   '/api/$': typeof ApiSplatRoute
@@ -251,6 +260,7 @@ export interface FileRouteTypes {
     | '/'
     | '/download'
     | '/mcp'
+    | '/mcp-app.js'
     | '/mockup'
     | '/agent/skill.md'
     | '/api/$'
@@ -278,6 +288,7 @@ export interface FileRouteTypes {
     | '/'
     | '/download'
     | '/mcp'
+    | '/mcp-app.js'
     | '/mockup'
     | '/agent/skill.md'
     | '/api/$'
@@ -305,6 +316,7 @@ export interface FileRouteTypes {
     | '/'
     | '/download'
     | '/mcp'
+    | '/mcp-app.js'
     | '/mockup'
     | '/agent/skill.md'
     | '/api/$'
@@ -333,6 +345,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DownloadRoute: typeof DownloadRoute
   McpRoute: typeof McpRoute
+  McpAppDotjsRoute: typeof McpAppDotjsRoute
   MockupRoute: typeof MockupRoute
   AgentSkillDotmdRoute: typeof AgentSkillDotmdRoute
   ApiSplatRoute: typeof ApiSplatRoute
@@ -366,6 +379,13 @@ declare module '@tanstack/react-router' {
       path: '/mcp'
       fullPath: '/mcp'
       preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp-app.js': {
+      id: '/mcp-app.js'
+      path: '/mcp-app.js'
+      fullPath: '/mcp-app.js'
+      preLoaderRoute: typeof McpAppDotjsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mockup': {
@@ -597,6 +617,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DownloadRoute: DownloadRoute,
   McpRoute: McpRoute,
+  McpAppDotjsRoute: McpAppDotjsRoute,
   MockupRoute: MockupRoute,
   AgentSkillDotmdRoute: AgentSkillDotmdRoute,
   ApiSplatRoute: ApiSplatRoute,

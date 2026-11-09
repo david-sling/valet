@@ -81,6 +81,9 @@ importers:
       '@mdx-js/rollup':
         specifier: ^3.1.1
         version: 3.1.1(rollup@4.68.0)
+      '@modelcontextprotocol/ext-apps':
+        specifier: ^1.7.5
+        version: 1.7.5(@modelcontextprotocol/sdk@1.32.2(zod@4.6.7))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(zod@4.6.7)
       '@modelcontextprotocol/sdk':
         specifier: 1.32.2
         version: 1.32.2(zod@4.6.7)
@@ -292,6 +295,20 @@ packages:
     resolution: {integrity: sha512-v8satFmBB+DqDzYohnm1u2JOvxx6Hl3pUvqzJvfs2Zk/ngZ1aRUhsWpXvwPkNeGN9c2NCm/38H29ZqXQUjf8dw==}
     peerDependencies:
       rollup: '>=2'
+
+  '@modelcontextprotocol/ext-apps@1.7.5':
+    resolution: {integrity: sha512-TjPH2S2y5UEGKhmI6+XGFuqfqOV4ppe1x6DA3txnUaEWkgtA4G5vo14jGKFZmegdkZ1H4QMLyujLvoU1BEdnAg==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@modelcontextprotocol/sdk': ^1.29.0
+      react: ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^17.0.0 || ^18.0.0 || ^19.0.0
+      zod: ^3.25.0 || ^4.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
 
   '@modelcontextprotocol/sdk@1.32.2':
     resolution: {integrity: sha512-SWsVtH/0vULSQStoZ6xxH2K09Li8fXYTMC64ZeogCdpZ3XSi1eCPOByV1OpuJxuI3OcmHhosDWYyii07tpPsLw==}
@@ -2757,6 +2774,15 @@ snapshots:
       vfile: 6.0.3
     transitivePeerDependencies:
       - supports-color
+
+  '@modelcontextprotocol/ext-apps@1.7.5(@modelcontextprotocol/sdk@1.32.2(zod@4.6.7))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(zod@4.6.7)':
+    dependencies:
+      '@modelcontextprotocol/sdk': 1.32.2(zod@4.6.7)
+      '@standard-schema/spec': 1.1.0
+      zod: 4.6.7
+    optionalDependencies:
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
 
   '@modelcontextprotocol/sdk@1.32.2(zod@4.6.7)':
     dependencies:

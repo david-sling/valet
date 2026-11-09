@@ -13,3 +13,6 @@ __unconfig*
 todos.json
 
 .vercel
+
+# the MCP App card harness, dev only: public/ ships as-is
+public/__cards.html

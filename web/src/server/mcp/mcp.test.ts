@@ -145,6 +145,37 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('MCP server against a local Redis',
       expect(by[name].inputSchema.required).toContain('reason')
     }
     expect(by.read_file.description).toMatch(/untrusted|not instructions/i)
+    // the two lines the person reads before letting anyone in are the user's to give
+    expect(by.start_session.description).toMatch(/ask them before calling this/i)
+    for (const field of ['name', 'purpose'])
+      expect((by.start_session.inputSchema.properties as Record<string, { description: string }>)[field].description).toMatch(/do not guess/i)
+  })
+
+  it('points every tool at a card, and lets a card call only what touches nothing on the Mac', async () => {
+    const { client } = await connect()
+    const { tools } = await client.listTools()
+    const ui = (t: { _meta?: unknown }) => (t._meta as { ui: { resourceUri: string; visibility: string[] } }).ui
+    for (const t of tools) {
+      const session = ['start_session', 'wait_for_session', 'end_session'].includes(t.name)
+      expect(ui(t).resourceUri).toBe(session ? 'ui://valet/session' : 'ui://valet/action')
+      const fromCard = ['wait_for_session', 'end_session', 'wait_for_action'].includes(t.name)
+      expect(ui(t).visibility).toEqual(fromCard ? ['model', 'app'] : ['model'])
+    }
+  })
+
+  it('serves both cards, filled in and pointed at its own origin', async () => {
+    const { client } = await connect()
+    const { resources } = await client.listResources()
+    expect(resources.map((r) => r.uri).sort()).toEqual(['ui://valet/action', 'ui://valet/session'])
+    for (const kind of ['session', 'action']) {
+      const { contents } = await client.readResource({ uri: `ui://valet/${kind}` })
+      const [card] = contents as { mimeType?: string; text?: string; _meta?: { ui: { csp: { resourceDomains: string[] } } } }[]
+      expect(card.mimeType).toBe('text/html;profile=mcp-app')
+      expect(card.text).toContain(`const KIND = '${kind}'`)
+      expect(card.text).toContain("from 'http://localhost:3000/mcp-app.js'")
+      expect(card.text).not.toMatch(/\{\{\w+\}\}/)
+      expect(card._meta!.ui.csp.resourceDomains).toEqual(['http://localhost:3000'])
+    }
   })
 
   it('runs a session start to end, recording that it came through MCP', async () => {
@@ -323,7 +354,9 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('MCP server against a local Redis',
 
   it('does not promise tool list changes it has no way to send', async () => {
     const r = await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: INIT })
-    expect((await r.json()).result.capabilities.tools.listChanged).toBe(false)
+    const capabilities = (await r.json()).result.capabilities
+    expect(capabilities.tools.listChanged).toBe(false)
+    expect(capabilities.resources.listChanged).toBe(false)
     // the only channel for one would be the GET stream, which a stateless server does not serve
     expect((await handleMcp(new Request(URL_, { method: 'GET' }))).status).toBe(405)
   })
