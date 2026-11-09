@@ -17,6 +17,50 @@ function reply(status: number, message?: string, headers: Record<string, string>
 
 const isInitialize = (body: unknown) => [body].flat().some((m) => (m as { method?: unknown } | null)?.method === 'initialize')
 
+// A stateless server has nothing to push, so the GET stream carries no messages. It is served anyway because a
+// connection with no bytes on it is closed by the proxies people's work laptops sit behind, and a client whose
+// channel dies that way does not reliably come back: it drops the server for the rest of the conversation. A comment
+// every KEEPALIVE_S keeps the connection from ever being idle, and the stream ends at STREAM_S, inside the function's
+// own 60 s limit, so the client reconnects on a closed stream rather than a killed one.
+const KEEPALIVE_S = 15
+const STREAM_S = 50
+
+function openChannel(mcpId: string) {
+  const text = new TextEncoder()
+  let beat: ReturnType<typeof setInterval>
+  let end: ReturnType<typeof setTimeout>
+  const stream = new ReadableStream({
+    start(controller) {
+      const send = (line: string) => {
+        try {
+          controller.enqueue(text.encode(`: ${line}\n\n`))
+        } catch {
+          clearInterval(beat)
+        }
+      }
+      send('open')
+      beat = setInterval(() => send('keepalive'), KEEPALIVE_S * 1000)
+      end = setTimeout(() => {
+        clearInterval(beat)
+        controller.close()
+      }, STREAM_S * 1000)
+    },
+    cancel() {
+      clearInterval(beat)
+      clearTimeout(end)
+    },
+  })
+  return new Response(stream, {
+    headers: {
+      ...HEADERS,
+      'Content-Type': 'text/event-stream',
+      'Mcp-Session-Id': mcpId,
+      // nothing may sit on this between beats, or the beats stop doing their job
+      'X-Accel-Buffering': 'no',
+    },
+  })
+}
+
 // The SDK runs stateless, a fresh server per request, so any instance can answer any call. The session lives in the
 // Mcp-Session-Id this route mints at initialize and in the Redis binding start_session makes from it
 export async function handleMcp(request: Request, { waitSeconds = MCP_WAIT_S }: { waitSeconds?: number } = {}) {
@@ -24,8 +68,8 @@ export async function handleMcp(request: Request, { waitSeconds = MCP_WAIT_S }: 
   const origin = request.headers.get('origin')
   if (origin && origin !== getConfig().host) return reply(403, 'This origin may not call the Valet MCP server.')
 
-  if (request.method !== 'POST' && request.method !== 'DELETE')
-    return reply(405, `/mcp does not take ${request.method}.`, { Allow: 'POST, DELETE' })
+  if (request.method !== 'POST' && request.method !== 'DELETE' && request.method !== 'GET')
+    return reply(405, `/mcp does not take ${request.method}.`, { Allow: 'GET, POST, DELETE' })
 
   let body: unknown
   if (request.method === 'POST') {
@@ -57,6 +101,8 @@ export async function handleMcp(request: Request, { waitSeconds = MCP_WAIT_S }: 
   // client has no reason to read back, and clients do re-initialise mid-conversation; only a client arriving without
   // an id, or holding one already spent, is given a new one (§3.5)
   const mcpId = presented && !spent ? presented : newMcpSessionId()
+
+  if (request.method === 'GET') return openChannel(mcpId)
 
   const ctx: Context = { mcpId, request, waitSeconds, caller: callerOf(body) }
   if (request.method === 'DELETE') {
