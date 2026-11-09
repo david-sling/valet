@@ -1,11 +1,11 @@
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
-import { LIMITS } from '@valet/protocol'
 import { getConfig } from '../config'
 import { ApiError, readBody } from '../http'
 import { getRedis } from '../redis'
 import { isClosed } from './binding'
+import { callerOf } from './caller'
 import { isMcpSessionId, newMcpSessionId } from './session-id'
-import { buildServer, closeConnection } from './tools'
+import { MCP_WAIT_S, buildServer, closeConnection } from './tools'
 import type { Context } from './tools'
 
 const HEADERS = { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' }
@@ -19,7 +19,7 @@ const isInitialize = (body: unknown) => [body].flat().some((m) => (m as { method
 
 // The SDK runs stateless, a fresh server per request, so any instance can answer any call. The session lives in the
 // Mcp-Session-Id this route mints at initialize and in the Redis binding start_session makes from it
-export async function handleMcp(request: Request, { waitSeconds = LIMITS.waitSeconds }: { waitSeconds?: number } = {}) {
+export async function handleMcp(request: Request, { waitSeconds = MCP_WAIT_S }: { waitSeconds?: number } = {}) {
   // DNS-rebinding hygiene for browsers; authorisation comes only from the bound session
   const origin = request.headers.get('origin')
   if (origin && origin !== getConfig().host) return reply(403, 'This origin may not call the Valet MCP server.')
@@ -47,13 +47,18 @@ export async function handleMcp(request: Request, { waitSeconds = LIMITS.waitSec
   }
 
   const presented = request.headers.get('mcp-session-id')
-  const mcpId = request.method === 'POST' && isInitialize(body) ? newMcpSessionId() : presented
-  if (!mcpId) return reply(400, 'Mcp-Session-Id is missing. Send initialize first.')
+  const initialising = request.method === 'POST' && isInitialize(body)
+  if (!presented && !initialising) return reply(400, 'Mcp-Session-Id is missing. Send initialize first.')
   // 404 tells the client this session is gone and to initialize again; a lost session is not resumed
-  if (!isMcpSessionId(mcpId) || (mcpId === presented && (await isClosed(await getRedis(), mcpId))))
-    return reply(404, 'Unknown Mcp-Session-Id. Initialize a new session.')
+  if (presented && !isMcpSessionId(presented)) return reply(404, 'Unknown Mcp-Session-Id. Initialize a new session.')
+  const spent = presented ? await isClosed(await getRedis(), presented) : false
+  if (spent && !initialising) return reply(404, 'Unknown Mcp-Session-Id. Initialize a new session.')
+  // A client that initialises again keeps the id it is holding. Minting a fresh one strands the session on an id the
+  // client has no reason to read back, and clients do re-initialise mid-conversation; only a client arriving without
+  // an id, or holding one already spent, is given a new one (§3.5)
+  const mcpId = presented && !spent ? presented : newMcpSessionId()
 
-  const ctx: Context = { mcpId, request, waitSeconds }
+  const ctx: Context = { mcpId, request, waitSeconds, caller: callerOf(body) }
   if (request.method === 'DELETE') {
     await closeConnection(ctx)
     return reply(200)
