@@ -7,7 +7,7 @@ import { keys } from '../keys'
 import { closeRedis, getRedis } from '../redis'
 import * as A from '../handlers/actions'
 import * as S from '../handlers/sessions'
-import { closedKey, loadBinding } from './binding'
+import { closedKey, idSlot, loadBinding } from './binding'
 import { handleMcp } from './server'
 import { newMcpSessionId } from './session-id'
 import type { Params } from '../http'
@@ -20,6 +20,7 @@ const GRANTS = [
   { id: 'g1', kind: 'Files', access: 'read', scope: '~/Library/Logs/AcmeApp/**', risk: 'low', on: true, source: 'proposed' },
 ]
 const START = { name: 'Acme Inc.', purpose: 'Find out why AcmeApp crashes.' }
+const INIT = { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } }
 
 // everything any tool returned, and everything written to the console, for the token isolation checks
 let seen: string[] = []
@@ -78,14 +79,25 @@ const answer = (person: Person, aid: string, body: Record<string, unknown>) =>
 
 const READ_RESULT = { content: 'boom at main.swift:42\n', hash: 'a'.repeat(64), truncated: false }
 
-async function post(body: unknown, headers: Record<string, string> = {}) {
+async function post(body: unknown, headers: Record<string, string> = {}, waitSeconds?: number) {
   return handleMcp(
     new Request(URL_, {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...headers },
       body: typeof body === 'string' ? body : JSON.stringify(body),
     }),
+    { waitSeconds },
   )
+}
+
+const call = (name: string, args: Record<string, unknown>, mcpId: string, meta?: Record<string, string>) =>
+  post({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args, ...(meta ? { _meta: meta } : {}) } }, { 'mcp-session-id': mcpId }, 1)
+
+const CALLER = { 'openai/subject': 'sub-abc', 'openai/session': 'conv-xyz' }
+// a client that mints a new id every turn, as ChatGPT's connector does
+async function coldId() {
+  const r = await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: INIT })
+  return r.headers.get('mcp-session-id')!
 }
 
 async function clean(match = 'valettest-mcp:*') {
@@ -160,19 +172,21 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('MCP server against a local Redis',
 
     const live = await tool(client, 'wait_for_session')
     expect(live.structuredContent).toMatchObject({ state: 'live', client_connected: true })
-    expect(live.structuredContent!.grants).toHaveLength(1)
+    expect(live.structuredContent!.allowed_without_asking).toHaveLength(1)
+    // the list must never read as a ceiling: what is absent is asked for, not refused
+    expect(live.structuredContent!.anything_else).toContain('asked')
     expect(live.structuredContent!.ends_at).toBeGreaterThan(Date.now())
 
     const ended = await tool(client, 'end_session')
     expect(ended.structuredContent).toMatchObject({ state: 'ended', ended_by: 'agent' })
     expect(await redis.hGet(keys.session(person.id), 'state')).toBe('ended')
-    expect(await loadBinding(redis, mcpId)).toBeUndefined()
+    expect(await loadBinding(redis, idSlot(mcpId))).toBeUndefined()
   })
 
   it('never shows the agent token, the session ID or the MCP id in a result or a log line', async () => {
     const { client, transport, mcpId } = await connect()
     const s = (await tool(client, 'start_session', START)).structuredContent!
-    const bound = (await loadBinding(await getRedis(), mcpId))!
+    const bound = (await loadBinding(await getRedis(), idSlot(mcpId)))!
     await tool(client, 'wait_for_session')
     await joinAndStart(s.code)
     await tool(client, 'wait_for_session')
@@ -213,7 +227,7 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('MCP server against a local Redis',
     expect((await tool(b.client, 'wait_for_session')).structuredContent).toMatchObject({ state: 'invited' })
 
     // no tool takes a session ID, so there is nothing to point at another session with
-    const bBound = (await loadBinding(await getRedis(), b.mcpId))!
+    const bBound = (await loadBinding(await getRedis(), idSlot(b.mcpId)))!
     const named = await tool(a.client, 'wait_for_session', { session_id: bBound.sessionId })
     expect(named.isError).toBe(true)
     expect(JSON.stringify(named)).not.toContain(bBound.sessionId)
@@ -224,7 +238,7 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('MCP server against a local Redis',
 
     const late = await connect()
     await tool(late.client, 'start_session', START)
-    const lateId = (await loadBinding(redis, late.mcpId))!.sessionId
+    const lateId = (await loadBinding(redis, idSlot(late.mcpId)))!.sessionId
     await redis.hSet(keys.session(lateId), 'created_at', Date.now() - LIMITS.inviteMs - 1000)
     const expired = await tool(late.client, 'wait_for_session')
     expect(expired.isError).toBeFalsy()
@@ -250,15 +264,99 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('MCP server against a local Redis',
     const { client, transport, mcpId } = await connect()
     await tool(client, 'start_session', START)
     const redis = await getRedis()
-    const { sessionId } = (await loadBinding(redis, mcpId))!
+    const { sessionId } = (await loadBinding(redis, idSlot(mcpId)))!
     await transport.terminateSession()
     expect(await redis.hGet(keys.session(sessionId), 'state')).toBe('ended')
-    expect(await loadBinding(redis, mcpId)).toBeUndefined()
+    expect(await loadBinding(redis, idSlot(mcpId))).toBeUndefined()
 
     // a closed session's id is gone for good: the client must initialize again, not start over on the old id
     const after = await post({ jsonrpc: '2.0', id: 9, method: 'tools/list' }, { 'mcp-session-id': mcpId })
     expect(after.status).toBe(404)
     expect(await redis.ttl(closedKey(mcpId))).toBeGreaterThan(0)
+  })
+
+  it('keeps the id, and the session, when the client initialises again', async () => {
+    const { client, mcpId } = await connect()
+    await tool(client, 'start_session', START)
+    const redis = await getRedis()
+    const { sessionId } = (await loadBinding(redis, idSlot(mcpId)))!
+
+    const again = await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: INIT }, { 'mcp-session-id': mcpId })
+    expect(again.status).toBe(200)
+    // the id it arrived with is the id it leaves with, so a client that never reads the header back keeps working
+    expect(again.headers.get('mcp-session-id')).toBe(mcpId)
+
+    expect(await redis.hGet(keys.session(sessionId), 'state')).toBe('invited')
+    expect((await loadBinding(redis, idSlot(mcpId)))!.sessionId).toBe(sessionId)
+    expect((await post({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, { 'mcp-session-id': mcpId })).status).toBe(200)
+  })
+
+  it('finds the session by what the caller calls itself when its id did not last', async () => {
+    const first = await coldId()
+    const started = await (await call('start_session', START, first, CALLER)).json()
+    expect(started.result.structuredContent.state).toBe('invited')
+    // nothing for the model to carry: the session is reachable without anything coming back in the result
+    expect(JSON.stringify(started)).not.toContain('session_handle')
+
+    // next turn: a brand new id, and only the caller's own name to go on
+    const next = await coldId()
+    expect(next).not.toBe(first)
+    expect((await (await call('wait_for_session', {}, next)).json()).result.structuredContent.error.code).toBe('not_found')
+
+    const found = await (await call('wait_for_session', {}, next, CALLER)).json()
+    expect(found.result.structuredContent.state).toBe('invited')
+  })
+
+  it('needs both halves of the caller to match', async () => {
+    const first = await coldId()
+    await call('start_session', START, first, CALLER)
+
+    for (const wrong of [
+      { ...CALLER, 'openai/session': 'conv-other' },
+      { ...CALLER, 'openai/subject': 'sub-other' },
+      { 'openai/session': CALLER['openai/session'] },
+    ]) {
+      const r = await (await call('wait_for_session', {}, await coldId(), wrong as Record<string, string>)).json()
+      expect(r.result.structuredContent.error.code).toBe('not_found')
+    }
+  })
+
+  it('does not promise tool list changes it has no way to send', async () => {
+    const r = await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: INIT })
+    expect((await r.json()).result.capabilities.tools.listChanged).toBe(false)
+    // the only channel for one would be the GET stream, which a stateless server does not serve
+    expect((await handleMcp(new Request(URL_, { method: 'GET' }))).status).toBe(405)
+  })
+
+  it('gives a fresh id to a client that initialises without one', async () => {
+    const first = await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: INIT })
+    const second = await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: INIT })
+    expect(first.headers.get('mcp-session-id')).not.toBe(second.headers.get('mcp-session-id'))
+  })
+
+  it('replays a retried call rather than asking the person a second time', async () => {
+    const { mcpId, person } = await liveSession()
+    const call = {
+      jsonrpc: '2.0',
+      id: 77,
+      method: 'tools/call',
+      params: { name: 'read_file', arguments: { path: '~/Library/Logs/AcmeApp/main.log', reason: 'Reading the crash log.' } },
+    }
+    const sent = post(call, { 'mcp-session-id': mcpId })
+    const a = await nextAction(person)
+    await answer(person, a.action_id, { status: 'ok', output: READ_RESULT, hash: READ_RESULT.hash })
+    expect((await (await sent).json()).result.structuredContent).toMatchObject({ action_id: a.action_id, status: 'ok' })
+
+    // the same request id and arguments again: the first action comes back, and the person is not asked twice
+    const retried = await (await post(call, { 'mcp-session-id': mcpId })).json()
+    expect(retried.result.structuredContent).toMatchObject({ action_id: a.action_id, status: 'ok' })
+
+    // a new request id is a new action, even for the same arguments
+    const fresh = post({ ...call, id: 78 }, { 'mcp-session-id': mcpId })
+    const b = await nextAction(person)
+    expect(b.action_id).not.toBe(a.action_id)
+    await answer(person, b.action_id, { status: 'ok', output: READ_RESULT, hash: READ_RESULT.hash })
+    expect((await (await fresh).json()).result.structuredContent.action_id).toBe(b.action_id)
   })
 
   it('turns away unknown, forged and missing session ids, other origins, oversize bodies and GET', async () => {
@@ -343,7 +441,7 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('MCP server against a local Redis',
     const done = await tool(client, 'wait_for_action', { action_id: r.structuredContent!.action_id })
     expect(done.isError).toBeFalsy()
     expect(done.structuredContent).toMatchObject({ status: 'ended', session_state: 'ended' })
-    expect(await loadBinding(await getRedis(), mcpId)).toBeUndefined()
+    expect(await loadBinding(await getRedis(), idSlot(mcpId))).toBeUndefined()
   })
 
   it('turns away actions before the session is live, and with no session at all', async () => {
@@ -402,7 +500,7 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('MCP server against a local Redis',
 
   it('never shows the agent token, the session ID or the MCP id while running actions', async () => {
     const { client, person, mcpId } = await liveSession()
-    const bound = (await loadBinding(await getRedis(), mcpId))!
+    const bound = (await loadBinding(await getRedis(), idSlot(mcpId)))!
     const asked = tool(client, 'read_file', { path: '~/Library/Logs/AcmeApp/main.log', reason: 'Reading the crash log.' })
     const a = await nextAction(person)
     await answer(person, a.action_id, { status: 'ok', output: READ_RESULT })

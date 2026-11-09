@@ -100,6 +100,7 @@ impl Store {
             "INSERT INTO sessions (id, phase, sender_name, purpose, verified, template, created_at, review_until,
                started_at, ends_at, ended_at, ended_by, grants, source)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+             -- source is set when the row is first written at join and never changes, so it stays out of the update
              ON CONFLICT(id) DO UPDATE SET phase = ?2, started_at = ?9, ends_at = ?10, ended_at = ?11, ended_by = ?12,
                grants = ?13",
             params![

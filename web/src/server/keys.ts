@@ -18,6 +18,7 @@ export const keys = {
   rateLimit: (scope: string, hash: string) => `${ns()}:rl:${scope}:${hash}`,
   mcp: (hash: string) => `${ns()}:mcp:${hash}`,
   mcpClosed: (hash: string) => `${ns()}:mcp:closed:${hash}`,
+  mcpCaller: (hash: string) => `${ns()}:mcp:caller:${hash}`,
 } as const
 
 export const sessionKeys = (id: string) => [
