@@ -21,6 +21,9 @@ pub struct Joined {
     pub template: Vec<Need>,
     pub created_at: i64,
     pub review_until: i64,
+    // "mcp" when the agent came through the relay's MCP server; absent for the skill
+    #[serde(default)]
+    pub source: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -147,5 +150,24 @@ impl Relay {
     // The relay only takes the sealed log once it holds the session as ended.
     pub async fn put_log(&self, id: &str, token: &str, log: &Value) -> Result<Value, RelayError> {
         self.send(self.http.put(self.url(id, "/log")).bearer_auth(token).json(log)).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_where_a_session_came_from_and_does_without() {
+        let base = json!({
+            "session_id": "s", "client_token": "t", "sender_name": "Acme", "purpose": "Fix it.",
+            "template": [], "created_at": 1, "review_until": 2,
+        });
+        let plain: Joined = serde_json::from_value(base.clone()).unwrap();
+        assert_eq!(plain.source, None);
+        let mut via = base;
+        via["source"] = json!("mcp");
+        let mcp: Joined = serde_json::from_value(via).unwrap();
+        assert_eq!(mcp.source.as_deref(), Some("mcp"));
     }
 }

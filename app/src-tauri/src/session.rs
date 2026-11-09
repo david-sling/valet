@@ -101,6 +101,8 @@ pub struct SessionView {
     pub grants: Vec<Grant>,
     pub feed: Vec<FeedItem>,
     pub prompts: Vec<PromptView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -394,6 +396,7 @@ impl Manager {
             grants: vec![],
             feed: vec![],
             prompts: vec![],
+            source: j.source,
         };
         {
             let mut st = self.lock();
@@ -464,16 +467,10 @@ impl Manager {
             s.view.started_at = Some(now_ms());
             s.view.ends_at = Some(started.ends_at);
             s.view.grants = grants;
-            let (sender_name, purpose, grants) = (s.view.sender_name.clone(), s.view.purpose.clone(), s.view.grants.clone());
+            let entry = start_entry(&s.view, started.ends_at);
             let plural = if count == 1 { "permission" } else { "permissions" };
             st.event(id, format!("Session started with {count} {plural}"));
-            st.log(id, "session.start", json!({
-                "session_id": id,
-                "sender_name": sender_name,
-                "purpose": purpose,
-                "ends_at": started.ends_at,
-                "grants": grants,
-            }));
+            st.log(id, "session.start", entry);
         }
         self.changed();
         let me = self.clone();
@@ -1066,6 +1063,21 @@ impl Manager {
     }
 }
 
+// the signed log's first entry; source says how the agent reached the relay, when it wasn't the skill
+fn start_entry(v: &SessionView, ends_at: i64) -> Value {
+    let mut entry = json!({
+        "session_id": v.id,
+        "sender_name": v.sender_name,
+        "purpose": v.purpose,
+        "ends_at": ends_at,
+        "grants": v.grants,
+    });
+    if let Some(source) = &v.source {
+        entry["source"] = json!(source);
+    }
+    entry
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1104,6 +1116,34 @@ mod tests {
     }
 
     #[test]
+    fn the_start_entry_says_where_the_session_came_from() {
+        let mut v = SessionView {
+            id: "s1".into(),
+            phase: Phase::Live,
+            sender_name: "Acme".into(),
+            purpose: "Fix it.".into(),
+            verified: false,
+            template: vec![],
+            created_at: 1,
+            review_until: 2,
+            started_at: Some(3),
+            ends_at: Some(60),
+            ended_at: None,
+            ended_by: None,
+            kept: false,
+            grants: vec![],
+            feed: vec![],
+            prompts: vec![],
+            source: None,
+        };
+        let entry = start_entry(&v, 60);
+        assert_eq!(entry["sender_name"], "Acme");
+        assert!(entry.get("source").is_none(), "a session from the skill carries no source: {entry}");
+        v.source = Some("mcp".into());
+        assert_eq!(start_entry(&v, 60)["source"], "mcp");
+    }
+
+    #[test]
     fn forgets_only_the_finished_sessions_asked_for() {
         let store = Arc::new(Store::memory());
         for (id, ended_at) in [("old", 5), ("new", 50), ("kept", 5)] {
@@ -1124,6 +1164,7 @@ mod tests {
                 grants: vec![],
                 feed: vec![],
                 prompts: vec![],
+                source: None,
             };
             store.save(&view, &[]).unwrap();
             store.set_kept(id, view.kept).unwrap();
@@ -1294,4 +1335,126 @@ mod tests {
         }
         let _ = std::fs::remove_dir_all(dir);
     }
+
+    // an agent that knows only MCP: JSON-RPC to /mcp, holding nothing but the Mcp-Session-Id
+    struct McpAgent {
+        http: reqwest::Client,
+        url: String,
+        session: Mutex<Option<String>>,
+        next: std::sync::atomic::AtomicI64,
+    }
+
+    impl McpAgent {
+        async fn send(&self, body: Value) -> Value {
+            let mut req = self.http.post(&self.url)
+                .header("accept", "application/json, text/event-stream")
+                .header("mcp-protocol-version", "2025-06-18")
+                .json(&body);
+            if let Some(id) = self.session.lock().unwrap().clone() {
+                req = req.header("mcp-session-id", id);
+            }
+            let r = req.send().await.unwrap();
+            if let Some(id) = r.headers().get("mcp-session-id") {
+                *self.session.lock().unwrap() = Some(id.to_str().unwrap().into());
+            }
+            if r.status() == 202 { Value::Null } else { r.json().await.unwrap() }
+        }
+
+        async fn connect(base: &str) -> Self {
+            let agent = McpAgent {
+                http: reqwest::Client::new(),
+                url: format!("{}/mcp", base.trim_end_matches('/')),
+                session: Mutex::new(None),
+                next: 1.into(),
+            };
+            let init = json!({ "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": { "name": "e2e", "version": "0" } });
+            let r = agent.send(json!({ "jsonrpc": "2.0", "id": 0, "method": "initialize", "params": init })).await;
+            assert_eq!(r["result"]["serverInfo"]["name"], "valet", "{r}");
+            agent.send(json!({ "jsonrpc": "2.0", "method": "notifications/initialized" })).await;
+            agent
+        }
+
+        async fn call(&self, name: &str, arguments: Value) -> Value {
+            let id = self.next.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let body = json!({ "jsonrpc": "2.0", "id": id, "method": "tools/call", "params": { "name": name, "arguments": arguments } });
+            let r = self.send(body).await;
+            assert!(r["result"]["isError"] != true, "{name} failed: {r}");
+            r["result"]["structuredContent"].clone()
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "needs a local relay in VALET_TEST_RELAY"]
+    async fn an_mcp_session_runs_end_to_end() {
+        let base = std::env::var("VALET_TEST_RELAY").expect("VALET_TEST_RELAY");
+        let dir = session_tmp("e2e-mcp-files").unwrap();
+        let file = dir.join("config.json");
+        std::fs::write(&file, "{ \"renderer\": \"opengl\" }\n").unwrap();
+        let template = json!([
+            { "kind": "Files", "access": "read", "scope": format!("{}/**", dir.display()), "risk": "low" },
+            { "kind": "Programs", "access": "run", "scope": "/usr/bin/uname", "risk": "medium" },
+            { "kind": "Processes", "access": "list", "scope": "all", "risk": "low" }
+        ]);
+        let agent = McpAgent::connect(&base).await;
+        let started = agent.call("start_session", json!({ "name": "Test vendor", "purpose": "End-to-end test over MCP.", "template": template })).await;
+        assert_eq!(started["state"], "invited", "{started}");
+        assert!(started.get("agent_token").is_none() && started.get("session_id").is_none(), "{started}");
+
+        let store = Arc::new(Store::memory());
+        let m = Manager::new(Relay::new(&base), Arc::new(|_| {}), Some(store.clone()), Some(Signer::from_seed([4; 32])));
+        let joined = m.join(started["code"].as_str().unwrap()).await.unwrap();
+        assert_eq!((joined.sender_name.as_str(), joined.source.as_deref()), ("Test vendor", Some("mcp")));
+        let choices: Vec<GrantChoice> = serde_json::from_value(template.as_array().unwrap().iter().map(|n| {
+            let mut n = n.clone();
+            n["on"] = true.into();
+            n
+        }).collect()).unwrap();
+        m.start(&joined.id, choices).await.unwrap();
+        let live = agent.call("wait_for_session", json!({})).await;
+        assert_eq!(live["state"], "live", "{live}");
+
+        let reason = "End-to-end test over MCP.";
+        let r = agent.call("list_processes", json!({ "reason": reason })).await;
+        assert_eq!(r["status"], "ok", "{r}");
+        let r = agent.call("read_file", json!({ "path": file, "reason": reason })).await;
+        assert_eq!(r["status"], "ok", "{r}");
+        let hash = r["output"]["hash"].as_str().unwrap().to_string();
+        let r = agent.call("run_command", json!({ "command": ["/usr/bin/uname"], "reason": reason })).await;
+        assert_eq!(r["output"]["stdout"], "Darwin\n", "{r}");
+
+        // the write asks; the call holds while the person answers
+        let write = json!({ "path": file, "content": "{ \"renderer\": \"metal\" }\n", "base_hash": hash, "reason": reason });
+        let (r, answered) = tokio::join!(agent.call("write_file", write), async {
+            let p = prompt(&m).await;
+            m.answer(&p.id, true, Some(Scope::Once)).await
+        });
+        assert!(answered.is_ok());
+        assert_eq!((r["status"].as_str(), r["method"].as_str()), (Some("approved"), Some("click")), "{r}");
+        let r = agent.call("write_file", json!({ "path": file, "content": "{}\n", "base_hash": hash, "reason": reason })).await;
+        assert_eq!(r["status"], "rejected", "a stale hash must be turned back: {r}");
+
+        let (r, answered) = tokio::join!(agent.call("run_command", json!({ "command": ["/usr/bin/whoami"], "reason": reason })), async {
+            let p = prompt(&m).await;
+            m.answer(&p.id, false, None).await
+        });
+        assert!(answered.is_ok());
+        assert_eq!(r["status"], "denied", "{r}");
+
+        let ended = agent.call("end_session", json!({})).await;
+        assert_eq!((ended["state"].as_str(), ended["ended_by"].as_str()), (Some("ended"), Some("agent")), "{ended}");
+        let mut log = None;
+        for _ in 0..100 {
+            log = m.sealed_log(&joined.id);
+            if log.is_some() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        let log = log.expect("a sealed log");
+        audit::verify(&log).unwrap_or_else(|e| panic!("the log didn't verify: {e}"));
+        let first = &log["entries"][0];
+        assert_eq!((first["type"].as_str(), first["data"]["source"].as_str()), (Some("session.start"), Some("mcp")), "{first}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
 }

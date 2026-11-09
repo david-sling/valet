@@ -21,7 +21,10 @@ import { formatCode, hashToken, newCode, newSessionId, newToken } from '../token
 import { hold } from '../wake'
 import type { Params } from '../http'
 
-export async function createSession(request: Request) {
+export const createSession = (request: Request) => openSession(request)
+
+// source is the relay's own record of how a session was opened; a caller can't set it
+export async function openSession(request: Request, source?: 'mcp') {
   const redis = await getRedis()
   await limit(redis, 'create', clientIp(request), RATES.create)
   const body = await readJson(request, CreateSessionBody)
@@ -52,6 +55,7 @@ export async function createSession(request: Request) {
       code,
       created_at: now,
       agent_hash: hashToken(token),
+      ...(source ? { source } : {}),
     })
     .set(keys.seq(id), '0')
     .expireAt(keys.session(id), at)
@@ -105,6 +109,7 @@ export async function join(request: Request) {
     template: s.template,
     created_at: s.createdAt,
     review_until: now + LIMITS.reviewMs,
+    ...(s.source ? { source: s.source } : {}),
   })
 }
 

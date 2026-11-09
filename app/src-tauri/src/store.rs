@@ -37,6 +37,7 @@ const MIGRATIONS: &[&str] = &[
        session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
        log TEXT NOT NULL
      );",
+    "ALTER TABLE sessions ADD COLUMN source TEXT;",
 ];
 
 pub struct Store {
@@ -97,8 +98,8 @@ impl Store {
         let tx = conn.transaction()?;
         tx.execute(
             "INSERT INTO sessions (id, phase, sender_name, purpose, verified, template, created_at, review_until,
-               started_at, ends_at, ended_at, ended_by, grants)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+               started_at, ends_at, ended_at, ended_by, grants, source)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
              ON CONFLICT(id) DO UPDATE SET phase = ?2, started_at = ?9, ends_at = ?10, ended_at = ?11, ended_by = ?12,
                grants = ?13",
             params![
@@ -115,6 +116,7 @@ impl Store {
                 s.ended_at,
                 s.ended_by,
                 serde_json::to_string(&s.grants).unwrap_or_default(),
+                s.source,
             ],
         )?;
         for item in new_items {
@@ -155,7 +157,7 @@ impl Store {
         let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, phase, sender_name, purpose, verified, template, created_at, review_until, started_at, ends_at,
-               ended_at, ended_by, grants, kept
+               ended_at, ended_by, grants, kept, source
              FROM sessions WHERE phase != 'declined' ORDER BY created_at DESC",
         )?;
         let mut sessions: Vec<(SessionView, String)> = stmt
@@ -179,6 +181,7 @@ impl Store {
                         grants: serde_json::from_str(&r.get::<_, String>(12)?).unwrap_or_default(),
                         feed: vec![],
                         prompts: vec![],
+                        source: r.get(14)?,
                     },
                     phase,
                 ))
@@ -228,7 +231,24 @@ mod tests {
             grants: vec![],
             feed: vec![],
             prompts: vec![],
+            source: None,
         }
+    }
+
+    #[test]
+    fn keeps_where_the_session_came_from() {
+        let store = Store::memory();
+        let mut mcp = view(Phase::Live);
+        mcp.source = Some("mcp".into());
+        store.save(&mcp, &[]).unwrap();
+        let mut skill = view(Phase::Live);
+        skill.id = "s2".into();
+        store.save(&skill, &[]).unwrap();
+
+        let loaded = store.load().unwrap();
+        let source = |id: &str| loaded.iter().find(|s| s.id == id).and_then(|s| s.source.clone());
+        assert_eq!(source("s1").as_deref(), Some("mcp"));
+        assert_eq!(source("s2"), None);
     }
 
     #[test]

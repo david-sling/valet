@@ -66,10 +66,8 @@ export const ActionRequest = z.discriminatedUnion('tool', [
   z.object({ tool: z.literal('tail_log'), args: z.object({ path, lines: z.number().int().min(1).max(5000).optional() }) }),
   z.object({ tool: z.literal('list_processes'), args: z.object({}).optional() }),
 ])
-export const ActionBody = z.intersection(
-  ActionRequest,
-  z.object({ reason: plain(LIMITS.reason), client_id: z.string().min(8).max(64).regex(/^[A-Za-z0-9_-]+$/) }),
-)
+export const ActionMeta = z.object({ reason: plain(LIMITS.reason), client_id: z.string().min(8).max(64).regex(/^[A-Za-z0-9_-]+$/) })
+export const ActionBody = z.intersection(ActionRequest, ActionMeta)
 export type ActionRequest = z.infer<typeof ActionRequest>
 export type ActionBody = z.infer<typeof ActionBody>
 export type Tool = ActionRequest['tool']

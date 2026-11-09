@@ -68,6 +68,7 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('relay against a local Redis', () =
     const j = await call(S.join, { method: 'POST', body: { code: ` ${s.code.toLowerCase().replace('-', ' ')} ` } })
     expect(j.status).toBe(200)
     expect(j.body).toMatchObject({ sender_name: 'Acme Inc.', verified: false, session_id: s.session_id })
+    expect(j.body).not.toHaveProperty('source')
     const client = j.body.client_token
 
     const joined = await call(S.status, { token: s.agent_token, params })
