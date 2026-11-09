@@ -109,8 +109,11 @@ export function TearHero({ skill }: { skill: string }) {
       })
 
       // The ticket keeps one size throughout: upright, its full size; lying flat, as wide as the page's content, or
-      // as large as fits between the header and the bottom of the screen
-      const scale = () => (vertical() ? 1 : Math.min(Math.min(innerWidth - 32, innerWidth * 0.84) / tw(), (SH() - 104) / (tw() * 0.48)))
+      // as large as fits between the header and the bottom of the screen, and never taller than MAX_H, so it does
+      // not sprawl on a big screen
+      const MAX_H = 560
+      const scale = () =>
+        vertical() ? 1 : Math.min(Math.min(innerWidth - 32, innerWidth * 0.84) / tw(), Math.min(SH() - 104, MAX_H) / (tw() * 0.48))
       // where it settles, in the middle of the space between the header and the bottom of the screen; y is from the
       // middle of the screen
       const settleY = () => (88 - 16 - BAR()) / 2
