@@ -12,7 +12,8 @@ Valet has three parts:
 
 1. **The relay** (`web/`): HTTP endpoints in the existing TanStack Start app on Vercel, storing state in the Redis instance Wave already uses. It carries actions from the agent to the client and results back. It does not decide what is allowed.
 2. **The client app** (`app/`): a Tauri desktop app on the client's Mac. It holds the session's permissions, decides whether an action runs or asks, asks the person, runs the command in an OS sandbox, and reports the result.
-3. **The skill file** (`/agent/skill.md`): instructions that teach any agent with a shell to drive the relay with `curl`. There is no MCP server and no SDK for now.
+3. **The skill file** (`/agent/skill.md`): instructions that teach any agent with a shell to drive the relay with `curl`.
+4. **The MCP server** (`/mcp`): the same calls as MCP tools, for agents without a shell, such as claude.ai and other connector-based clients. It is part of the relay and adds nothing on the client. There is no SDK for now.
 
 ```
  Vendor's agent ──curl──►  Relay (web/, Vercel)  ◄──long-poll──  Client app (Tauri, client's Mac)
@@ -29,7 +30,8 @@ Both sides connect outward to the relay. The client opens no ports (PRD R1).
 |---|---|
 | Same Redis as Wave, separated by the key prefix `valet:` | Founder, 2026-11-05 |
 | No accounts on either side. Senders type their own name and are shown as not verified | Founder, 2026-11-05; mockup |
-| Agents connect through a skill file that explains the curl calls, like Wave's curl prompt. No MCP | Founder, 2026-11-05 |
+| Agents connect through a skill file that explains the curl calls, like Wave's curl prompt | Founder, 2026-11-05 |
+| Agents without a shell connect through a remote MCP server at `/mcp`, served by the relay; the skill stays (§3.5). Reverses "No MCP" | Founder, 2026-11-08 (#29) |
 | Client app is Tauri, macOS first | Mockup |
 | A request waits until the client answers or the session ends; it never times out | Mockup (replaces PRD §7.4 step 4) |
 | Every read returns a content hash; every write must carry the hash it was based on | Mockup |
@@ -102,6 +104,17 @@ A static Markdown file with skill front matter, served at `GET /agent/skill.md` 
 
 `/j/{code}` on the web app. It shows one "Open in Valet" button (deep link `valet://join/{code}`); if no app takes the page's focus within 2 seconds, the page downloads Valet instead. The app accepts only a well-formed code from the link and fills it into the Join screen; joining still waits for the person to press Join. It reveals nothing about the session: no vendor name and no purpose. The code is checked only when the client app redeems it.
 
+### 3.5 MCP server
+
+`/mcp` on the web app, Streamable HTTP with JSON responses. Its tools map one-to-one to the agent endpoints in §7.1: `start_session`, `wait_for_session`, `read_file`, `tail_log`, `list_dir`, `list_processes`, `run_command`, `write_file`, `wait_for_action` and `end_session`.
+
+- **Stateless:** each request builds a fresh MCP server, so any function instance can answer any call. The route mints the `Mcp-Session-Id` at initialize, signed so it needs no Redis write; an unknown, expired or closed id gets 404, and the client initializes again. Nothing is resumed: a lost MCP session takes its Valet session with it.
+- **Token held by the relay:** `start_session` keeps the `agent_token` in a binding sealed under a key derived from the `Mcp-Session-Id` (§6.2), and no tool result carries the token or the session ID. One MCP session holds one Valet session at a time, and no tool takes a session ID.
+- **Same path as curl:** tools call the agent endpoints' handlers in-process, so validation, limits, idempotency and errors are the relay's own. Inputs use the `packages/protocol` schemas, with the skill's path rule on top.
+- **Statuses are results:** every status, refusal and relay error comes back as a structured result in the `{ code, message, hint }` shape; only the relay's own faults are MCP errors. A call waits up to 50 s, then returns `pending`.
+- **Source recorded:** sessions opened here carry `source: mcp`; join returns it, and the client writes it into the log's `session.start` entry.
+- **Closing:** `DELETE /mcp` ends the session it holds. A client that disappears leaves the session to its normal expiry.
+
 ## 4. Session lifecycle
 
 ```
@@ -137,6 +150,7 @@ There are no accounts. Every credential is minted per session and dies with it.
 | `agent_token` | 32 random bytes, base64url | The agent's state directory | sha256 hex in the session hash |
 | `client_token` | 32 random bytes, base64url | Client app, in memory only | sha256 hex in the session hash |
 | Action ID | `a_` + 9 random bytes, base64url | Both | Itself |
+| `Mcp-Session-Id` | 32 random bytes, issue time and an HMAC tag, base64url; lasts 24 h | The MCP client | sha256 hex in key names only (§6.2) |
 
 Rules:
 
@@ -178,6 +192,8 @@ Wave and Valet use the same instance and connection string. Separation rests on:
 | `{p}:s:{id}:wake:agent` | pub/sub topic | Seq number | — |
 | `{p}:s:{id}:wake:client` | pub/sub topic | Seq number | — |
 | `{p}:sessions:active` | sorted set, score = expiry | Session IDs for the sweep | None |
+| `{p}:mcp:{sha256(mcp id)}` | string | Session ID and `agent_token`, AES-GCM sealed under a key derived from the `Mcp-Session-Id` | The bound session's expiry |
+| `{p}:mcp:closed:{sha256(mcp id)}` | string | Marks an MCP session closed by `DELETE /mcp` | The id's own 24 h |
 | `{p}:rl:{scope}:{hmac}` | string | Rate-limit counter | The window |
 | `{p}:rl:pollslots:{hmac}` | sorted set | Held-poll slots | 120 s |
 

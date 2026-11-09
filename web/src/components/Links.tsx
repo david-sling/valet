@@ -99,6 +99,9 @@ export function InstallSkill({ skill }: { skill: string }) {
       <p className="install-then">
         {agent.then} <code>{agent.run}</code>
       </p>
+      <p className="install-then">
+        No shell? Add <code>{new URL('/mcp', skill).href}</code> as an MCP connector.
+      </p>
     </div>
   )
 }

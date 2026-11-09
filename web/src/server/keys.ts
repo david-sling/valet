@@ -16,6 +16,8 @@ export const keys = {
   wakeClient: (id: string) => `${ns()}:s:${id}:wake:client`,
   activeSessions: () => `${ns()}:sessions:active`,
   rateLimit: (scope: string, hash: string) => `${ns()}:rl:${scope}:${hash}`,
+  mcp: (hash: string) => `${ns()}:mcp:${hash}`,
+  mcpClosed: (hash: string) => `${ns()}:mcp:closed:${hash}`,
 } as const
 
 export const sessionKeys = (id: string) => [

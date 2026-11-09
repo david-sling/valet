@@ -57,6 +57,7 @@ mod tests {
             grants: vec![],
             feed,
             prompts: vec![],
+            source: None,
         }
     }
 

@@ -26,6 +26,7 @@ export type Session = {
   clientHash: string
   agentCursor: number
   clientSeenAt: number
+  source: string
 }
 
 const num = (v: string | undefined) => Number(v ?? 0) || 0
@@ -48,6 +49,7 @@ function parse(id: string, h: Record<string, string>): Session {
     clientHash: h.client_hash ?? '',
     agentCursor: num(h.agent_cursor),
     clientSeenAt: num(h.client_seen_at),
+    source: h.source ?? '',
   }
 }
 
