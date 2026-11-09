@@ -256,11 +256,11 @@ export function TearHero({ skill }: { skill: string }) {
         <div className="stage">
           <div className="copy">
             <h1 className="display">
-              Let your agent drive.<b>Keep the trunk locked.</b>
+              Fix it on their computer.<b>Skip the screen-share.</b>
             </h1>
             <p className="lead">
-              Valet lets an AI agent run commands on your customer's machine: only what they approve, enforced on their
-              machine, logged for both of you.
+              For support teams. Send a customer a link, and your AI agent diagnoses the problem on their Mac: only what
+              they approve, with every step logged for both of you.
             </p>
             <InstallSkill skill={skill} />
           </div>

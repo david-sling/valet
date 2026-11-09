@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Nav } from '#/components/Nav'
 import { TearHero } from '#/components/hero/TearHero'
+import { SameTicket } from '#/components/today/SameTicket'
 import { AsksFirst } from '#/components/asks/AsksFirst'
 import { ClientsSay } from '#/components/clients/ClientsSay'
 import { ForVendors } from '#/components/vendors/ForVendors'
@@ -30,9 +31,10 @@ function Home() {
       <Nav stars={stars} />
       <main ref={mainRef}>
         <TearHero skill={skill} />
+        <SameTicket />
+        <ForVendors />
         <AsksFirst />
         <ClientsSay />
-        <ForVendors />
         <SandboxEnforces />
         <NotRemoteDesktop />
         <StubEnds stars={stars} skill={skill} />
