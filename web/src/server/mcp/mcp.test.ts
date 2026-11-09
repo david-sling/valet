@@ -324,8 +324,25 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('MCP server against a local Redis',
   it('does not promise tool list changes it has no way to send', async () => {
     const r = await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: INIT })
     expect((await r.json()).result.capabilities.tools.listChanged).toBe(false)
-    // the only channel for one would be the GET stream, which a stateless server does not serve
-    expect((await handleMcp(new Request(URL_, { method: 'GET' }))).status).toBe(405)
+    // the GET stream is served, but a fresh server per request has nothing to push down it
+  })
+
+  it('holds the notification channel open instead of refusing it', async () => {
+    const mcpId = await coldId()
+    const res = await handleMcp(new Request(URL_, { method: 'GET', headers: { 'mcp-session-id': mcpId } }))
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toBe('text/event-stream')
+    expect(res.headers.get('mcp-session-id')).toBe(mcpId)
+    const reader = res.body!.getReader()
+    // a comment, so nothing reads it as a message; it exists only to put bytes on an idle connection
+    expect(new TextDecoder().decode((await reader.read()).value)).toMatch(/^: /)
+    await reader.cancel()
+  })
+
+  it('gives no channel to a client without a session of its own', async () => {
+    expect((await handleMcp(new Request(URL_, { method: 'GET' }))).status).toBe(400)
+    const made_up = await handleMcp(new Request(URL_, { method: 'GET', headers: { 'mcp-session-id': 'not-ours' } }))
+    expect(made_up.status).toBe(404)
   })
 
   it('gives a fresh id to a client that initialises without one', async () => {
@@ -373,7 +390,7 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('MCP server against a local Redis',
     expect(ok.headers.get('x-robots-tag')).toBe('noindex')
 
     expect((await post(JSON.stringify({ ...init, pad: 'x'.repeat(LIMITS.bodyBytes) }))).status).toBe(413)
-    expect((await handleMcp(new Request(URL_))).status).toBe(405)
+    expect((await handleMcp(new Request(URL_))).status).toBe(400)
   })
 
   it('shares the session-create rate limit with POST /sessions', async () => {
