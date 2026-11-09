@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Valet</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: transparent; }
+      body {
+        font-family: var(--font-sans, system-ui, sans-serif);
+        font-size: var(--font-text-sm-size, 14px);
+        line-height: var(--font-text-sm-line-height, 1.4);
+        color: var(--color-text-primary, light-dark(#141413, #faf9f5));
+        padding: var(--pad, 2px);
+      }
+      .row { display: flex; align-items: center; gap: 8px; }
+      .head { justify-content: space-between; }
+      .status { display: flex; align-items: center; gap: 7px; font-weight: var(--font-weight-semibold, 600); }
+      .dot { width: 8px; height: 8px; border-radius: var(--border-radius-full, 9999px); background: currentColor; flex: none; }
+      .waiting .status, .pending .status { color: var(--color-text-warning, light-dark(#5a4815, #d1a041)); }
+      .good .status { color: var(--color-text-success, light-dark(#265b19, #7ab948)); }
+      .bad .status { color: var(--color-text-danger, light-dark(#7f2c28, #ee8884)); }
+      .over .status { color: var(--color-text-tertiary, light-dark(#73726c, #9c9a92)); }
+      .over .dot { opacity: 0.6; }
+      .waiting .dot, .pending .dot { animation: pulse 1.6s ease-in-out infinite; }
+      @keyframes pulse { 50% { opacity: 0.35; } }
+      @media (prefers-reduced-motion: reduce) { .dot { animation: none !important; } }
+      .meta { color: var(--color-text-tertiary, light-dark(#73726c, #9c9a92)); font-size: var(--font-text-xs-size, 12px); font-variant-numeric: tabular-nums; }
+      .said { color: var(--color-text-secondary, light-dark(#3d3d3a, #c2c0b6)); margin-top: 8px; overflow-wrap: anywhere; }
+      .link {
+        margin-top: 10px; user-select: all;
+        font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--font-text-xs-size, 12px);
+        background: var(--color-background-secondary, light-dark(#f5f4ed, #262624));
+        border: var(--border-width-regular, 0.5px) solid var(--color-border-tertiary, light-dark(rgba(31, 30, 29, 0.15), rgba(222, 220, 209, 0.15)));
+        border-radius: var(--border-radius-md, 8px); padding: 10px 12px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .code { margin-top: 10px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+      .code b {
+        font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--font-heading-xl-size, 24px);
+        font-weight: var(--font-weight-bold, 700); letter-spacing: 0.14em;
+      }
+      .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+      .pill {
+        display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+        font-size: var(--font-text-xs-size, 12px); padding: 3px 9px;
+        border-radius: var(--border-radius-full, 9999px);
+        background: var(--color-background-secondary, light-dark(#f5f4ed, #262624)); color: var(--color-text-secondary, light-dark(#3d3d3a, #c2c0b6));
+      }
+      .pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .pill i { font-style: normal; font-weight: var(--font-weight-semibold, 600); flex: none; }
+      pre {
+        margin: 10px 0 0; padding: 10px 12px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere;
+        font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--font-text-xs-size, 12px);
+        background: var(--color-background-secondary, light-dark(#f5f4ed, #262624)); border-radius: var(--border-radius-md, 8px);
+        display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 8;
+      }
+      pre.err { background: var(--color-background-danger, light-dark(#f7ecec, #602a28)); color: var(--color-text-danger, light-dark(#7f2c28, #ee8884)); }
+      .acts { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+      .acts:empty { display: none; }
+      button {
+        font: inherit; font-weight: var(--font-weight-semibold, 600); min-height: 44px; padding: 0 16px;
+        border-radius: var(--border-radius-md, 8px); cursor: pointer;
+        border: var(--border-width-regular, 0.5px) solid var(--color-border-primary, light-dark(rgba(31, 30, 29, 0.4), rgba(222, 220, 209, 0.4)));
+        background: var(--color-background-primary, light-dark(#fff, #30302e)); color: var(--color-text-primary, light-dark(#141413, #faf9f5));
+      }
+      button.key { background: var(--color-background-inverse, light-dark(#141413, #faf9f5)); color: var(--color-text-inverse, light-dark(#fff, #141413)); border-color: transparent; }
+      button:hover:not(:disabled) { opacity: 0.85; }
+      button:disabled { cursor: default; color: var(--color-text-disabled, light-dark(rgba(20, 20, 19, 0.5), rgba(250, 249, 245, 0.5))); }
+      button:focus-visible { outline: 2px solid var(--color-ring-primary, light-dark(rgba(20, 20, 19, 0.7), rgba(250, 249, 245, 0.7))); outline-offset: 2px; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <div class="row head">
+      <span class="status"><span class="dot"></span><span id="state"></span></span>
+      <span class="meta" id="clock"></span>
+    </div>
+    <p class="said meta" id="said" hidden></p>
+    <div class="link" id="link" hidden></div>
+    <div class="code" id="codeRow" hidden><b id="code"></b><span class="meta">type this into Valet</span></div>
+    <div class="pills" id="pills" hidden></div>
+    <pre id="out" hidden></pre>
+    <div class="acts" id="acts"></div>
+
+    <script type="module">
+      import { App, applyHostStyleVariables, applyHostFonts, applyDocumentTheme } from '{{CLIENT}}'
+      // the card is a tool result, so the person reading it can copy the link but never act on the Mac from here:
+      // only the waiting and ending tools are callable from the frame, and the rest stay the agent's to call
+
+      const KIND = '{{KIND}}'
+      const $ = (id) => document.getElementById(id)
+      const app = new App({ name: 'Valet', version: '{{VERSION}}' }, { availableDisplayModes: ['inline'] })
+
+      let data = {}
+      let asked = {}
+      let ticker
+
+      const SESSION = {
+        invited: ['waiting', 'Not opened yet'],
+        joined: ['waiting', 'Reviewing the permissions'],
+        live: ['good', 'Live on their Mac'],
+        declined: ['bad', 'They declined'],
+        expired: ['over', 'The invite expired'],
+        ended: ['over', 'Session ended'],
+      }
+      const ACTION = {
+        pending: ['pending', 'Waiting for them to answer'],
+        ok: ['good', 'Done'],
+        approved: ['good', 'They approved it'],
+        denied: ['bad', 'They said no'],
+        rejected: ['bad', 'Not allowed'],
+        failed: ['bad', 'It failed'],
+        ended: ['over', 'Session ended'],
+      }
+      // the tools' own titles, so a card that is still waiting does not name something as already done
+      const TOOL = {
+        list_processes: 'List running programs',
+        read_file: 'Read a file',
+        tail_log: 'Read the end of a log',
+        list_dir: 'List a folder',
+        run_command: 'Run a program',
+        write_file: 'Replace a file',
+      }
+
+      const clamp = (s, n) => (s.length > n ? `${s.slice(0, n)}…` : s)
+      // the Mac's own refusals come back as a line of text, the relay's as a code with a message and a hint
+      const why = (e) => (typeof e === 'string' ? e : [e?.message, e?.hint].filter(Boolean).join(' '))
+      const left = (at) => {
+        const s = Math.max(0, Math.round((at - Date.now()) / 1000))
+        return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+      }
+
+      // the person's Mac is untrusted: everything from it lands as text, never as markup
+      function show(el, text) {
+        el.textContent = text ?? ''
+        el.hidden = !text
+      }
+
+      function countdown(at, label) {
+        clearInterval(ticker)
+        if (!at) return show($('clock'), '')
+        const paint = () => show($('clock'), `${label} ${left(at)}`)
+        paint()
+        ticker = setInterval(paint, 1000)
+      }
+
+      function act(label, key, run, done) {
+        const b = document.createElement('button')
+        b.textContent = label
+        b.className = key ? 'key' : ''
+        b.onclick = async () => {
+          b.disabled = true
+          b.textContent = done ? label : 'Working…'
+          try {
+            await run()
+            if (done) b.textContent = done
+          } catch {
+            b.textContent = label
+          }
+          b.disabled = false
+          if (done) setTimeout(() => (b.textContent = label), 1500)
+        }
+        $('acts').append(b)
+      }
+
+      // clipboard-write is asked for on this resource, but a host may still refuse it: then the link is selected to copy by hand
+      async function copy(text) {
+        try {
+          await navigator.clipboard.writeText(text)
+        } catch {
+          getSelection()?.selectAllChildren($('link'))
+          throw new Error('no clipboard')
+        }
+      }
+
+      async function call(name, args) {
+        const r = await app.callServerTool({ name, arguments: args ?? {} })
+        if (r.structuredContent) render(r.structuredContent)
+      }
+
+      function session(v) {
+        const [tone, label] = v.state === 'rejected' ? ['bad', 'No session'] : (SESSION[v.state] ?? ['over', 'Session over'])
+        document.body.className = tone
+        show($('state'), v.ended_by ? `${label} by the ${v.ended_by}` : label)
+        countdown(v.state === 'invited' ? v.expires_at : v.ends_at, v.state === 'invited' ? 'expires in' : 'ends in')
+
+        const inviting = v.state === 'invited' && v.join_url
+        show($('link'), inviting ? v.join_url : '')
+        show($('code'), inviting ? v.code : '')
+        $('codeRow').hidden = !inviting
+
+        const grants = (v.allowed_without_asking ?? []).filter((g) => g.on !== false)
+        $('pills').replaceChildren(
+          ...grants.slice(0, 4).map((g) => {
+            const el = document.createElement('span')
+            el.className = 'pill'
+            el.append(Object.assign(document.createElement('i'), { textContent: `${g.kind} ${g.access}` }))
+            el.append(Object.assign(document.createElement('span'), { textContent: clamp(String(g.scope ?? ''), 48) }))
+            return el
+          }),
+        )
+        if (grants.length > 4) {
+          const el = document.createElement('span')
+          el.className = 'pill'
+          el.textContent = `and ${grants.length - 4} more`
+          $('pills').append(el)
+        }
+        $('pills').hidden = !grants.length
+        show($('out'), why(v.error))
+        $('out').className = v.error ? 'err' : ''
+
+        $('acts').replaceChildren()
+        if (inviting) act('Copy link', true, () => copy(v.join_url), 'Copied')
+        if (v.state === 'invited' || v.state === 'joined') act('Check now', !inviting, () => call('wait_for_session'))
+        if (v.state === 'live') act('End session', false, () => call('end_session'))
+      }
+
+      function action(v) {
+        const [tone, label] = ACTION[v.status] ?? ['over', 'Finished']
+        document.body.className = tone
+        const title = TOOL[v.tool ?? asked.tool] ?? 'Valet'
+        show($('state'), `${title} — ${label.toLowerCase()}`)
+        countdown(null)
+        show($('said'), asked.reason ? `You said: ${clamp(asked.reason, 180)}` : '')
+        $('link').hidden = true
+        $('codeRow').hidden = true
+        $('pills').hidden = true
+
+        const o = v.output ?? {}
+        const bits = []
+        if (o.exit_code !== undefined) bits.push(`exit ${o.exit_code}`)
+        if (o.bytes !== undefined) bits.push(`${o.bytes} bytes written`)
+        if (o.entries) bits.push(`${o.entries.length} entries`)
+        if (o.processes) bits.push(`${o.processes.length} programs`)
+        if (o.truncated) bits.push('truncated')
+        const listed = (o.entries ?? o.processes ?? []).map((e) => e.name ?? '').join('\n')
+        const body = why(v.error) || [o.stdout, o.stderr, o.content].filter(Boolean).join('\n') || listed
+        show($('out'), [bits.join(' · '), body].filter(Boolean).join('\n'))
+        $('out').className = v.error || v.status === 'failed' ? 'err' : ''
+
+        $('acts').replaceChildren()
+        if (v.status === 'pending' && v.action_id) act('Wait for an answer', true, () => call('wait_for_action', { action_id: v.action_id }))
+      }
+
+      function render(v) {
+        data = v ?? {}
+        if (KIND === 'session') session(data)
+        else action(data)
+      }
+
+      function dress() {
+        const ctx = app.getHostContext()
+        if (ctx?.theme) applyDocumentTheme(ctx.theme)
+        if (ctx?.styles?.variables) applyHostStyleVariables(ctx.styles.variables)
+        if (ctx?.styles?.css?.fonts) applyHostFonts(ctx.styles.css.fonts)
+        const pad = ctx?.safeAreaInsets
+        if (pad) document.body.style.padding = `${pad.top + 2}px ${pad.right + 2}px ${pad.bottom + 2}px ${pad.left + 2}px`
+      }
+
+      app.ontoolinput = ({ arguments: args }) => {
+        if (args) asked = { ...asked, ...args }
+      }
+      app.ontoolresult = ({ structuredContent, content }) => {
+        if (structuredContent) return render(structuredContent)
+        try {
+          render(JSON.parse(content?.[0]?.text ?? '{}'))
+        } catch {
+          render({})
+        }
+      }
+      app.onhostcontextchanged = dress
+
+      await app.connect()
+      dress()
+      if (!Object.keys(data).length) show($('state'), 'Waiting for Valet…')
+    </script>
+  </body>
+</html>
