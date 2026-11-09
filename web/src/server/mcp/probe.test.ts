@@ -9,7 +9,7 @@ process.env.REDIS_PREFIX = 'valettest-probe'
 
 const URL_ = 'http://localhost:3000/mcp'
 const INIT = { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } }
-const TOKEN = 'test-only-cron-secret'
+const TOKEN = 'test-only-probe-token'
 
 const initialize = (meta?: Record<string, unknown>) => ({
   jsonrpc: '2.0',
@@ -36,11 +36,13 @@ async function entries() {
 
 beforeEach(async () => {
   process.env.MCP_PROBE = '1'
+  process.env.PROBE_TOKEN = TOKEN
   await (await getRedis()).del(keys.probe())
 })
 
 afterEach(() => {
   delete process.env.MCP_PROBE
+  delete process.env.PROBE_TOKEN
 })
 
 afterAll(async () => {
@@ -94,6 +96,13 @@ describe('the MCP probe', () => {
     await expect(readProbe(new Request('http://localhost/api/probe'))).rejects.toThrow()
     await expect(
       readProbe(new Request('http://localhost/api/probe', { headers: { authorization: 'Bearer wrong' } })),
+    ).rejects.toThrow()
+  })
+
+  it('opens to nobody while no token is configured', async () => {
+    delete process.env.PROBE_TOKEN
+    await expect(
+      readProbe(new Request('http://localhost/api/probe', { headers: { authorization: `Bearer ${TOKEN}` } })),
     ).rejects.toThrow()
   })
 })

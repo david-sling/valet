@@ -9,6 +9,14 @@ what it puts in `_meta`, which protocol version it speaks.
 The capture is inert unless `MCP_PROBE=1`. Set it on this branch's preview deployment only; anywhere else the route
 behaves exactly as it does on `main` and nothing is written.
 
+Reading it back needs `PROBE_TOKEN`, which is the probe's own token rather than `CRON_SECRET`. A secret set in Vercel
+cannot be read out of it again, so an endpoint guarded by the cron secret is one nobody can open afterwards. Store
+`PROBE_TOKEN` as a plain value, not a Secret, so it can be fetched when it is needed:
+
+    vercel env add PROBE_TOKEN preview probe --type config
+
+Without it the endpoint answers 503 and opens to nobody, so forgetting it fails closed.
+
 ## Pointing a client at it
 
 Use the branch's preview URL as the MCP server address, with `/mcp` as the path. Everything else about the server is
@@ -16,7 +24,7 @@ unchanged, so a session started here is a real session and a real person still h
 
 ## Reading what came in
 
-    curl -s -H "Authorization: Bearer $CRON_SECRET" https://<preview-host>/api/probe | jq
+    curl -s -H "Authorization: Bearer $PROBE_TOKEN" https://<preview-host>/api/probe | jq
 
 `DELETE` on the same path empties the log, which is worth doing before each run so one client's traffic is easy to
 read on its own. Entries are newest first, at most 200, and expire after a day.
