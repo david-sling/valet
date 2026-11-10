@@ -20,6 +20,7 @@ const slot = (secret: string, key: (hash: string) => string): Slot => ({ secret,
 export const idSlot = (mcpId: string) => slot(mcpId, keys.mcp)
 // both halves are needed to open it, so neither one alone reaches a session
 export const callerSlot = ({ subject, session }: Caller) => slot(`${subject}\u0000${session}`, keys.mcpCaller)
+export const handleSlot = (handle: string) => slot(handle, keys.mcpHandle)
 
 export const closedKey = (mcpId: string) => keys.mcpClosed(hashed(mcpId))
 

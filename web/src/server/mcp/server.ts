@@ -4,6 +4,7 @@ import { ApiError, readBody } from '../http'
 import { getRedis } from '../redis'
 import { isClosed } from './binding'
 import { callerOf } from './caller'
+import { handleOf } from './handle'
 import { isMcpSessionId, newMcpSessionId } from './session-id'
 import { MCP_WAIT_S, buildServer, closeConnection } from './tools'
 import type { Context } from './tools'
@@ -58,7 +59,7 @@ export async function handleMcp(request: Request, { waitSeconds = MCP_WAIT_S }: 
   // an id, or holding one already spent, is given a new one (§3.5)
   const mcpId = presented && !spent ? presented : newMcpSessionId()
 
-  const ctx: Context = { mcpId, request, waitSeconds, caller: callerOf(body) }
+  const ctx: Context = { mcpId, request, waitSeconds, caller: callerOf(body), handle: handleOf(body) }
   if (request.method === 'DELETE') {
     await closeConnection(ctx)
     return reply(200)
