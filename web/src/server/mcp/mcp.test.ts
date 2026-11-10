@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
@@ -7,7 +8,7 @@ import { keys } from '../keys'
 import { closeRedis, getRedis } from '../redis'
 import * as A from '../handlers/actions'
 import * as S from '../handlers/sessions'
-import { closedKey, idSlot, loadBinding } from './binding'
+import { closedKey, handleSlot, idSlot, loadBinding } from './binding'
 import { handleMcp } from './server'
 import { newMcpSessionId } from './session-id'
 import type { Params } from '../http'
@@ -326,8 +327,7 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('MCP server against a local Redis',
     const first = await coldId()
     const started = await (await call('start_session', START, first, CALLER)).json()
     expect(started.result.structuredContent.state).toBe('invited')
-    // nothing for the model to carry: the session is reachable without anything coming back in the result
-    expect(JSON.stringify(started)).not.toContain('session_handle')
+    expect(started.result.structuredContent.session).toMatch(/^[A-Za-z0-9_-]{43}$/)
 
     // next turn: a brand new id, and only the caller's own name to go on
     const next = await coldId()
@@ -350,6 +350,50 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('MCP server against a local Redis',
       const r = await (await call('wait_for_session', {}, await coldId(), wrong as Record<string, string>)).json()
       expect(r.result.structuredContent.error.code).toBe('not_found')
     }
+  })
+
+  it('finds the session by the handle the agent carried when nothing else lasted', async () => {
+    const first = await coldId()
+    const started = await (await call('start_session', START, first)).json()
+    const session = started.result.structuredContent.session
+    expect(session).toMatch(/^[A-Za-z0-9_-]{43}$/)
+
+    const next = await coldId()
+    expect((await (await call('wait_for_session', {}, next)).json()).result.structuredContent.error.code).toBe('not_found')
+
+    const found = await (await call('wait_for_session', { session }, next)).json()
+    expect(found.result.structuredContent.state).toBe('invited')
+  })
+
+  it('reaches no session but its own', async () => {
+    const first = await coldId()
+    await call('start_session', START, first)
+    const madeUp = Buffer.from(randomBytes(32)).toString('base64url')
+    const r = await (await call('wait_for_session', { session: madeUp }, await coldId())).json()
+    expect(r.result.structuredContent.error.code).toBe('not_found')
+  })
+
+  it("prefers the connection's own session over a handle pointing elsewhere", async () => {
+    const first = await coldId()
+    await call('start_session', START, first)
+    const second = await coldId()
+    const elsewhere = (await (await call('start_session', START, second)).json()).result.structuredContent.session
+
+    const redis = await getRedis()
+    const mine = (await loadBinding(redis, idSlot(first)))!.sessionId
+    const theirs = (await loadBinding(redis, handleSlot(elsewhere)))!.sessionId
+    expect(mine).not.toBe(theirs)
+
+    await call('end_session', { session: elsewhere }, first)
+    expect(await redis.hGet(keys.session(mine), 'state')).toBe('ended')
+    expect(await redis.hGet(keys.session(theirs), 'state')).toBe('invited')
+  })
+
+  it('tells a client that already has a session rather than opening a second', async () => {
+    const first = await coldId()
+    const session = (await (await call('start_session', START, first)).json()).result.structuredContent.session
+    const again = await (await call('start_session', { ...START, session }, await coldId())).json()
+    expect(again.result.structuredContent.error.code).toBe('conflict')
   })
 
   it('does not promise tool list changes it has no way to send', async () => {

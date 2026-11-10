@@ -12,14 +12,15 @@ import { getRedis } from '../redis'
 import { FINAL } from '../session'
 import * as A from '../handlers/actions'
 import * as S from '../handlers/sessions'
-import { callerSlot, closeMcpSession, dropBinding, findBinding, followSession, idSlot, saveBinding } from './binding'
+import { callerSlot, closeMcpSession, dropBinding, findBinding, followSession, handleSlot, idSlot, saveBinding } from './binding'
+import { HANDLE, newHandle } from './handle'
 import { ANSWERS, ASKS, CARD, registerCards } from './ui/cards'
 import type { Params } from '../http'
 import type { Redis } from '../redis'
 import type { Bound, Slot } from './binding'
 import type { Caller } from './caller'
 
-export type Context = { mcpId: string; request: Request; waitSeconds: number; caller?: Caller }
+export type Context = { mcpId: string; request: Request; waitSeconds: number; caller?: Caller; handle?: string }
 type Relay = { ok: boolean; status: number; body: Record<string, any> }
 
 // Well under the curl path's 50 s. An MCP client puts a hard wall-clock limit on a single tool call that nothing can
@@ -27,19 +28,17 @@ type Relay = { ok: boolean; status: number; body: Record<string, any> }
 // along with the whole connection — taking the Valet session with it. Waiting tools return early and are called again
 export const MCP_WAIT_S = 25
 
-// The only place that knows how an agent may be recognised. Order is the order they are tried: the connection's own
-// id first, so a client that keeps one never depends on anything else, then a handle the agent kept for itself.
-// Everything below takes the Bound this resolves to and never asks which lane answered
-// What reaches a session besides the connection's own id, for clients whose id does not survive a turn.
-// start_session writes every one of these and the reader tries them in the same order, so a new lane is added here
-// alone and no tool below learns of it
-const carried = (ctx: Context): Slot[] => (ctx.caller ? [callerSlot(ctx.caller)] : [])
+// The only place that knows how an agent may be recognised. Order is the order they are tried, and everything below
+// takes the Bound this resolves to without asking which lane answered
+const callerLane = (ctx: Context): Slot[] => (ctx.caller ? [callerSlot(ctx.caller)] : [])
+const carried = (ctx: Context): Slot[] => [...(ctx.handle ? [handleSlot(ctx.handle)] : []), ...callerLane(ctx)]
 const lanes = (ctx: Context): Slot[] => [idSlot(ctx.mcpId), ...carried(ctx)]
 const bound = (redis: Redis, ctx: Context) => findBinding(redis, lanes(ctx))
 
 const INSTRUCTIONS = `Valet lets you run commands on another person's Mac, with that person deciding what is allowed.
 
 - Start with start_session and show your user the hand-off it returns, then call wait_for_session in the same turn, so you are already waiting when the person joins rather than asking to be told. Show the hand-off first: it is how they get the link. If the wait returns before anyone has joined, say where it stands and call it again when your user next writes.
+- start_session returns a session value. Keep it and pass it to every later Valet call, wait_for_session included. On some clients each call arrives on a new connection, and that value is then the only thing still pointing at the session you opened; without it the work looks lost and the person is asked to join all over again for nothing.
 - The name and purpose a session opens with are your user's to give, not yours to assume: ask them who it is for and what you are there to do before you call start_session, and pass their answer as it stands. The person at the Mac decides from those two lines whether to let anyone in.
 - Ask for the least access that does the job. The person can switch any starting permission off.
 - Permissions are where a session starts, not what it is limited to. Call whatever tool the work needs: anything outside them asks the person then and there. Never end a session and open another to get more access, which makes them join again for nothing.
@@ -130,7 +129,7 @@ async function startSession(ctx: Context, args: z.infer<typeof StartInput>) {
         status: 'rejected',
         error: {
           code: 'conflict',
-          message: `This connection already has a session, and it is ${now.body.state}.`,
+          message: `You already have a session, and it is ${now.body.state}.`,
           hint: 'Carry on with the open one. An action outside its permissions asks the person, so more access needs no new session. End it only when the work is done.',
         },
       })
@@ -149,14 +148,16 @@ async function startSession(ctx: Context, args: z.infer<typeof StartInput>) {
     await relay(ctx, S.end, { token, params: { id: sessionId } })
     return result({ status: 'rejected', error: { code: 'conflict', message: 'This connection already has a session.', hint: 'Call wait_for_session.' } })
   }
-  for (const lane of carried(ctx)) await saveBinding(redis, lane, { sessionId, token }, at)
+  const handle = newHandle()
+  for (const lane of [handleSlot(handle), ...callerLane(ctx)]) await saveBinding(redis, lane, { sessionId, token }, at)
   return result({
     state,
     code,
     join_url,
     expires_at,
+    session: handle,
     handoff: handoff(join_url, code),
-    next: 'Show your user handoff exactly as written, then call wait_for_session in the same turn: the link is in front of them by then, so wait rather than asking to be told. If it comes back before anyone has joined, say where it stands and call it again when your user next writes.',
+    next: 'Keep session and pass it to every later Valet call, including wait_for_session: without it a client that opens a fresh connection each call cannot find this session again. Show your user handoff exactly as written, then call wait_for_session in the same turn: the link is in front of them by then, so wait rather than asking to be told. If it comes back before anyone has joined, say where it stands and call it again when your user next writes.',
   })
 }
 
@@ -259,14 +260,23 @@ const TemplateNeed = Need.refine((n) => !ACCESS[n.kind] || ACCESS[n.kind].includ
 // a made-up name is a stranger at their door under a borrowed one
 const { name, purpose } = CreateSessionBody.shape
 const ASK_FIRST = 'Ask your user for this if they have not told you; do not guess it, and do not shorten it to something vaguer.'
+const CARRY =
+  'The session value start_session returned. Pass it on every later call: some clients start a new connection for each call, and without it this session cannot be found. It is not the join code the person types.'
+const Carried = z.string().regex(HANDLE).describe(CARRY).optional()
+
 const StartInput = z
   .object({
     name: name.describe(`Who the session is for, as the person will see it, shown to them as not verified: your user, or who they are acting for. ${ASK_FIRST} Never put your own name here.`),
     purpose: purpose.describe(`What you are there to do, in one sentence the person can hold the session against as it goes. ${ASK_FIRST}`),
     template: z.array(TemplateNeed).max(50).optional(),
+    session: z
+      .string()
+      .regex(HANDLE)
+      .describe('Only if an earlier start_session in this conversation gave you one. Passing it back says you already have a session, so this call tells you about that one instead of making the person join a second time.')
+      .optional(),
   })
   .strict()
-const NoInput = z.object({}).strict()
+const SessionInput = z.object({ session: Carried }).strict()
 
 // the protocol's own argument schemas, with the skill's path rule on top: the client app refuses the rest anyway, but
 // an MCP agent hears about it before the person is bothered
@@ -279,7 +289,7 @@ function actionInput(tool: Tool) {
   const shape = { ...((args instanceof z.ZodOptional ? args.unwrap() : args) as z.ZodObject).shape }
   if ('path' in shape) shape.path = Place
   if ('cwd' in shape) shape.cwd = Place.optional()
-  return z.object({ ...shape, reason: ActionMeta.shape.reason }).strict()
+  return z.object({ ...shape, reason: ActionMeta.shape.reason, session: Carried }).strict()
 }
 
 const REASON =
@@ -353,8 +363,8 @@ export function buildServer(ctx: Context) {
       _meta: { ui: { resourceUri: CARD.session, visibility: ANSWERS } },
       title: 'Wait for the person to join',
       description:
-        `Wait up to about ${MCP_WAIT_S} seconds for this connection's session to change, then return its state: invited, joined, live, declined, expired or ended. allowed_without_asking is what the person has already approved, not a limit on what you may call: anything else asks them. Call it again while the state is invited or joined.`,
-      inputSchema: NoInput,
+        `Wait up to about ${MCP_WAIT_S} seconds for your session to change, then return its state: invited, joined, live, declined, expired or ended. allowed_without_asking is what the person has already approved, not a limit on what you may call: anything else asks them. Call it again while the state is invited or joined.`,
+      inputSchema: SessionInput,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     guarded(() => waitForSession(ctx)),
@@ -365,8 +375,8 @@ export function buildServer(ctx: Context) {
     {
       _meta: { ui: { resourceUri: CARD.session, visibility: ANSWERS } },
       title: 'End the Valet session',
-      description: "End this connection's session. The person's Mac drops every permission and seals the session log.",
-      inputSchema: NoInput,
+      description: "End your Valet session. The person's Mac drops every permission and seals the session log.",
+      inputSchema: SessionInput,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     guarded(() => endSession(ctx)),
@@ -393,7 +403,7 @@ export function buildServer(ctx: Context) {
       _meta: { ui: { resourceUri: CARD.action, visibility: ANSWERS } },
       title: 'Wait for an answer',
       description: `Wait up to about ${MCP_WAIT_S} seconds for an action that came back pending, then return it: pending again, or ok, approved, denied, rejected, failed or ended with its output or error. ${UNTRUSTED}`,
-      inputSchema: z.object({ action_id: z.string().regex(/^a_[A-Za-z0-9_-]{12}$/) }).strict(),
+      inputSchema: z.object({ action_id: z.string().regex(/^a_[A-Za-z0-9_-]{12}$/), session: Carried }).strict(),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     guarded((args: { action_id: string }) => waitForAction(ctx, args)),
