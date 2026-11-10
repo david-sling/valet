@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { registerAppTool } from '@modelcontextprotocol/ext-apps/server'
+import { registerAppTool as registerSdkTool } from '@modelcontextprotocol/ext-apps/server'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { ActionMeta, ActionRequest, CreateSessionBody, LIMITS, Need } from '@valet/protocol'
@@ -14,6 +14,7 @@ import * as A from '../handlers/actions'
 import * as S from '../handlers/sessions'
 import { callerSlot, closeMcpSession, dropBinding, findBinding, followSession, handleSlot, idSlot, saveBinding } from './binding'
 import { HANDLE, newHandle } from './handle'
+import { probing } from './probe'
 import { ANSWERS, ASKS, CARD, registerCards } from './ui/cards'
 import type { Params } from '../http'
 import type { Redis } from '../redis'
@@ -341,8 +342,22 @@ const ACTIONS: { tool: Tool; title: string; changes: boolean; description: strin
   },
 ]
 
+// A client that has both the real app and the probe connected resolves a tool name to one of them and will not call
+// the other's, which leaves the probe unable to see a single call. On a probe deployment the tools take names of
+// their own, in the prose that names them as well as on the wire.
+const PROBE_PREFIX = 'probe_'
+const TOOL_NAMES = ['start_session', 'wait_for_session', 'end_session', 'wait_for_action', ...ACTIONS.map((a) => a.tool)]
+const renamed = (text: string) => (probing() ? TOOL_NAMES.reduce((t, n) => t.replaceAll(n, `${PROBE_PREFIX}${n}`), text) : text)
+
+const registerAppTool = (...args: Parameters<typeof registerSdkTool>) => {
+  if (!probing()) return registerSdkTool(...args)
+  const [server, name, config, handler] = args
+  const description = config.description ? renamed(config.description) : config.description
+  return registerSdkTool(server, `${PROBE_PREFIX}${name}`, { ...config, description }, handler)
+}
+
 export function buildServer(ctx: Context) {
-  const server = new McpServer({ name: 'valet', version: String(SKILL_VERSION) }, { instructions: INSTRUCTIONS })
+  const server = new McpServer({ name: probing() ? 'valet-probe' : 'valet', version: String(SKILL_VERSION) }, { instructions: renamed(INSTRUCTIONS) })
   registerAppTool(
     server,
     'start_session',

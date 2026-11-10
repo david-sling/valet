@@ -34,6 +34,14 @@ async function entries() {
   return body.entries
 }
 
+const tools = async () => {
+  const init = await post(initialize())
+  const sid = init.headers.get('mcp-session-id') ?? ''
+  const instructions = (await init.json()).result.instructions as string
+  const list = await (await post({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, { 'mcp-session-id': sid })).json()
+  return { names: list.result.tools.map((t: { name: string }) => t.name) as string[], instructions }
+}
+
 beforeEach(async () => {
   process.env.MCP_PROBE = '1'
   process.env.PROBE_TOKEN = TOKEN
@@ -104,5 +112,21 @@ describe('the MCP probe', () => {
     await expect(
       readProbe(new Request('http://localhost/api/probe', { headers: { authorization: `Bearer ${TOKEN}` } })),
     ).rejects.toThrow()
+  })
+
+  it('names its tools apart, so a client with both apps cannot call the other one instead', async () => {
+    const { names, instructions } = await tools()
+    expect(names).toContain('probe_start_session')
+    expect(names).toContain('probe_wait_for_action')
+    expect(names).not.toContain('start_session')
+    expect(instructions).toContain('probe_start_session')
+    expect(instructions).not.toMatch(/(^|[^_])start_session/)
+  })
+
+  it('leaves the names alone where it is switched off', async () => {
+    delete process.env.MCP_PROBE
+    const { names } = await tools()
+    expect(names).toContain('start_session')
+    expect(names.every((n: string) => !n.startsWith('probe_'))).toBe(true)
   })
 })
