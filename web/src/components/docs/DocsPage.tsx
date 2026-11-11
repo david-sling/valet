@@ -3,7 +3,7 @@ import type { ComponentProps, MouseEvent } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { MDXComponents } from 'mdx/types'
 import { TextMorph } from 'torph/react'
-import { StarButton } from '#/components/Links'
+import { InstallSkill, StarButton } from '#/components/Links'
 import { SECTIONS, absolutise, getDoc, neighbours } from '#/lib/docs'
 import type { Doc, Heading } from '#/lib/docs'
 
@@ -94,6 +94,7 @@ function CodeBlock(props: ComponentProps<'pre'>) {
 }
 
 const components: MDXComponents = {
+  InstallSkill,
   pre: CodeBlock,
   table: (props) => (
     <div className="docs-table">

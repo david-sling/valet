@@ -1,33 +1,32 @@
 ---
 title: Quickstart
-description: Install the Valet skill in your agent, start a session, and hand the join code to your customer.
+description: Connect your agent to Valet, start a session, and hand the join code to your customer.
 ---
 
-Your agent needs only a shell with `curl` and `jq`. Everything it must know is in one skill file, which it follows step by step.
+Your agent connects to Valet in one of two ways:
 
-## 1. Install the skill
+- **The skill**, for any agent with a shell that has `curl` and `jq`. Everything the agent must know is in one skill file, which it follows step by step.
+- **The MCP connector**, for agents without a shell. Valet is verified with ChatGPT and Claude only. It may work in other MCP clients, but they are untested.
 
-Save the skill where your agent looks for skills.
+## 1. Connect your agent
 
-**Claude Code**
+### With the skill
 
-```sh
-curl -fsSL --create-dirs -o ~/.claude/skills/valet/SKILL.md https://valet.davidsling.in/agent/skill.md
+Save the skill where your agent looks for skills. Any other agent can read it straight from [`https://valet.davidsling.in/agent/skill.md`](/agent/skill.md).
+
+<InstallSkill skill="https://valet.davidsling.in/agent/skill.md" mcp={false} />
+
+If the skill changes, Valet tells your agent when it starts a session, and the agent updates its copy.
+
+### With the MCP connector
+
+Add this URL as a custom MCP connector in your agent's settings:
+
+```text
+https://valet.davidsling.in/mcp
 ```
 
-**Codex**
-
-```sh
-curl -fsSL --create-dirs -o ~/.agents/skills/valet/SKILL.md https://valet.davidsling.in/agent/skill.md
-```
-
-**Cursor**
-
-```sh
-curl -fsSL --create-dirs -o ~/.cursor/skills/valet/SKILL.md https://valet.davidsling.in/agent/skill.md
-```
-
-Any other agent can read the skill straight from [`https://valet.davidsling.in/agent/skill.md`](/agent/skill.md). If the skill changes, Valet tells your agent when it starts a session, and the agent updates its copy.
+The connector offers the same tools as the skill, and Valet holds the session's token for you. It has been verified with ChatGPT and Claude only. Other MCP clients are untested, so if your agent has a shell, use the skill.
 
 ## 2. Ask for a session
 

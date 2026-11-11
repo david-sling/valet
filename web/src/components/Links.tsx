@@ -57,10 +57,17 @@ const AGENTS = [
   },
 ]
 
-export function InstallSkill({ skill }: { skill: string }) {
+const installCommand = (agent: (typeof AGENTS)[number], skill: string) =>
+  agent.dir ? `curl -fsSL --create-dirs -o ${agent.dir}/valet/SKILL.md ${skill}` : `Install the skill from ${skill}`
+
+export function installMarkdown(skill: string) {
+  return AGENTS.map((a) => `**${a.name}**\n\n\`\`\`${a.dir ? 'sh' : 'text'}\n${installCommand(a, skill)}\n\`\`\`\n\n${a.then} \`${a.run}\``).join('\n\n')
+}
+
+export function InstallSkill({ skill, mcp = true }: { skill: string; mcp?: boolean }) {
   const [agent, setAgent] = useState(AGENTS[AGENTS.length - 1])
   const [copied, setCopied] = useState(false)
-  const command = agent.dir ? `curl -fsSL --create-dirs -o ${agent.dir}/valet/SKILL.md ${skill}` : `Install the skill from ${skill}`
+  const command = installCommand(agent, skill)
 
   useEffect(() => {
     if (!copied) return
@@ -99,9 +106,11 @@ export function InstallSkill({ skill }: { skill: string }) {
       <p className="install-then">
         {agent.then} <code>{agent.run}</code>
       </p>
-      <p className="install-then">
-        No shell? Add <code>{new URL('/mcp', skill).href}</code> as an MCP connector.
-      </p>
+      {mcp && (
+        <p className="install-then">
+          No shell? Add <code>{new URL('/mcp', skill).href}</code> as an MCP connector.
+        </p>
+      )}
     </div>
   )
 }

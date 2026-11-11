@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import type { MDXComponents } from 'mdx/types'
 import GithubSlugger from 'github-slugger'
 import { REPO_URL } from '#/lib/github'
+import { installMarkdown } from '#/components/Links'
 
 type Frontmatter = { title: string; description: string }
 type Module = { default: ComponentType<{ components?: MDXComponents }>; frontmatter: Frontmatter }
@@ -33,7 +34,10 @@ const sources = import.meta.glob<string>('../docs/**/*.mdx', { eager: true, quer
 const slugOf = (path: string) => path.replace(/^\.\.\/docs\//, '').replace(/\.mdx$/, '').replace(/(^|\/)index$/, '')
 
 function body(source: string) {
-  return source.replace(/^---\n[\s\S]*?\n---\n+/, '').trim()
+  return source
+    .replace(/^---\n[\s\S]*?\n---\n+/, '')
+    .replace(/<InstallSkill skill="([^"]+)"[^>]*\/>/g, (_, skill: string) => installMarkdown(skill))
+    .trim()
 }
 
 function plain(text: string) {
