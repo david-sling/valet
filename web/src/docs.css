@@ -263,3 +263,15 @@ html[data-docs-theme="dark"] .docs .shiki span { color: var(--shiki-dark) !impor
   .docs * { transition: none !important; }
   html:has(.docs) { scroll-behavior: auto; }
 }
+
+.docs-prose .install { justify-items: stretch; width: 100%; gap: 10px; margin: 0 0 20px; }
+.docs-prose .codeblock { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; }
+.docs-prose .codeblock-head { border-bottom-color: var(--line); }
+.docs-prose :is(.codeblock-tabs button, .codeblock-copy) { color: var(--ink-3); }
+.docs-prose :is(.codeblock-tabs button:hover, .codeblock-copy:hover) { color: var(--ink); }
+.docs-prose .codeblock-copy:hover { background: var(--hover); }
+.docs-prose .codeblock-copy:focus-visible { outline-color: var(--accent); }
+.docs-prose .codeblock-tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.docs-prose .codeblock pre { color: var(--ink); font: 400 13.5px/1.65 var(--mono); }
+.docs-prose .codeblock pre .sigil { color: var(--ink-3); }
+.docs-prose .install-then { font-size: 15px; }
