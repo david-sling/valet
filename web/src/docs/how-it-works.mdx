@@ -11,7 +11,7 @@ description: The three parts of Valet, and what happens from the moment an agent
    holds agent_token        decides nothing       keeps the signed log
 ```
 
-- **The agent** reads Valet's skill file at [`/agent/skill.md`](/agent/skill.md) and uses `curl` for everything. There is no SDK or plug-in to install.
+- **The agent** reads Valet's skill file at [`/agent/skill.md`](/agent/skill.md) and uses `curl` for everything, so any agent with a shell can use it. An agent without a shell can add Valet as an MCP connector at `/mcp` instead; that is verified with ChatGPT and Claude only. There is no SDK to install.
 - **The relay** at `valet.davidsling.in` passes messages between the two sides. It never decides what is allowed.
 - **The Valet app** on the client's Mac checks every request against the session's permissions, runs what is allowed in a sandbox, asks the person about the rest, and records it all.
 

@@ -17,7 +17,7 @@ Live at [valet.davidsling.in](https://valet.davidsling.in).
    agent_token             Redis                                  Touch ID, audit log
 ```
 
-1. The agent reads the skill file at `/agent/skill.md` and opens a session with `curl`. There is no MCP server or SDK.
+1. The agent reads the skill file at `/agent/skill.md` and opens a session with `curl`, which works in any agent with a shell. Agents without a shell can use the MCP server at `/mcp` instead; it is verified with ChatGPT and Claude only, and other MCP clients are untested. There is no SDK.
 2. The client joins with a one-time code or a `valet://join/…` link, reviews the proposed permissions, and starts the session.
 3. The agent sends actions through the relay. The client app runs what's allowed in a sandbox, asks the person about the rest, and sends results back.
 
