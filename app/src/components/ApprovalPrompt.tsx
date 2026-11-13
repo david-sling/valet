@@ -5,6 +5,7 @@ import { VERB, describe } from '../format'
 import { RiskBars } from './RiskBars'
 import { Diff, DiffStat } from './Diff'
 import { SplitButton } from './SplitButton'
+import { CommandSentence } from './CommandSentence'
 import { api, type Prompt } from '../api'
 
 const RIDGES = [
@@ -101,6 +102,7 @@ export function ApprovalPrompt({
             {guarded && <span className="guarded">{guarded}</span>}
             {prompt.diff && <DiffStat lines={prompt.diff} />}
           </div>
+          {prompt.tool === 'run_command' && prompt.output === null && <CommandSentence command={prompt.literal} />}
           {prompt.diff && <Diff lines={prompt.diff} />}
           {prompt.output !== null && <HeldOutput prompt={prompt} />}
           {(prompt.program || extra.length > 0) && (

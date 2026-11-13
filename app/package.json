@@ -15,6 +15,7 @@
     "@fontsource/geist-mono": "^5.3.0",
     "@tauri-apps/api": "^2.9.0",
     "@valet/protocol": "workspace:*",
+    "cmd-facts": "^0.5.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

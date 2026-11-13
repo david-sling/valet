@@ -28,6 +28,9 @@ importers:
       '@valet/protocol':
         specifier: workspace:*
         version: link:../packages/protocol
+      cmd-facts:
+        specifier: ^0.5.0
+        version: 0.5.0
       react:
         specifier: ^19.2.0
         version: 19.3.1
@@ -1303,6 +1306,10 @@ packages:
   clsx@2.1.1:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
+
+  cmd-facts@0.5.0:
+    resolution: {integrity: sha512-UrrPUR+XvHNZHrJAWSyLEtG8VLsGi3H+lzX3xS/4Un7OjuaU1zur/NehbUyqCcmkPwycey6uWyvJxBi1T5+QpQ==}
+    engines: {node: '>=20'}
 
   collapse-white-space@2.1.0:
     resolution: {integrity: sha512-loKTxY1zCOuG4j9f6EPnuyyYkf58RnhhWTvRoZEokgB+WbdXehfjFviyOVYkqzEWz1Q5kRiZdBYS5SwxbQYwzw==}
@@ -3693,6 +3700,8 @@ snapshots:
       readdirp: 5.1.1
 
   clsx@2.1.1: {}
+
+  cmd-facts@0.5.0: {}
 
   collapse-white-space@2.1.0: {}
 
