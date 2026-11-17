@@ -245,6 +245,14 @@ fn offered(risk: Risk, needs: &[Need]) -> Vec<Scope> {
     scopes
 }
 
+fn blocked_error(grants: &[Grant]) -> String {
+    let mut e = "sandbox: the command tried to use something this session doesn't allow. Ask for it with a structured tool, or ask your user.".to_string();
+    if !switched_off_running_as_you(grants) {
+        e.push_str(" If the command can't work in the sandbox at all, you can send it again with unsandboxed: true; the person confirms that with Touch ID.");
+    }
+    e
+}
+
 const SANDBOX_ONLY: &str = "The person keeps this session in the sandbox, so commands can't run outside it. Use a structured tool or a program that runs in the sandbox, or ask your user; only the person can switch on Run as you.";
 
 // The person switching Run as you off settles it: requests to run outside the sandbox stop at once instead of asking.
@@ -1046,11 +1054,7 @@ impl Manager {
             let program = p.program.clone()?;
             return match sandbox::run(&program, command, p.cwd.as_deref(), &grants, approved, tmp, !p.unsandboxed, stop).await {
                 Ran::Done(v) => Some(Done { status: "ok", output: Some(v), error: None }),
-                Ran::Blocked(v) => Some(Done {
-                    status: "denied",
-                    output: Some(v),
-                    error: Some("sandbox: the command tried to use something this session doesn't allow. Ask for it with a structured tool, or ask your user.".into()),
-                }),
+                Ran::Blocked(v) => Some(Done { status: "denied", output: Some(v), error: Some(blocked_error(&grants)) }),
                 Ran::Failed(e) => Some(Done { status: "failed", output: None, error: Some(e) }),
                 Ran::Stopped => None,
             };
@@ -1136,6 +1140,8 @@ mod tests {
         assert!(!switched_off_running_as_you(&[]), "a session that never proposed it may still ask");
         assert!(!switched_off_running_as_you(&[level(true)]));
         assert!(switched_off_running_as_you(&[level(false)]));
+        assert!(blocked_error(&[level(true)]).contains("unsandboxed: true"));
+        assert!(!blocked_error(&[level(false)]).contains("unsandboxed"), "never point at a door the person closed");
     }
 
     #[test]
@@ -1349,6 +1355,7 @@ mod tests {
         assert!(m.answer(&p.id, true, Some(Scope::Once)).await.is_ok());
         let r = agent.result(&aid).await;
         assert_eq!(r["status"], "denied", "the sandbox should stop ls reading the home folder: {r}");
+        assert!(r["error"].as_str().unwrap().contains("unsandboxed: true"), "{r}");
 
         let aid = agent.act("run_command", json!({ "command": ["/usr/bin/whoami"] })).await;
         let p = prompt(&m).await;

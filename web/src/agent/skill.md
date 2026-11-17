@@ -166,7 +166,7 @@ These are checked before anyone is asked. Breaking one gets you HTTP 400 `invali
 - `git` runs with an empty global config (`GIT_CONFIG_GLOBAL` points at an empty file) unless the person granted `~/.gitconfig`. Repository settings still apply.
 - Each command can run for 5 minutes, use 5 minutes of CPU and write files of up to 2 GB. A command that hits a limit is `failed`, and `error` says which.
 - The sandbox can't be nested: a command can't start `sandbox-exec` itself.
-- A `denied` whose `error` starts with `sandbox:` means the program tried to reach something not allowed. It is not the person saying no. Read `stderr` to see what, and ask for that thing with a structured tool.
+- A `denied` whose `error` starts with `sandbox:` means the program tried to reach something not allowed. It is not the person saying no. Read `stderr` to see what, and ask for that thing with a structured tool. If the command can't work in the sandbox at all, send it again with `unsandboxed: true`, unless the person switched Run as you off.
 
 #### Running outside the sandbox
 
