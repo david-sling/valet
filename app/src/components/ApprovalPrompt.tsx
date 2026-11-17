@@ -62,7 +62,10 @@ export function ApprovalPrompt({
   const allowLabel =
     scope === 'once' ? 'Allow once' : scope === 'check' ? 'Allow, check output' : `Allow for ${SCOPE_LABEL[scope].toLowerCase()}`
   const fingerprint = <Fingerprint />
-  const extra = prompt.needs.filter((n) => n.scope !== prompt.program && !prompt.literal.includes(n.scope))
+  const outside = prompt.needs.some((n) => n.kind === 'Run level')
+  const extra = prompt.needs.filter(
+    (n) => n.kind !== 'Run level' && n.scope !== prompt.program && !prompt.literal.includes(n.scope),
+  )
   const guarded = prompt.needs.find((n) => n.protectedLabel)?.protectedLabel
   const clock = <span className="request-clock">{waited < 1 ? 'Asked just now' : `Asked ${waited} min ago`}</span>
 
@@ -96,6 +99,12 @@ export function ApprovalPrompt({
           <span>Their reason</span>
           <p>{prompt.reason}</p>
         </div>
+        {outside && prompt.output === null && (
+          <p className="warning-note">
+            This runs as you, outside Valet's sandbox. It can read and change any of your files, use the internet and
+            install software. Allow it only if you're sure of the command.
+          </p>
+        )}
         <div className="action-block">
           <div className="literal-row">
             <code className="literal">{prompt.literal}</code>

@@ -72,6 +72,19 @@ const PROMPTS: Omit<Prompt, 'id' | 'askedAt' | 'busy'>[] = [
     output: null,
     outputNext: null,
   },
+  {
+    tool: 'run_command',
+    literal: '/usr/bin/top -l 2 -n 10',
+    program: '/usr/bin/top',
+    cwd: null,
+    needs: [{ kind: 'Run level', access: 'as you', scope: '*', risk: 'critical' }],
+    risk: 'critical',
+    reason: 'Sampling CPU use to find which programs are slowing your Mac down.',
+    scopes: ['once', 'check'],
+    diff: null,
+    output: null,
+    outputNext: null,
+  },
 ]
 
 function join(code: string): Session {
@@ -86,6 +99,7 @@ function join(code: string): Session {
       { kind: 'Files', access: 'read', scope: '~/Library/Logs/AcmeApp/**', risk: 'low' },
       { kind: 'Programs', access: 'run', scope: '/usr/sbin/system_profiler', risk: 'medium' },
       { kind: 'Processes', access: 'list', scope: 'all', risk: 'low' },
+      { kind: 'Run level', access: 'as you', scope: '*', risk: 'critical' },
     ],
     createdAt: Date.now() - 90_000,
     reviewUntil: Date.now() + 600_000,
@@ -146,7 +160,7 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
         return null
       }
       const outcome = args.allow ? 'Approved' : 'Denied'
-      const method = args.allow ? (p.risk === 'high' ? 'Touch ID' : 'Click') : undefined
+      const method = args.allow ? (p.risk === 'high' || p.risk === 'critical' ? 'Touch ID' : 'Click') : undefined
       patch(s.id, (x) => ({
         ...x,
         prompts: x.prompts.filter((q) => q.id !== p.id),

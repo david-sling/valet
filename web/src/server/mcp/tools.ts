@@ -251,9 +251,10 @@ const ACCESS: Record<string, string[]> = {
   Network: ['connect'],
   Environment: ['read'],
   Processes: ['list'],
+  'Run level': ['as you'],
 }
 const TemplateNeed = Need.refine((n) => !ACCESS[n.kind] || ACCESS[n.kind].includes(n.access), {
-  message: 'access must be one its kind takes: Files read or write, Programs run, Network connect, Environment read, Processes list',
+  message: 'access must be one its kind takes: Files read or write, Programs run, Network connect, Environment read, Processes list, Run level as you',
   path: ['access'],
 })
 // the person reads name and purpose to decide whether to let anyone in at all, so neither is the agent's to invent:
@@ -304,7 +305,7 @@ const ACTIONS: { tool: Tool; title: string; changes: boolean; description: strin
     tool: 'list_processes',
     title: 'List running programs',
     changes: false,
-    description: 'Which programs are running on the person\'s Mac. Output: {processes: [{pid, name}]}. Use it instead of ps, which the sandbox refuses.',
+    description: 'Which programs are running on the person\'s Mac. Output: {processes: [{pid, name}]}. Use it instead of ps, which runs only outside the sandbox and makes the person confirm it with Touch ID.',
   },
   {
     tool: 'read_file',
@@ -330,7 +331,7 @@ const ACTIONS: { tool: Tool; title: string; changes: boolean; description: strin
     title: 'Run a program',
     changes: true,
     description:
-      'Run a program with arguments in a sandbox. command is a list of strings, not a shell string: the first is an absolute path or a bare name looked up in the usual bin folders, and ~ and $VARS are not expanded in the rest. For a pipeline send ["/bin/sh", "-c", "…"], which needs /bin/sh allowed. Set network: true when the command reaches the network and its first word does not show it. cwd is optional. Output: {exit_code, stdout, stderr, truncated}. Pick a structured tool over this whenever one fits. A denied whose error starts with sandbox: means the program reached for something not allowed, not the person saying no.',
+      'Run a program with arguments in a sandbox. command is a list of strings, not a shell string: the first is an absolute path or a bare name looked up in the usual bin folders, and ~ and $VARS are not expanded in the rest. For a pipeline send ["/bin/sh", "-c", "…"], which needs /bin/sh allowed. Set network: true when the command reaches the network and its first word does not show it. Set unsandboxed: true only when the command cannot work in the sandbox: it then runs as the person, outside it, and they confirm it with Touch ID every time; programs with raised privileges such as top and ps always run this way, and sudo never runs. cwd is optional. Output: {exit_code, stdout, stderr, truncated}. Pick a structured tool over this whenever one fits. A denied whose error starts with sandbox: means the program reached for something not allowed, not the person saying no.',
   },
   {
     tool: 'write_file',
@@ -350,7 +351,7 @@ export function buildServer(ctx: Context) {
       _meta: { ui: { resourceUri: CARD.session, visibility: ASKS } },
       title: 'Start a Valet session',
       description:
-        "Open a session on another person's Mac and get a join link for them. name and purpose are what the person reads before letting anyone in, so they come from your user and not from you: if you have not been told who the session is for and what it is for, ask them before calling this rather than filling it in yourself. template proposes starting permissions the person can switch off, each {kind, access, scope, risk}. Kinds are Files (read, write), Programs (run, by absolute path), Network (connect, scope *), Environment (read, by variable name or *) and Processes (list, scope all). A file scope is one file; a folder ending in /** covers everything inside it but nothing beside it; ~ is the person's home folder. Risk is low for reading, medium for running a program or changing a file, high for network access or deleting. Ask for the least that does the job; it is where the session starts, not a ceiling, and anything outside it asks the person when you call for it. Returns a hand-off message to give your user as your final message.",
+        "Open a session on another person's Mac and get a join link for them. name and purpose are what the person reads before letting anyone in, so they come from your user and not from you: if you have not been told who the session is for and what it is for, ask them before calling this rather than filling it in yourself. template proposes starting permissions the person can switch off, each {kind, access, scope, risk}. Kinds are Files (read, write), Programs (run, by absolute path), Network (connect, scope *), Environment (read, by variable name or *), Processes (list, scope all) and Run level (as you, scope *, risk critical: commands may run outside the sandbox, each confirmed with Touch ID; propose it only when the work needs a program the sandbox can't start, such as top). A file scope is one file; a folder ending in /** covers everything inside it but nothing beside it; ~ is the person's home folder. Risk is low for reading, medium for running a program or changing a file, high for network access or deleting. Ask for the least that does the job; it is where the session starts, not a ceiling, and anything outside it asks the person when you call for it. Returns a hand-off message to give your user as your final message.",
       inputSchema: StartInput,
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },

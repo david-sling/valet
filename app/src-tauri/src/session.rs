@@ -245,6 +245,15 @@ fn offered(risk: Risk, needs: &[Need]) -> Vec<Scope> {
     scopes
 }
 
+const SANDBOX_ONLY: &str = "The person keeps this session in the sandbox, so commands can't run outside it. Use a structured tool or a program that runs in the sandbox, or ask your user; only the person can switch on Run as you.";
+
+// The person switching Run as you off settles it: requests to run outside the sandbox stop at once instead of asking.
+// A session that never proposed it can still ask, one command at a time.
+fn switched_off_running_as_you(grants: &[Grant]) -> bool {
+    let levels: Vec<&Grant> = grants.iter().filter(|g| g.need.kind == Kind::RunLevel).collect();
+    !levels.is_empty() && levels.iter().all(|g| !g.on)
+}
+
 fn widens_safely(needs: &[Need]) -> bool {
     needs.iter().filter(|n| n.kind == Kind::Files).all(|n| can_widen(&n.scope))
 }
@@ -796,6 +805,9 @@ impl Manager {
                 entry["cwd"] = json!(p.cwd.as_deref().map(tilde));
                 entry["needs"] = json!(p.needs);
                 entry["risk"] = json!(p.risk);
+                if p.unsandboxed {
+                    entry["unsandboxed"] = json!(true);
+                }
             }
             Err(e) => entry["rejected"] = json!(e),
         }
@@ -883,6 +895,9 @@ impl Manager {
             let Some(s) = st.sessions.get(id) else { return (None, None) };
             (s.view.grants.clone(), s.stop.clone(), s.tmp.clone())
         };
+        if p.unsandboxed && switched_off_running_as_you(&grants) {
+            return (Some(Done::rejected(SANDBOX_ONLY.into())), None);
+        }
         let asked = decide(p.risk, &p.needs, &grants, now_ms());
         if let Request::WriteFile { base_hash, .. } = &p.request {
             let current = p.path.as_deref().map(tools::file_hash);
@@ -1029,7 +1044,7 @@ impl Manager {
         if let Request::RunCommand { command, .. } = &p.request {
             let grants = self.lock().sessions.get(id).map(|s| s.view.grants.clone()).unwrap_or_default();
             let program = p.program.clone()?;
-            return match sandbox::run(&program, command, p.cwd.as_deref(), &grants, approved, tmp, stop).await {
+            return match sandbox::run(&program, command, p.cwd.as_deref(), &grants, approved, tmp, !p.unsandboxed, stop).await {
                 Ran::Done(v) => Some(Done { status: "ok", output: Some(v), error: None }),
                 Ran::Blocked(v) => Some(Done {
                     status: "denied",
@@ -1113,6 +1128,14 @@ mod tests {
         assert!(read("~/Documents/notes.txt").contains(&Scope::Folder));
         assert!(!read("~/notes.txt").contains(&Scope::Folder), "~ holds the SSH keys");
         assert!(read("~/notes.txt").contains(&Scope::Session), "the other choices stay");
+    }
+
+    #[test]
+    fn only_switching_run_as_you_off_stops_asking() {
+        let level = |on| Grant { id: "g1".into(), on, source: Source::Proposed, need: crate::needs::run_as_you_need(), expires_at: None };
+        assert!(!switched_off_running_as_you(&[]), "a session that never proposed it may still ask");
+        assert!(!switched_off_running_as_you(&[level(true)]));
+        assert!(switched_off_running_as_you(&[level(false)]));
     }
 
     #[test]
