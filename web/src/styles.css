@@ -523,7 +523,7 @@ a { color: inherit; }
   .sealed { padding: 14px 18px 18px; }
 }
 
-/* "The sandbox enforces it. Not the agent.": on the brand's cream paper, built on a spine. The example session's
+/* "Valet enforces the permissions. Not your agent.": on the brand's cream paper, built on a spine. The example session's
    audit log runs down a hash chain, entries on the left, and each rule hangs off the entry that proves it. */
 .security { position: relative; z-index: 9; margin-top: -40px; border-radius: 40px 40px 0 0; background: var(--cream-soft); }
 .security-inner { max-width: 72rem; margin: 0 auto; display: grid; gap: clamp(28px, 4.5vh, 44px); }

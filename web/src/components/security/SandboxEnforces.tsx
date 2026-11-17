@@ -115,7 +115,7 @@ export function SandboxEnforces() {
     <section className="security" id="security" ref={rootRef}>
       <div className="security-inner">
         <div className="security-head">
-          <h2 className="h2">The sandbox enforces it. Not the agent.</h2>
+          <h2 className="h2">Valet enforces the permissions. Not your agent.</h2>
           <p className="lead">
             Your agent asks; the customer’s machine decides. The rules are enforced where the commands run, not in
             the agent’s prompt.
