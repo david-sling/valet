@@ -25,6 +25,7 @@ Valet shows the name the vendor gave and the reason for the session. Valet can't
 The vendor may propose permissions so their agent doesn't have to ask about every step, such as reading one app's log folder. Each one shows exactly what it covers and how risky it is.
 
 - Switch off anything you don't want. The agent can still ask for it later, and you can say no then.
+- **Run as you** lets the agent ask to run commands outside Valet's sandbox, where they can reach everything your account can. Each one still asks you and needs Touch ID. Switch it off to keep everything in the sandbox; see [Commands that run outside the sandbox](/docs/clients/approvals#commands-that-run-outside-the-sandbox).
 - Some places are never covered by starting permissions, whatever the vendor proposes: SSH keys, saved passwords and credentials, keychains, browser data, password managers, Mail, Messages and `.env` files. The agent always has to ask.
 
 ## Start or decline

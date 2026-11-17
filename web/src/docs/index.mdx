@@ -9,7 +9,7 @@ Valet is a valet key for AI agents. A vendor's agent asks to run commands on a c
 
 - **Commands only.** The agent runs programs and reads or writes files. There is no screen sharing, screen capture, or mouse and keyboard control.
 - **The client's machine decides.** Each session starts from permissions the client reviews. Anything outside them waits for the client's approval, with Touch ID for high-risk actions.
-- **Enforced in the macOS sandbox,** never by reading the text of a command and guessing what it does.
+- **Enforced in the macOS sandbox,** never by reading the text of a command and guessing what it does. A command runs outside it only when the client allows that one command, with Touch ID.
 - **Temporary and attended.** A session lasts 60 minutes, and only the client can extend it. Every action is recorded in a signed log both sides can see.
 
 ## Who these docs are for
