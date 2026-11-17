@@ -28,7 +28,7 @@ export const LIMITS = {
 } as const
 
 export const Risk = z.enum(['low', 'medium', 'high', 'critical'])
-export const Kind = z.enum(['Files', 'Programs', 'Network', 'Environment', 'Processes', 'Admin rights'])
+export const Kind = z.enum(['Files', 'Programs', 'Network', 'Environment', 'Processes', 'Admin rights', 'Run level'])
 export const Need = z.object({
   kind: Kind,
   access: z.string().min(1).max(20),
@@ -55,6 +55,7 @@ export const ActionRequest = z.discriminatedUnion('tool', [
       command: z.array(z.string().max(LIMITS.arg)).min(1).max(LIMITS.argv),
       cwd: path.optional(),
       network: z.boolean().optional(),
+      unsandboxed: z.boolean().optional(),
     }),
   }),
   z.object({ tool: z.literal('read_file'), args: z.object({ path, max_bytes: z.number().int().positive().optional() }) }),

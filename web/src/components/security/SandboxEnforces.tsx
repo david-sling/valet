@@ -6,7 +6,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 // the example session runs down a hash chain (PRD: 7.5, 7.7), and each rule hangs off the entry that proves it.
 // The section before already showed approvals and a blocked protected file, so this log shows what it didn't:
 // the sandbox judging what a process does rather than what its command says, templates that can't reach protected
-// places, and the sealed record.
+// places, leaving the sandbox only on Touch ID, and the sealed record.
 // The markup is the finished state, which is what shows without the scroll animation.
 
 type Entry = {
@@ -56,6 +56,19 @@ const ENTRIES: Entry[] = [
   },
   {
     n: 14,
+    time: '14:05:12',
+    action: 'run_command /usr/bin/top -l 1 -n 10',
+    mono: true,
+    outcome: 'Approved with Touch ID · outside the sandbox',
+    tone: 'ok',
+    hash: 'b37d…5e19',
+    rule: {
+      title: 'Leaving the sandbox takes Touch ID. Every time.',
+      body: 'Some programs can’t run in a sandbox. The customer can let one run as themselves, outside it, after a warning about what that allows, and only one command at a time. The log marks it either way.',
+    },
+  },
+  {
+    n: 15,
     time: '14:09:31',
     action: 'Session ended by the customer',
     outcome: 'Every permission revoked · 1 process stopped',
@@ -115,7 +128,7 @@ export function SandboxEnforces() {
     <section className="security" id="security" ref={rootRef}>
       <div className="security-inner">
         <div className="security-head">
-          <h2 className="h2">The sandbox enforces it. Not the agent.</h2>
+          <h2 className="h2">Valet enforces the permissions. Not your agent.</h2>
           <p className="lead">
             Your agent asks; the customer’s machine decides. The rules are enforced where the commands run, not in
             the agent’s prompt.

@@ -229,11 +229,17 @@ pub async fn run(
     grants: &[Grant],
     approved: &[Need],
     tmp: &Path,
+    confined: bool,
     stop: &CancellationToken,
 ) -> Ran {
-    let sb = profile(grants, approved, program, tmp);
-    let mut cmd = tokio::process::Command::new("/usr/bin/sandbox-exec");
-    cmd.arg("-p").arg(&sb).arg(program).args(&argv[1..]);
+    let mut cmd = if confined {
+        let mut c = tokio::process::Command::new("/usr/bin/sandbox-exec");
+        c.arg("-p").arg(profile(grants, approved, program, tmp)).arg(program);
+        c
+    } else {
+        tokio::process::Command::new(program)
+    };
+    cmd.args(&argv[1..]);
     cmd.env_clear().envs(environment(grants, tmp));
     cmd.current_dir(cwd.unwrap_or(tmp));
     cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -295,7 +301,7 @@ pub async fn run(
         "stderr": stderr,
         "truncated": t1 || t2,
     });
-    if exit_code == 71 && stderr.contains("execvp()") || exit_code != 0 && blocked(&stderr) {
+    if confined && (exit_code == 71 && stderr.contains("execvp()") || exit_code != 0 && blocked(&stderr)) {
         return Ran::Blocked(result);
     }
     Ran::Done(result)
@@ -324,7 +330,7 @@ mod tests {
 
     async fn sh(script: &str, grants: &[Grant]) -> Ran {
         let argv = vec!["/bin/sh".into(), "-c".into(), script.into()];
-        run(Path::new("/bin/sh"), &argv, None, grants, &[], &tmp(), &CancellationToken::new()).await
+        run(Path::new("/bin/sh"), &argv, None, grants, &[], &tmp(), true, &CancellationToken::new()).await
     }
 
     #[test]
@@ -349,9 +355,18 @@ mod tests {
     #[tokio::test]
     async fn runs_a_granted_program() {
         let argv = vec!["/usr/bin/uname".into()];
-        let r = run(Path::new("/usr/bin/uname"), &argv, None, &[], &[], &tmp(), &CancellationToken::new()).await;
+        let r = run(Path::new("/usr/bin/uname"), &argv, None, &[], &[], &tmp(), true, &CancellationToken::new()).await;
         let Ran::Done(v) = r else { panic!("uname did not run") };
         assert_eq!(v["stdout"], "Darwin\n");
+    }
+
+    #[tokio::test]
+    async fn a_setuid_program_runs_only_outside_the_sandbox() {
+        let argv: Vec<String> = ["/usr/bin/top", "-l", "1", "-n", "0"].map(String::from).to_vec();
+        let top = Path::new("/usr/bin/top");
+        assert!(matches!(run(top, &argv, None, &[], &[], &tmp(), true, &CancellationToken::new()).await, Ran::Blocked(_)));
+        let Ran::Done(v) = run(top, &argv, None, &[], &[], &tmp(), false, &CancellationToken::new()).await else { panic!("top did not run") };
+        assert!(v["stdout"].as_str().unwrap().contains("Processes:"), "{v}");
     }
 
     #[tokio::test]
@@ -390,7 +405,7 @@ mod tests {
     async fn the_network_needs_an_approved_grant() {
         let curl = |grants: Vec<Grant>| async move {
             let argv: Vec<String> = ["/usr/bin/curl", "-sS", "-m", "5", "-o", "/dev/null", "https://example.com"].map(String::from).to_vec();
-            run(Path::new("/usr/bin/curl"), &argv, None, &grants, &[], &tmp(), &CancellationToken::new()).await
+            run(Path::new("/usr/bin/curl"), &argv, None, &grants, &[], &tmp(), true, &CancellationToken::new()).await
         };
         let proposed = curl(vec![grant(Kind::Network, "connect", "*", Source::Proposed)]).await;
         assert!(!matches!(proposed, Ran::Done(ref v) if v["exit_code"] == 0));
@@ -407,7 +422,7 @@ mod tests {
         let argv = vec!["/bin/sh".into(), "-c".into(), "/bin/sleep 30 & /bin/sleep 30".into()];
         let sleep = grant(Kind::Programs, "run", "/bin/sleep", Source::Proposed);
         let started = std::time::Instant::now();
-        let r = run(Path::new("/bin/sh"), &argv, None, &[sleep], &[], &tmp(), &stop).await;
+        let r = run(Path::new("/bin/sh"), &argv, None, &[sleep], &[], &tmp(), true, &stop).await;
         assert!(matches!(r, Ran::Stopped));
         assert!(started.elapsed() < Duration::from_secs(5));
     }
