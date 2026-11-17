@@ -1232,6 +1232,59 @@ mod tests {
         panic!("no prompt was raised");
     }
 
+    async fn live_session(base: &str, template: Value, on: bool) -> (Manager, Agent) {
+        let api = format!("{}/api/v1", base.trim_end_matches('/'));
+        let http = reqwest::Client::new();
+        let created: Value = http
+            .post(format!("{api}/sessions"))
+            .json(&json!({ "name": "Test vendor", "purpose": "End-to-end test.", "template": template }))
+            .send().await.unwrap().json().await.unwrap();
+        let agent = Agent {
+            http,
+            api,
+            id: created["session_id"].as_str().unwrap_or_else(|| panic!("not created: {created}")).into(),
+            token: created["agent_token"].as_str().unwrap().into(),
+        };
+        let m = Manager::new(Relay::new(base), Arc::new(|_| {}), None, None);
+        let joined = m.join(created["code"].as_str().unwrap()).await.unwrap();
+        let choices: Vec<GrantChoice> = serde_json::from_value(template.as_array().unwrap().iter().map(|n| {
+            let mut n = n.clone();
+            n["on"] = on.into();
+            n
+        }).collect()).unwrap();
+        m.start(&joined.id, choices).await.unwrap();
+        (m, agent)
+    }
+
+    #[tokio::test]
+    #[ignore = "needs a local relay in VALET_TEST_RELAY"]
+    async fn running_outside_the_sandbox_asks_unless_switched_off() {
+        let base = std::env::var("VALET_TEST_RELAY").expect("VALET_TEST_RELAY");
+        let top = json!({ "command": ["/usr/bin/top", "-l", "1", "-n", "0"] });
+
+        let level = json!([{ "kind": "Run level", "access": "as you", "scope": "*", "risk": "critical" }]);
+        let (m, agent) = live_session(&base, level, false).await;
+        assert!(m.snapshot()[0].grants.iter().any(|g| g.need.kind == Kind::RunLevel && !g.on), "the relay carries the proposal");
+        for args in [top.clone(), json!({ "command": ["/bin/ls"], "unsandboxed": true })] {
+            let r = agent.result(&agent.act("run_command", args).await).await;
+            assert_eq!(r["status"], "rejected", "switched off, it never asks: {r}");
+            assert!(r["error"].as_str().unwrap().contains("sandbox"), "{r}");
+        }
+        assert!(m.snapshot()[0].prompts.is_empty());
+        let r = agent.result(&agent.act("run_command", json!({ "command": ["/usr/bin/sudo", "-n", "true"] })).await).await;
+        assert_eq!(r["status"], "rejected", "{r}");
+        m.end_all().await;
+
+        let (m, agent) = live_session(&base, json!([]), true).await;
+        let aid = agent.act("run_command", top).await;
+        let p = prompt(&m).await;
+        assert_eq!((p.risk, p.scopes.clone()), (Risk::Critical, vec![Scope::Once, Scope::Check]));
+        assert_eq!(p.needs, vec![crate::needs::run_as_you_need()]);
+        assert!(m.answer(&p.id, false, None).await.is_ok());
+        assert_eq!(agent.result(&aid).await["status"], "denied");
+        m.end_all().await;
+    }
+
     #[tokio::test]
     #[ignore = "needs a local relay in VALET_TEST_RELAY"]
     async fn a_session_runs_end_to_end() {

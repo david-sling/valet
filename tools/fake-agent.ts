@@ -35,6 +35,8 @@ const STEPS: [string, Record<string, unknown>, string][] = [
   ['write_file', { path: `/tmp/valet-demo-${randomBytes(3).toString('hex')}.txt`, content: 'written by the fake agent\n', base_hash: EMPTY }, 'Asks: medium risk, with a diff'],
   ['run_command', { command: ['/usr/bin/curl', '-sS', '-o', '/dev/null', '-w', '%{http_code}', 'https://example.com'] }, 'Asks: network, Touch ID'],
   ['list_dir', { path: '~/.ssh' }, 'Asks: protected place, Touch ID'],
+  ['run_command', { command: ['/usr/bin/top', '-l', '1', '-n', '5'] }, 'Asks: outside the sandbox, Touch ID every time'],
+  ['run_command', { command: ['/usr/bin/top', '-l', '1', '-n', '5'] }, 'Asks again, or rejected if you switched Run as you off'],
 ]
 
 async function settle(aid: string) {
@@ -52,6 +54,7 @@ async function main() {
       { kind: 'Files', access: 'read', scope: '/etc/**', risk: 'low' },
       { kind: 'Programs', access: 'run', scope: '/usr/bin/sw_vers', risk: 'medium' },
       { kind: 'Processes', access: 'list', scope: 'all', risk: 'low' },
+      { kind: 'Run level', access: 'as you', scope: '*', risk: 'critical' },
     ],
   })
   token = String(created.agent_token)
