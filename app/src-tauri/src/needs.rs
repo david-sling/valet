@@ -629,6 +629,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "macos")]
     fn rates_a_proposed_permission_from_its_scope_not_the_agents_label() {
         let rated = |k, a, s| rate(proposed(k, a, s, Risk::Low)).risk;
         assert_eq!(rated(Kind::Programs, "run", "/bin/zsh"), Risk::High);
@@ -666,6 +667,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "macos")]
     fn a_folder_grant_may_not_reach_over_a_protected_place() {
         assert!(can_widen("~/Documents/notes.txt"));
         assert!(!can_widen("~/notes.txt"), "widening to ~ would open the SSH keys");
@@ -762,6 +764,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "macos")]
     fn a_command_that_says_it_needs_the_network_asks_for_it() {
         let p = plan(Request::RunCommand { command: vec!["sh".into()], cwd: None, network: false, unsandboxed: false }).unwrap();
         assert!(!p.needs.iter().any(|n| n.kind == Kind::Network));

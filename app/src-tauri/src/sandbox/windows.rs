@@ -737,7 +737,7 @@ mod tests {
         let mut sd = PSECURITY_DESCRIPTOR::default();
         let mut found = Vec::new();
         unsafe {
-            GetNamedSecurityInfoW(PCWSTR(name.as_ptr()), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, None, None, Some(&mut dacl), None, &mut sd);
+            let _ = GetNamedSecurityInfoW(PCWSTR(name.as_ptr()), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, None, None, Some(&mut dacl), None, &mut sd);
             for i in 0..(*dacl).AceCount {
                 let mut ace: *mut core::ffi::c_void = std::ptr::null_mut();
                 windows::Win32::Security::GetAce(dacl, i as u32, &mut ace).unwrap();
