@@ -641,6 +641,17 @@ fn kill(job: &Owned) {
 
 const DENIED: &[&str] = &["access is denied", "access denied", "unauthorizedaccess", "permissiondenied", "permission denied", "operation not permitted"];
 
+// Without PSModulePath, Windows PowerShell builds one from the machine's setting, which often names folders a container
+// can't read (another account's Documents, a tool's own module folder). Looking a command up scans every folder on it, and
+// one it can't read stops the lookup: even Write-Output isn't found. Inside the sandbox it gets the two system folders,
+// which every container can read; PowerShell 7 adds its own on top.
+fn module_path() -> String {
+    let root = PathBuf::from(std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into()));
+    let files = PathBuf::from(std::env::var_os("ProgramFiles").unwrap_or_else(|| "C:\\Program Files".into()));
+    let folders = [root.join("System32\\WindowsPowerShell\\v1.0\\Modules"), files.join("WindowsPowerShell\\Modules")];
+    std::env::join_paths(folders).map(|p| p.to_string_lossy().into_owned()).unwrap_or_default()
+}
+
 pub async fn run(
     program: &Path,
     argv: &[String],
@@ -670,7 +681,10 @@ pub async fn run(
     } else {
         None
     };
-    let env = environment(grants, tmp);
+    let mut env = environment(grants, tmp);
+    if confined {
+        env.push(("PSModulePath".into(), module_path()));
+    }
     let started = start(sandbox.as_ref().map(|(c, r)| (c, r)), program, argv, cwd.unwrap_or(tmp), &env);
     let container = sandbox.map(|(c, _)| c);
     let Started { process, job, stdout, stderr, pty } = match started {
@@ -825,11 +839,13 @@ mod tests {
         let tmp = dir("powershell");
         let ps = system("WindowsPowerShell\\v1.0\\powershell.exe");
         for confined in [true, false] {
-            let argv = vec!["powershell.exe".into(), "-NoProfile".into(), "-Command".into(), "Write-Output hi".into()];
+            // two commands from two modules, each found by PowerShell's own lookup rather than imported by hand
+            let script = "$null = Get-ExecutionPolicy; Write-Output hi";
+            let argv = vec!["powershell.exe".into(), "-NoProfile".into(), "-Command".into(), script.into()];
             let r = run(&ps, &argv, None, &[], &[], &tmp, confined, &CancellationToken::new()).await;
             let Ran::Done(v) = &r else { panic!("powershell did not run: {}", output(&r)) };
-            assert_eq!(v["exit_code"], 0, "{v}");
-            assert_eq!(v["stdout"].as_str().unwrap().trim(), "hi", "{v}");
+            assert_eq!(v["exit_code"], 0, "confined={confined} {v}");
+            assert_eq!(v["stdout"].as_str().unwrap().trim(), "hi", "confined={confined} {v}");
         }
     }
 
