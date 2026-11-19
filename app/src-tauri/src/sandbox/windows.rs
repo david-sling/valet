@@ -43,11 +43,12 @@ use windows::Win32::System::JobObjects::{
     SetInformationJobObject, TerminateJobObject, JOBOBJECT_BASIC_UI_RESTRICTIONS, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
     JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION, JOB_OBJECT_LIMIT_JOB_TIME, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOB_OBJECT_UILIMIT,
 };
+use windows::Win32::System::Console::{ClosePseudoConsole, CreatePseudoConsole, COORD, HPCON};
 use windows::Win32::System::Pipes::CreatePipe;
 use windows::Win32::System::Threading::{
     CreateProcessW, DeleteProcThreadAttributeList, GetExitCodeProcess, InitializeProcThreadAttributeList, ResumeThread,
     UpdateProcThreadAttribute, WaitForSingleObject, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
-    DETACHED_PROCESS, EXTENDED_STARTUPINFO_PRESENT, INFINITE, LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_INFORMATION, STARTF_USESTDHANDLES, STARTUPINFOEXW,
+    EXTENDED_STARTUPINFO_PRESENT, INFINITE, LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_INFORMATION, STARTF_USESTDHANDLES, STARTUPINFOEXW,
 };
 
 use super::{capture, environment, live, Ran, CPU_SECONDS, WALL_LIMIT};
@@ -60,6 +61,7 @@ const WALK_LIMIT: usize = 20_000;
 const PROC_THREAD_ATTRIBUTE_HANDLE_LIST: usize = 0x0002_0002;
 const PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES: usize = 0x0002_0009;
 const PROC_THREAD_ATTRIBUTE_CHILD_PROCESS_POLICY: usize = 0x0002_000E;
+const PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE: usize = 0x0002_0016;
 const PROCESS_CREATION_CHILD_PROCESS_RESTRICTED: u32 = 0x01;
 const SE_GROUP_ENABLED: u32 = 0x4;
 const SECURITY_DESCRIPTOR_REVISION: u32 = 1;
@@ -468,11 +470,54 @@ fn pipe(child_reads: bool) -> Result<(Owned, Owned), String> {
     Ok((r, w))
 }
 
+// A console of the command's own that never shows a window. Some programs (PowerShell among them) quit at once, doing
+// nothing, when started with no console; a container can't create one itself, but can attach to one Valet makes for it.
+// Each command gets its own, so no command can read another's console. stdout and stderr still go to Valet's pipes; only
+// what a program writes to the console directly lands here, and it is read and thrown away so the console never stalls.
+struct Pty {
+    hpc: HPCON,
+    _input: Owned,
+    drain: Option<std::thread::JoinHandle<()>>,
+}
+
+unsafe impl Send for Pty {}
+
+impl Pty {
+    fn create() -> Result<Self, String> {
+        let (mut in_r, mut in_w, mut out_r, mut out_w) = (HANDLE::default(), HANDLE::default(), HANDLE::default(), HANDLE::default());
+        unsafe {
+            CreatePipe(&mut in_r, &mut in_w, None, 0).map_err(|e| e.to_string())?;
+            CreatePipe(&mut out_r, &mut out_w, None, 0).map_err(|e| e.to_string())?;
+        }
+        let (in_r, in_w, out_r, out_w) = (Owned(in_r), Owned(in_w), Owned(out_r), Owned(out_w));
+        let hpc = unsafe { CreatePseudoConsole(COORD { X: 120, Y: 30 }, in_r.0, out_w.0, 0) }
+            .map_err(|e| format!("Couldn't make a console for the command: {}", e.message()))?;
+        // The console holds its own copies of these two
+        drop((in_r, out_w));
+        let out = out_r.take().0 as usize;
+        let drain = std::thread::spawn(move || {
+            let mut f = unsafe { std::fs::File::from_raw_handle(out as RawHandle) };
+            let _ = std::io::copy(&mut f, &mut std::io::sink());
+        });
+        Ok(Pty { hpc, _input: in_w, drain: Some(drain) })
+    }
+}
+
+impl Drop for Pty {
+    fn drop(&mut self) {
+        unsafe { ClosePseudoConsole(self.hpc) };
+        if let Some(d) = self.drain.take() {
+            let _ = d.join();
+        }
+    }
+}
+
 struct Started {
     process: Owned,
     job: Owned,
     stdout: Owned,
     stderr: Owned,
+    pty: Pty,
 }
 
 fn job(cpu_seconds: u64) -> Result<Owned, String> {
@@ -511,7 +556,8 @@ fn start(confined: Option<(&Container, &Rules)>, program: &Path, argv: &[String]
     let (stderr_r, stderr_w) = pipe(false)?;
     let inherited = [stdin_r.0, stdout_w.0, stderr_w.0];
 
-    let attrs = 1 + security.is_some() as u32 + restrict_children as u32;
+    let pty = Pty::create()?;
+    let attrs = 2 + security.is_some() as u32 + restrict_children as u32;
     let mut size = 0usize;
     unsafe {
         let _ = InitializeProcThreadAttributeList(None, attrs, None, &mut size);
@@ -533,6 +579,8 @@ fn start(confined: Option<(&Container, &Rules)>, program: &Path, argv: &[String]
                 .map_err(|e| e.to_string())?;
         }
         UpdateProcThreadAttribute(list, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, Some(inherited.as_ptr() as _), std::mem::size_of_val(&inherited), None, None)
+            .map_err(|e| e.to_string())?;
+        UpdateProcThreadAttribute(list, 0, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, Some(pty.hpc.0 as *const _), std::mem::size_of::<HPCON>(), None, None)
             .map_err(|e| e.to_string())?;
         if restrict_children {
             UpdateProcThreadAttribute(list, 0, PROC_THREAD_ATTRIBUTE_CHILD_PROCESS_POLICY, Some(&policy as *const _ as _), std::mem::size_of_val(&policy), None, None)
@@ -561,7 +609,7 @@ fn start(confined: Option<(&Container, &Rules)>, program: &Path, argv: &[String]
             None,
             None,
             true,
-            CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT | DETACHED_PROCESS,
+            CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT,
             Some(env.as_ptr() as _),
             PCWSTR(dir.as_ptr()),
             &si.StartupInfo,
@@ -578,7 +626,7 @@ fn start(confined: Option<(&Container, &Rules)>, program: &Path, argv: &[String]
         return Err(format!("Couldn't contain the program: {}", e.message()));
     }
     unsafe { ResumeThread(thread.0) };
-    Ok(Started { process, job, stdout: stdout_r, stderr: stderr_r })
+    Ok(Started { process, job, stdout: stdout_r, stderr: stderr_r, pty })
 }
 
 fn reader(h: Owned) -> tokio::fs::File {
@@ -625,7 +673,7 @@ pub async fn run(
     let env = environment(grants, tmp);
     let started = start(sandbox.as_ref().map(|(c, r)| (c, r)), program, argv, cwd.unwrap_or(tmp), &env);
     let container = sandbox.map(|(c, _)| c);
-    let Started { process, job, stdout, stderr } = match started {
+    let Started { process, job, stdout, stderr, pty } = match started {
         Ok(s) => s,
         Err(e) => {
             let _ = tokio::task::spawn_blocking(move || drop(container)).await;
@@ -647,14 +695,14 @@ pub async fn run(
         _ = tokio::time::sleep(WALL_LIMIT) => None,
         _ = stop.cancelled() => {
             kill(&job);
-            let _ = tokio::task::spawn_blocking(move || drop(container)).await;
+            let _ = tokio::task::spawn_blocking(move || drop((pty, container))).await;
             return Ran::Stopped;
         }
     };
     kill(&job);
     let (stdout, t1) = out.await.unwrap_or_default();
     let (stderr, t2) = err.await.unwrap_or_default();
-    let _ = tokio::task::spawn_blocking(move || drop(container)).await;
+    let _ = tokio::task::spawn_blocking(move || drop((pty, container))).await;
     let Some(code) = status else {
         return Ran::Failed("The command ran for 5 minutes and was stopped.".into());
     };
@@ -769,6 +817,20 @@ mod tests {
         let Ran::Done(v) = &r else { panic!("whoami did not run: {}", output(&r)) };
         assert_eq!(v["exit_code"], 0, "{v}");
         assert!(!v["stdout"].as_str().unwrap().trim().is_empty());
+    }
+
+    #[tokio::test]
+    // PowerShell quits at once, doing nothing and saying nothing, when it starts with no console
+    async fn runs_powershell() {
+        let tmp = dir("powershell");
+        let ps = system("WindowsPowerShell\\v1.0\\powershell.exe");
+        for confined in [true, false] {
+            let argv = vec!["powershell.exe".into(), "-NoProfile".into(), "-Command".into(), "Write-Output hi".into()];
+            let r = run(&ps, &argv, None, &[], &[], &tmp, confined, &CancellationToken::new()).await;
+            let Ran::Done(v) = &r else { panic!("powershell did not run: {}", output(&r)) };
+            assert_eq!(v["exit_code"], 0, "{v}");
+            assert_eq!(v["stdout"].as_str().unwrap().trim(), "hi", "{v}");
+        }
     }
 
     #[tokio::test]

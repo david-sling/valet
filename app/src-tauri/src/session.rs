@@ -212,7 +212,24 @@ fn page(s: &str, from: usize) -> Page {
 
 fn feed_output(tool: &str, v: &Value) -> Option<String> {
     let text = output_text(tool, v);
+    if text.is_empty() && tool == "run_command" {
+        // Without this a command that printed nothing looks exactly like one still waiting for its result
+        return Some(match v["exit_code"].as_i64() {
+            Some(0) => "Finished without printing anything.".into(),
+            Some(code) => format!("Exited with code {} without printing anything.", exit_code_text(code)),
+            None => "Finished without printing anything.".into(),
+        });
+    }
     (!text.is_empty()).then(|| clip(&text, FEED_OUTPUT))
+}
+
+// Windows reports a crash or a failed start as an NTSTATUS, which reads far better in hex (0xC0000142) than as -1073741502
+fn exit_code_text(code: i64) -> String {
+    if cfg!(windows) && (code as i32) < 0 {
+        format!("0x{:08X}", code as i32 as u32)
+    } else {
+        code.to_string()
+    }
 }
 
 fn output_text(tool: &str, v: &Value) -> String {
