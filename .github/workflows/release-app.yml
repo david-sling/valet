@@ -9,8 +9,8 @@ on:
       platform:
         description: Platform to build
         type: choice
-        options: [windows, macos, both]
-        default: windows
+        options: [both, windows, macos]
+        default: both
 
 permissions:
   contents: write
