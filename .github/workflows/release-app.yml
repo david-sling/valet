@@ -3,6 +3,8 @@ name: Release app
 on:
   push:
     tags: ['app-v*']
+  # Builds both platforms on any branch without creating a release
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -18,8 +20,18 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check the tag is on main
+        if: github.event_name == 'push'
+        run: |
+          git fetch --quiet origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+            echo "::error::$GITHUB_REF_NAME points at a commit that isn't on main. Merge first, then tag."; exit 1; }
 
       - name: Check the release notes
+        if: github.event_name == 'push'
         run: |
           git fetch --quiet --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
           notes=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME" | sed '/^-----BEGIN .*SIGNATURE-----$/,$d')
@@ -30,7 +42,7 @@ jobs:
         id: version
         run: |
           version=$(jq -r .version app/src-tauri/tauri.conf.json)
-          [ "$GITHUB_REF_NAME" = "app-v$version" ] || { echo "::error::Tag $GITHUB_REF_NAME doesn't match version $version"; exit 1; }
+          [ "$GITHUB_EVENT_NAME" != push ] || [ "$GITHUB_REF_NAME" = "app-v$version" ] || { echo "::error::Tag $GITHUB_REF_NAME doesn't match version $version"; exit 1; }
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
   # Each platform keeps its finished files in the Actions cache under the tag and commit,
@@ -200,6 +212,9 @@ jobs:
 
       - name: Write the release notes
         run: |
+          if [ "$GITHUB_EVENT_NAME" != push ]; then
+            echo "Test build of $GITHUB_REF_NAME at $GITHUB_SHA" > "$RUNNER_TEMP/notes.md"; exit 0
+          fi
           git fetch --quiet --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
           git tag -l --format='%(contents)' "$GITHUB_REF_NAME" | sed '/^-----BEGIN .*SIGNATURE-----$/,$d' > "$RUNNER_TEMP/notes.md"
           printf '\n%s\n' 'Signed and notarised for macOS 13 or later, on Apple silicon and Intel. The Windows installer is for Windows 10 and 11 (x64) and is not code-signed yet, so Windows may warn before it runs.' >> "$RUNNER_TEMP/notes.md"
@@ -225,7 +240,16 @@ jobs:
                 "windows-x86_64-nsis": {signature: $win_sig, url: $win_url}}}' > dist/latest.json
           jq '.platforms | keys' dist/latest.json
 
+      - name: Keep the test build
+        if: github.event_name != 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Valet-test-${{ github.sha }}
+          path: dist
+          if-no-files-found: error
+
       - name: Create the draft release
+        if: github.event_name == 'push'
         run: |
           existing=$(gh release view "$GITHUB_REF_NAME" --json isDraft -q .isDraft 2>/dev/null || true)
           if [ "$existing" = false ]; then
