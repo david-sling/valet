@@ -911,7 +911,23 @@ impl Manager {
         if let Some(m) = method {
             body["method"] = m.into();
         }
-        let _ = self.post(&id, &token, &a.action_id, &body).await;
+        let mut sent = self.post(&id, &token, &a.action_id, &body).await;
+        // A relay older than this app turns back an approval method it doesn't know (windows_hello) with a 400. The
+        // method is optional, so the result goes again without it rather than never reaching the agent.
+        if matches!(&sent, Err(e) if e.status() == Some(400)) && body.get("method").is_some() {
+            if let Some(b) = body.as_object_mut() {
+                b.remove("method");
+            }
+            sent = self.post(&id, &token, &a.action_id, &body).await;
+        }
+        if let Err(e) = sent {
+            // Said where the person can see it: otherwise the agent waits on a result that never comes, and nothing says so
+            let mut st = self.lock();
+            st.log(&id, "result.unsent", json!({ "action_id": a.action_id, "error": e.to_string() }));
+            st.event(&id, format!("This result didn't reach the agent: {e}"));
+            drop(st);
+            self.changed();
+        }
     }
 
     async fn post(&self, id: &str, token: &str, aid: &str, body: &Value) -> Result<(), RelayError> {
