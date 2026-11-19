@@ -1,11 +1,11 @@
 ---
 title: Security model
-description: How Valet limits what an agent can do on a Mac, what leaves the machine, and what to know before approving it for your organisation.
+description: How Valet limits what an agent can do on a Mac or Windows PC, what leaves the machine, and what to know before approving it for your organisation.
 ---
 
 ## Principles
 
-1. **The client's machine decides.** Permissions are checked and enforced on the Mac being used. The relay passes messages and never decides what is allowed.
+1. **The client's machine decides.** Permissions are checked and enforced on the computer being used. The relay passes messages and never decides what is allowed.
 2. **Deny by default.** A session starts with nothing allowed beyond what the person accepted. Everything else asks.
 3. **Show the real action.** The person decides on the exact command, path or host, never on the agent's description of it.
 4. **If it isn't in the log, it didn't happen.** Every request, decision and result is recorded and signed.
@@ -13,57 +13,62 @@ description: How Valet limits what an agent can do on a Mac, what leaves the mac
 
 ## Enforcement
 
-- Every `run_command` runs under the macOS sandbox, unless the person confirms it with Touch ID to run outside it (see below), with a profile built from the session's permissions at that moment. It starts from deny-all, then allows only the granted files and programs, plus the system paths a process needs to start.
-- Child processes inherit the same sandbox.
+- Every `run_command` runs in a sandbox built from the session's permissions at that moment, unless the person confirms it to run outside it (see below).
+  - **On a Mac,** it runs under the macOS sandbox, with a profile that starts from deny-all, then allows only the granted files and programs, plus the system paths a process needs to start.
+  - **On Windows,** it runs in an AppContainer of its own, made for that one command and never reused. It starts with no access to the person's files, like an app from the Microsoft Store. Each granted file or folder gets an access entry for that container just before the command starts, and the entry is removed when it ends.
+- Child processes stay in the same sandbox. On Windows, a command can't start other programs unless the session grants more than one.
 - Network access is off unless the person allowed it from a prompt.
 - Valet never reads a command's text to decide whether it is safe. It works out what an action needs from what will actually run, after resolving paths and following symlinks.
 - The process environment is cleared, except variables the person allowed and a minimal `PATH`.
-- Each session's processes run in their own process group with limits on CPU time, memory and process count, and are stopped when the session ends.
-- Protected locations (SSH keys, credentials, keychains, browser data, password managers, Mail, Messages, `.env` files) are denied in the sandbox profile after every other permission, and can be reached only through a prompt the person answered for that place itself: no broad permission opens one, however it was granted.
-- Programs that need raised privileges, such as `top`, can't start inside the sandbox. They can run only outside it, as below. Admin rights, such as `sudo`, are never available.
+- Each command is held to a time and CPU limit, and is stopped when the session ends. On a Mac it runs in its own process group, which also limits memory and process count. On Windows it runs in a Job Object, which also keeps it away from the clipboard and other windows.
+- Protected locations (SSH keys, credentials, keychains and Windows credentials, browser data, password managers, mail, Messages, `.env` files) can be reached only through a prompt the person answered for that place itself: no broad permission opens one, however it was granted. On a Mac they are denied in the sandbox profile after every other permission; on Windows they never get an access entry.
+- On a Mac, programs that need raised privileges, such as `top`, can't start inside the sandbox. They can run only outside it, as below. Admin rights, such as `sudo` or `runas`, are never available.
 
 ## Running outside the sandbox
 
 Some commands can't work in the sandbox. The person can let them run as themselves, outside it:
 
 - The agent asks for it with a **Run level** permission, either when the session starts or with a single command. The person sees what it means before they decide: the command can read and change any of their files, use the network and install software, and their other permissions don't limit it.
-- Every such command asks, and needs Touch ID or the account password, however the session started. Nothing allows one ahead of time.
+- Every such command asks, and needs Touch ID or the account password on a Mac, or Windows Hello on Windows, however the session started. Nothing allows one ahead of time.
 - If the person switches Run as you off, requests to leave the sandbox are turned back without asking them.
-- The command still runs in its own process group, with the same time and resource limits, and is stopped when the session ends. The log marks it as run outside the sandbox.
+- The command still runs under the same time and resource limits, and is stopped when the session ends. The log marks it as run outside the sandbox.
 
 ## Approvals
 
-- High and Critical requests need Touch ID, checked by macOS.
+- High and Critical requests need Touch ID on a Mac or Windows Hello on Windows, checked by the system.
 - Prompts default to Deny, and Allow is briefly disabled when a prompt appears.
-- Every answer is logged with how it was confirmed: a click or Touch ID.
+- Every answer is logged with how it was confirmed: a click, Touch ID or Windows Hello.
 
 ## Network and identity
 
 - The Valet app connects out to the relay over HTTPS. It opens no ports and accepts no incoming connections.
+- It checks the relay's certificate against the certificates the system trusts. Where an organisation inspects HTTPS with its own root certificate, Valet works the same way its browsers do, and that inspection can read what passes between Valet and the relay.
 - There are no accounts. Every credential is created for one session and stops working when it ends.
 - Tokens are sent only in the `Authorization` header, never in a URL. The relay stores only their hashes.
 - The app holds its token in memory only, never on disk.
 - Join codes work once, expire after 10 minutes, and are rate limited.
 - The vendor's name is whatever they typed. The app shows it as unverified.
 
-## What leaves the Mac
+## What leaves the computer
 
 | Data | Where it goes | Kept |
 |---|---|---|
 | Results of actions the person allowed | To the agent, through the relay | Until the session ends |
 | The signed log (no command output or file contents) | To the relay, for the agent | 24 hours after the session ends |
-| Past session records | Nowhere. They stay on the Mac | Until the person deletes them, or after 7, 30 or 90 days if they choose, except sessions they keep |
+| Past session records | Nowhere. They stay on the computer | Until the person deletes them, or after 7, 30 or 90 days if they choose, except sessions they keep |
 
 Valet doesn't filter or redact secrets from output. A file the person lets the agent read is sent as it is. The places that commonly hold secrets always need a prompt.
 
 ## Updates
 
-The app is signed with an Apple Developer ID and notarised by Apple. It checks for updates at launch and every 6 hours, unless the person turns that off in Settings, and installs only updates signed with Valet's update key. Restarting to update ends any live session first.
+On a Mac, the app is signed with an Apple Developer ID and notarised by Apple. On Windows, the installer isn't code-signed yet, so Windows shows a SmartScreen warning before the first install. On both, Valet checks for updates at launch and every 6 hours, unless the person turns that off in Settings, and installs only updates signed with Valet's update key. Restarting to update ends any live session first.
 
 ## Known limits
 
-- macOS 13 or later only.
+- macOS 13 or later, or 64-bit Windows 10 (version 1809) or later.
 - Network permission can't be limited to one host yet.
 - The macOS sandbox tool Valet uses (`sandbox-exec`) is deprecated by Apple, though it still ships and is used by comparable tools.
-- Some programs refuse to run in any sandbox, such as `log`. Valet's structured tools cover the common cases.
+- Some programs refuse to run in any sandbox, such as `log` on a Mac. On Windows, a sandboxed command can't read performance counters. Valet's structured tools cover the common cases.
+- On Windows, a permission for every file, or for a folder holding more than 20,000 files and folders, can't be applied to a sandboxed command; the agent is asked to name smaller folders. Windows has no per-command memory or process-count limit yet.
+- The key that signs the log is kept in the Mac's keychain, or in Windows Credential Manager. On Windows, unlike the keychain, any program running as the person can read it.
 - Without accounts, the log's signature proves the log hasn't changed, not who signed it.

@@ -15,11 +15,11 @@ export type Card = keyof typeof CARD
 
 const ABOUT: Record<Card, string> = {
   session: 'The join link and code while a session is being handed over, then its live state and permissions',
-  action: 'What a single action asked for and what came back from the Mac',
+  action: 'What a single action asked for and what came back from their computer',
 }
 
 // What the frame may call back. The waiting tools and end_session are the person's own business and touch nothing on
-// the Mac; everything that acts there stays with the agent, where the reason it gives is part of the record
+// their computer; everything that acts there stays with the agent, where the reason it gives is part of the record
 export const ASKS: McpUiToolVisibility[] = ['model']
 export const ANSWERS: McpUiToolVisibility[] = ['model', 'app']
 

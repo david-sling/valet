@@ -63,7 +63,7 @@ const ENTRIES: Entry[] = [
     tone: 'ok',
     hash: 'b37d…5e19',
     rule: {
-      title: 'Leaving the sandbox takes Touch ID. Every time.',
+      title: 'Leaving the sandbox takes Touch ID or Windows Hello. Every time.',
       body: 'Some programs can’t run in a sandbox. The customer can let one run as themselves, outside it, after a warning about what that allows, and only one command at a time. The log marks it either way.',
     },
   },

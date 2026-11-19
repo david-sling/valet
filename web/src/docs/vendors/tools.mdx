@@ -58,12 +58,13 @@ These are checked before anyone is asked. Breaking one returns HTTP 400 `invalid
 ## What can't run
 
 - Commands run in a sandbox. They can read only the files, and start only the programs, the customer allowed. A `cwd` asks to read that folder.
-- macOS won't start programs with raised privileges (such as `top` and `ps`) inside a sandbox, so they run only outside it, as below. `sudo`, `su` and `login` never run, and are `rejected` before the customer is asked. Prefer `list_processes` to `ps`.
-- macOS's `log` command refuses to run in a sandbox. Read log files with `tail_log`.
+- On a Mac, macOS won't start programs with raised privileges (such as `top` and `ps`) inside a sandbox, so they run only outside it, as below. `sudo`, `su` and `login` never run, and are `rejected` before the customer is asked. Prefer `list_processes` to `ps`.
+- On a Mac, `log` refuses to run in a sandbox. Read log files with `tail_log`.
+- On Windows, a sandboxed command can't read performance counters (`Get-Counter`), and a permission for every file, or for a folder holding more than 20,000 files and folders, can't be applied to it. Ask for smaller folders.
 
 ## Running outside the sandbox
 
-When a command can't work in the sandbox, it can run as the customer, outside it. It can then read and change anything their account can and use the network, so the customer confirms every such command with Touch ID or their password. Nothing allows one ahead of time.
+When a command can't work in the sandbox, it can run as the customer, outside it. It can then read and change anything their account can and use the network, so the customer confirms every such command with Touch ID or their password on a Mac, or Windows Hello on Windows. Nothing allows one ahead of time.
 
 - Programs with raised privileges, such as `top`, always run this way. For any other command, add `unsandboxed: true` to `run_command`'s `args`.
 - If you know you'll need it, propose a [Run level](/docs/vendors/permissions#kinds-of-permission) permission when you start the session, so the customer decides with the risks in front of them.

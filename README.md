@@ -3,8 +3,8 @@
 A valet key for AI agents. Valet lets a vendor's AI agent run commands on someone else's machine, with that machine's owner deciding what is allowed.
 
 - **Commands only.** No screen sharing, screen capture, or mouse and keyboard control.
-- **The client's machine decides.** Each session starts from permissions the client reviews. Anything outside them waits for the client's approval, with Touch ID for high-risk actions.
-- **Enforced in the OS sandbox**, never by parsing command text. A command runs outside it only when the person allows that one command, with Touch ID.
+- **The client's machine decides.** Each session starts from permissions the client reviews. Anything outside them waits for the client's approval, with Touch ID or Windows Hello for high-risk actions.
+- **Enforced in the OS sandbox**, never by parsing command text. A command runs outside it only when the person allows that one command, with Touch ID or Windows Hello.
 - **Temporary and attended.** Sessions last 60 minutes and only the client can extend them. Every action lands in a log both sides can see.
 
 Live at [valet.davidsling.in](https://valet.davidsling.in).
@@ -12,9 +12,9 @@ Live at [valet.davidsling.in](https://valet.davidsling.in).
 ## How it works
 
 ```
- Vendor's agent ──curl──►  Relay (web/, Vercel)  ◄──long-poll──  Client app (Tauri, client's Mac)
+ Vendor's agent ──curl──►  Relay (web/, Vercel)  ◄──long-poll──  Client app (Tauri, client's computer)
    reads skill.md          TanStack Start server routes           Rust core: grants, decide, sandbox,
-   agent_token             Redis                                  Touch ID, audit log
+   agent_token             Redis                                  Touch ID / Windows Hello, audit log
 ```
 
 1. The agent reads the skill file at `/agent/skill.md` and opens a session with `curl`, which works in any agent with a shell. Agents without a shell can use the MCP server at `/mcp` instead; it is verified with ChatGPT and Claude only, and other MCP clients are untested. There is no SDK.
@@ -28,7 +28,7 @@ Both sides connect outward to the relay; the client opens no ports. The relay ca
 | Path | What it is |
 |---|---|
 | `web/` | Landing page, join page (`/j/{code}`), relay API (`/api/v1`) and the skill file. TanStack Start on Vercel |
-| `app/` | The macOS client. Tauri v2: a Rust core for policy, sandbox and approvals, and a React webview |
+| `app/` | The client app for macOS and Windows. Tauri v2: a Rust core for policy, sandbox and approvals, and a React webview |
 | `packages/protocol/` | Shared schemas and types, with test vectors |
 | `tools/` | `fake-agent.ts` and `fake-client.ts`, stand-ins for either side when testing the relay |
 | `plugins/valet-cards/` | A Claude Code plugin that shows a session's calls as cards in a pane beside the chat |
