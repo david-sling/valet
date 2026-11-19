@@ -113,7 +113,7 @@ function JoinLink() {
             </p>
             <p className="join-note">
               Valet runs on {REQUIREMENTS}. If the button doesn't open it, download Valet for{' '}
-              <a href={DOWNLOAD_MAC}>Mac</a> or <a href={DOWNLOAD_WINDOWS}>Windows</a>.
+              <a href={DOWNLOAD_MAC}>macOS</a> or <a href={DOWNLOAD_WINDOWS}>Windows</a>.
             </p>
           </div>
         )}

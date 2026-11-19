@@ -262,7 +262,7 @@ export function TearHero({ skill }: { skill: string }) {
               Fix it on their computer.<b>Skip the screen-share.</b>
             </h1>
             <p className="lead">
-              For support teams. Send a customer a link, and your AI agent diagnoses the problem on their Mac or Windows PC: only what
+              For support teams. Send a customer a link, and your AI agent diagnoses the problem on their computer: only what
               they approve, with every step logged for both of you.
             </p>
             <InstallSkill skill={skill} />

@@ -108,7 +108,7 @@ export function StubEnds({ stars, skill }: { stars: number | null; skill: string
         </p>
         <InstallSkill skill={skill} />
         <p className="closing-note">
-          Your agent sends your customer a link, where they get the Valet app for <a href={DOWNLOAD_MAC}>Mac</a> or <a href={DOWNLOAD_WINDOWS}>Windows</a>.
+          Your agent sends your customer a link, where they get the Valet app for <a href={DOWNLOAD_MAC}>macOS</a> or <a href={DOWNLOAD_WINDOWS}>Windows</a>.
         </p>
       </div>
 

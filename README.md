@@ -109,7 +109,7 @@ cargo test --manifest-path app/src-tauri/Cargo.toml
    cp web/example.env web/.env
    ```
 
-   Use `tools/fake-agent.ts` and `tools/fake-client.ts` to drive a session without a Mac or a real agent. Tests that need Redis read `TEST_REDIS_URL`, which must point at a local instance.
+   Use `tools/fake-agent.ts` and `tools/fake-client.ts` to drive a session without the client app or a real agent. Tests that need Redis read `TEST_REDIS_URL`, which must point at a local instance.
 4. Before opening a PR, run the checks under [Development](#development). Run the Rust tests too if you touched `app/`.
 5. Open a pull request into `main` that links the issue (`Closes #N`) and says how you tested it.
 
