@@ -88,7 +88,9 @@ export const CreateSessionBody = z.object({
 export type CreateSessionBody = z.infer<typeof CreateSessionBody>
 
 export const JoinBody = z.object({ code: z.string().min(6).max(12) })
-export const StartBody = z.object({ grants: z.array(Grant).max(200) })
+// the system the person's computer runs, so the agent picks commands and paths that exist there
+export const Platform = z.enum(['macos', 'windows'])
+export const StartBody = z.object({ grants: z.array(Grant).max(200), platform: Platform.optional() })
 export const ResultBody = z.object({
   status: ActionStatus.exclude(['pending']),
   output: z.unknown().optional(),

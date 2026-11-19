@@ -145,7 +145,9 @@ impl Relay {
     }
 
     pub async fn start(&self, id: &str, token: &str, grants: &[Grant]) -> Result<Started, RelayError> {
-        self.send(self.http.post(self.url(id, "/start")).bearer_auth(token).json(&json!({ "grants": grants }))).await
+        // the agent reads the platform to pick commands and paths that exist here; a relay older than it ignores it
+        let platform = if cfg!(windows) { "windows" } else { "macos" };
+        self.send(self.http.post(self.url(id, "/start")).bearer_auth(token).json(&json!({ "grants": grants, "platform": platform }))).await
     }
 
     pub async fn extend(&self, id: &str, token: &str) -> Result<Started, RelayError> {

@@ -27,6 +27,7 @@ export type Session = {
   agentCursor: number
   clientSeenAt: number
   source: string
+  platform: string
 }
 
 const num = (v: string | undefined) => Number(v ?? 0) || 0
@@ -50,6 +51,7 @@ function parse(id: string, h: Record<string, string>): Session {
     agentCursor: num(h.agent_cursor),
     clientSeenAt: num(h.client_seen_at),
     source: h.source ?? '',
+    platform: h.platform ?? '',
   }
 }
 
@@ -203,6 +205,8 @@ export async function view(redis: Redis, s: Session) {
     ended_by: s.endedBy || undefined,
     grants: await readGrants(redis, s.id),
     client_connected: s.state === 'live' && Date.now() - s.clientSeenAt < LIMITS.clientGoneMs,
+    // absent until the person starts the session, and from an app older than this field
+    platform: s.platform || undefined,
     last_seq: await lastSeq(redis, s.id),
   }
 }
