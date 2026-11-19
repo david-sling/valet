@@ -489,18 +489,21 @@ fn job(cpu_seconds: u64) -> Result<Owned, String> {
     Ok(job)
 }
 
-fn start(container: &Container, rules: &Rules, program: &Path, argv: &[String], cwd: &Path, env: &[(String, String)]) -> Result<Started, String> {
+// With no container the program runs as the person, outside the sandbox, still inside the Job Object's limits
+fn start(confined: Option<(&Container, &Rules)>, program: &Path, argv: &[String], cwd: &Path, env: &[(String, String)]) -> Result<Started, String> {
     if argv.iter().any(|a| a.contains('\0')) {
         return Err("An argument contains a NUL character, which Windows can't pass to a program.".into());
     }
-    let caps: Vec<Sid> = if rules.network { vec![string_sid(INTERNET_CLIENT)?, string_sid(PRIVATE_NETWORK)?] } else { vec![] };
+    let network = confined.is_some_and(|(_, r)| r.network);
+    let caps: Vec<Sid> = if network { vec![string_sid(INTERNET_CLIENT)?, string_sid(PRIVATE_NETWORK)?] } else { vec![] };
     let mut cap_attrs: Vec<SID_AND_ATTRIBUTES> = caps.iter().map(|s| SID_AND_ATTRIBUTES { Sid: s.0, Attributes: SE_GROUP_ENABLED }).collect();
-    let security = SECURITY_CAPABILITIES {
+    let security = confined.map(|(container, _)| SECURITY_CAPABILITIES {
         AppContainerSid: container.sid.0,
         Capabilities: if cap_attrs.is_empty() { std::ptr::null_mut() } else { cap_attrs.as_mut_ptr() },
         CapabilityCount: cap_attrs.len() as u32,
         Reserved: 0,
-    };
+    });
+    let restrict_children = confined.is_some_and(|(_, r)| !r.children);
 
     let (stdin_r, stdin_w) = pipe(true)?;
     drop(stdin_w);
@@ -508,7 +511,7 @@ fn start(container: &Container, rules: &Rules, program: &Path, argv: &[String], 
     let (stderr_r, stderr_w) = pipe(false)?;
     let inherited = [stdin_r.0, stdout_w.0, stderr_w.0];
 
-    let attrs = if rules.children { 2 } else { 3 };
+    let attrs = 1 + security.is_some() as u32 + restrict_children as u32;
     let mut size = 0usize;
     unsafe {
         let _ = InitializeProcThreadAttributeList(None, attrs, None, &mut size);
@@ -525,11 +528,13 @@ fn start(container: &Container, rules: &Rules, program: &Path, argv: &[String], 
     let _list = List(list);
     let policy = PROCESS_CREATION_CHILD_PROCESS_RESTRICTED;
     unsafe {
-        UpdateProcThreadAttribute(list, 0, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, Some(&security as *const _ as _), std::mem::size_of_val(&security), None, None)
-            .map_err(|e| e.to_string())?;
+        if let Some(security) = &security {
+            UpdateProcThreadAttribute(list, 0, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, Some(security as *const _ as _), std::mem::size_of_val(security), None, None)
+                .map_err(|e| e.to_string())?;
+        }
         UpdateProcThreadAttribute(list, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, Some(inherited.as_ptr() as _), std::mem::size_of_val(&inherited), None, None)
             .map_err(|e| e.to_string())?;
-        if !rules.children {
+        if restrict_children {
             UpdateProcThreadAttribute(list, 0, PROC_THREAD_ATTRIBUTE_CHILD_PROCESS_POLICY, Some(&policy as *const _ as _), std::mem::size_of_val(&policy), None, None)
                 .map_err(|e| e.to_string())?;
         }
@@ -595,25 +600,31 @@ pub async fn run(
     grants: &[Grant],
     approved: &[Need],
     tmp: &Path,
+    confined: bool,
     stop: &CancellationToken,
 ) -> Ran {
-    let rules = match rules(grants, approved, program, tmp) {
-        Ok(r) => r,
-        Err(e) => return Ran::Failed(e),
-    };
-    let prepared = tokio::task::spawn_blocking(move || {
-        let mut c = Container::create()?;
-        c.apply(&rules)?;
-        Ok::<_, String>((c, rules))
-    })
-    .await;
-    let (container, rules) = match prepared {
-        Ok(Ok(c)) => c,
-        Ok(Err(e)) => return Ran::Failed(e),
-        Err(e) => return Ran::Failed(e.to_string()),
+    let sandbox = if confined {
+        let rules = match rules(grants, approved, program, tmp) {
+            Ok(r) => r,
+            Err(e) => return Ran::Failed(e),
+        };
+        let prepared = tokio::task::spawn_blocking(move || {
+            let mut c = Container::create()?;
+            c.apply(&rules)?;
+            Ok::<_, String>((c, rules))
+        })
+        .await;
+        match prepared {
+            Ok(Ok(c)) => Some(c),
+            Ok(Err(e)) => return Ran::Failed(e),
+            Err(e) => return Ran::Failed(e.to_string()),
+        }
+    } else {
+        None
     };
     let env = environment(grants, tmp);
-    let started = start(&container, &rules, program, argv, cwd.unwrap_or(tmp), &env);
+    let started = start(sandbox.as_ref().map(|(c, r)| (c, r)), program, argv, cwd.unwrap_or(tmp), &env);
+    let container = sandbox.map(|(c, _)| c);
     let Started { process, job, stdout, stderr } = match started {
         Ok(s) => s,
         Err(e) => {
@@ -652,7 +663,7 @@ pub async fn run(
     let exit_code = code as i32;
     let result = json!({ "exit_code": exit_code, "stdout": stdout, "stderr": stderr, "truncated": t1 || t2 });
     let said = format!("{stderr}\n{stdout}").to_lowercase();
-    if exit_code != 0 && DENIED.iter().any(|d| said.contains(d)) {
+    if confined && exit_code != 0 && DENIED.iter().any(|d| said.contains(d)) {
         return Ran::Blocked(result);
     }
     Ran::Done(result)
@@ -696,7 +707,7 @@ mod tests {
     async fn cmd(script: &str, grants: &[Grant], tmp: &Path) -> Ran {
         let cmd = system("cmd.exe");
         let argv = vec!["cmd".into(), "/d".into(), "/c".into(), script.into()];
-        run(&cmd, &argv, None, grants, &[], tmp, &CancellationToken::new()).await
+        run(&cmd, &argv, None, grants, &[], tmp, true, &CancellationToken::new()).await
     }
 
     fn output(r: &Ran) -> String {
@@ -754,10 +765,23 @@ mod tests {
         let tmp = dir("run");
         let whoami = system("whoami.exe");
         let argv = vec!["whoami".into()];
-        let r = run(&whoami, &argv, None, &[], &[], &tmp, &CancellationToken::new()).await;
+        let r = run(&whoami, &argv, None, &[], &[], &tmp, true, &CancellationToken::new()).await;
         let Ran::Done(v) = &r else { panic!("whoami did not run: {}", output(&r)) };
         assert_eq!(v["exit_code"], 0, "{v}");
         assert!(!v["stdout"].as_str().unwrap().trim().is_empty());
+    }
+
+    #[tokio::test]
+    async fn runs_as_the_person_outside_the_container() {
+        let tmp = dir("as-you");
+        let ungranted = dir("as-you-ungranted");
+        std::fs::write(ungranted.join("note.txt"), "hello").unwrap();
+        let cmd = system("cmd.exe");
+        let argv = vec!["cmd".into(), "/d".into(), "/c".into(), format!("type \"{}\"", ungranted.join("note.txt").display())];
+        let r = run(&cmd, &argv, None, &[], &[], &tmp, false, &CancellationToken::new()).await;
+        let Ran::Done(v) = &r else { panic!("cmd did not run: {}", output(&r)) };
+        assert_eq!(v["stdout"], "hello", "{v}");
+        assert!(matches!(run(&cmd, &argv, None, &[], &[], &tmp, true, &CancellationToken::new()).await, Ran::Blocked(_) | Ran::Failed(_)));
     }
 
     #[tokio::test]
@@ -829,7 +853,7 @@ mod tests {
         }
         let argv: Vec<String> = ["curl", "-sS", "-m", "5", "-o", "NUL", "https://example.com"].map(String::from).to_vec();
         let proposed = [grant(Kind::Network, "connect", "*", Source::Proposed)];
-        let r = run(&curl, &argv, None, &proposed, &[], &tmp, &CancellationToken::new()).await;
+        let r = run(&curl, &argv, None, &proposed, &[], &tmp, true, &CancellationToken::new()).await;
         assert!(!matches!(r, Ran::Done(ref v) if v["exit_code"] == 0), "reached the network without approval");
     }
 
@@ -855,7 +879,7 @@ mod tests {
         let cmd = system("cmd.exe");
         let argv = vec!["cmd".into(), "/d".into(), "/c".into(), "for /l %i in (1,0,2) do @rem".into()];
         let started = std::time::Instant::now();
-        let r = run(&cmd, &argv, None, &[], &[], &tmp, &stop).await;
+        let r = run(&cmd, &argv, None, &[], &[], &tmp, true, &stop).await;
         assert!(matches!(r, Ran::Stopped));
         assert!(started.elapsed() < Duration::from_secs(5));
     }

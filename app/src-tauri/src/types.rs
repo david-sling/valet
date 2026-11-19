@@ -18,6 +18,8 @@ pub enum Kind {
     Processes,
     #[serde(rename = "Admin rights")]
     AdminRights,
+    #[serde(rename = "Run level")]
+    RunLevel,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

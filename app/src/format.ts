@@ -1,6 +1,6 @@
 import type { Kind, Need, Risk } from '@valet/protocol'
 
-export const KINDS: Kind[] = ['Files', 'Programs', 'Network', 'Environment', 'Processes', 'Admin rights']
+export const KINDS: Kind[] = ['Run level', 'Files', 'Programs', 'Network', 'Environment', 'Processes', 'Admin rights']
 export const RISK_WORD: Record<Risk, string> = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' }
 export const SESSION_MINUTES = 60
 
@@ -31,6 +31,9 @@ export function day(t: number) {
       : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
   return `${label}, ${hhmm(t)}`
 }
+export const RUN_AS_YOU_RISK =
+  `Commands run as you, outside the sandbox: each can read and change any of your files, use the internet and install software, whatever else is switched off. You confirm each one with ${PLATFORM.verify}.`
+
 export const minutes = (ms: number) => `${Math.max(1, Math.round(ms / 60_000))} min`
 
 const VERBS: Record<string, string> = {
@@ -45,6 +48,7 @@ const VERBS: Record<string, string> = {
 
 // A permission as a short sentence: "Read config.json", "Run log". `code` marks the literal name, set in mono.
 export function describe(g: Need): { verb: string; obj: string; code: boolean } {
+  if (g.kind === 'Run level') return { verb: 'Ask to run commands', obj: 'outside the sandbox, as you', code: false }
   const verb = VERBS[g.access] ?? g.access
   const base = (p: string) => p.split('/').filter(Boolean).pop() ?? p
   if (g.scope === '*' || g.scope === '~/**') {
@@ -55,6 +59,7 @@ export function describe(g: Need): { verb: string; obj: string; code: boolean } 
       Environment: 'your environment variables',
       Processes: 'your running programs',
       'Admin rights': 'anything',
+      'Run level': 'outside the sandbox',
     }
     return { verb, obj: any[g.kind], code: false }
   }

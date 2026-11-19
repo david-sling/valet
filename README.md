@@ -4,7 +4,7 @@ A valet key for AI agents. Valet lets a vendor's AI agent run commands on someon
 
 - **Commands only.** No screen sharing, screen capture, or mouse and keyboard control.
 - **The client's machine decides.** Each session starts from permissions the client reviews. Anything outside them waits for the client's approval, with Touch ID for high-risk actions.
-- **Enforced in the OS sandbox**, never by parsing command text.
+- **Enforced in the OS sandbox**, never by parsing command text. A command runs outside it only when the person allows that one command, with Touch ID.
 - **Temporary and attended.** Sessions last 60 minutes and only the client can extend them. Every action lands in a log both sides can see.
 
 Live at [valet.davidsling.in](https://valet.davidsling.in).

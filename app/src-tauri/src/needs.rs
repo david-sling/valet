@@ -16,6 +16,8 @@ pub enum Request {
         cwd: Option<String>,
         #[serde(default)]
         network: bool,
+        #[serde(default)]
+        unsandboxed: bool,
     },
     ReadFile { path: String, max_bytes: Option<u64> },
     WriteFile { path: String, content: String, base_hash: String },
@@ -42,6 +44,7 @@ pub struct Plan {
     pub path: Option<PathBuf>,
     pub needs: Vec<Need>,
     pub risk: Risk,
+    pub unsandboxed: bool,
 }
 
 #[cfg(unix)]
@@ -463,7 +466,7 @@ fn is_executable(p: &Path) -> bool {
     matches!(ext.as_deref(), Some("exe" | "com")) && std::fs::metadata(p).is_ok_and(|m| m.is_file())
 }
 
-// macOS refuses to exec setuid/setgid programs inside any sandbox, so asking the person would only end in a failure
+// macOS refuses to exec setuid/setgid programs inside any sandbox, so they can only run as the person, outside it
 #[cfg(unix)]
 fn is_setuid(p: &Path) -> bool {
     use std::os::unix::fs::PermissionsExt;
@@ -480,6 +483,10 @@ fn program_base(program: &Path) -> String {
     let base = name.and_then(|n| n.to_str()).unwrap_or_default();
     let base = if cfg!(windows) { base.to_ascii_lowercase() } else { base.to_string() };
     base.trim_end_matches(|c: char| c.is_ascii_digit() || c == '.').to_string()
+}
+
+pub fn run_as_you_need() -> Need {
+    Need { kind: Kind::RunLevel, access: "as you".into(), scope: "*".into(), risk: Risk::Critical, protected_label: None }
 }
 
 fn program_needs(program: &Path, argv: &[String]) -> Vec<Need> {
@@ -519,7 +526,7 @@ pub fn rate(mut n: Need) -> Need {
         Kind::Programs if n.scope.contains('*') => Risk::High,
         Kind::Programs => resolve(&n.scope).map_or(Risk::High, |p| max_risk(&program_needs(&p, &[]))),
         Kind::Network => Risk::High,
-        Kind::AdminRights => Risk::Critical,
+        Kind::AdminRights | Kind::RunLevel => Risk::Critical,
         Kind::Environment => Risk::Medium,
         Kind::Processes => Risk::Low,
     };
@@ -547,18 +554,21 @@ pub fn plan(request: Request) -> Result<Plan, String> {
     let mut program = None;
     let mut cwd = None;
     let mut path = None;
+    let mut outside = false;
     let (literal, needs) = match &request {
-        Request::RunCommand { command, cwd: dir, network } => {
+        Request::RunCommand { command, cwd: dir, network, unsandboxed } => {
             let first = command.first().ok_or("The command is empty.")?;
             let prog = find_program(first)?;
-            if is_setuid(&prog) {
+            let setuid = is_setuid(&prog);
+            outside = *unsandboxed || setuid;
+            if outside && ADMIN.contains(&program_base(&prog).as_str()) {
                 return Err(format!(
-                    "{} runs with raised privileges (setuid), and macOS won't start those inside Valet's sandbox. Use a structured tool instead, such as list_processes for ps.",
+                    "{} manages admin settings, and Valet runs it only inside the sandbox, never outside it. Ask your user to run it themselves.",
                     prog.display()
                 ));
             }
-            let mut needs = program_needs(&prog, command);
-            if *network && !needs.iter().any(|n| n.kind == Kind::Network) {
+            let mut needs = if outside { vec![run_as_you_need()] } else { program_needs(&prog, command) };
+            if *network && !outside && !needs.iter().any(|n| n.kind == Kind::Network) {
                 needs.push(network_need());
             }
             if let Some(dir) = dir {
@@ -566,7 +576,9 @@ pub fn plan(request: Request) -> Result<Plan, String> {
                 if !d.is_dir() {
                     return Err(format!("{dir} isn't a folder."));
                 }
-                needs.push(file_need(&d, "read", true));
+                if !outside {
+                    needs.push(file_need(&d, "read", true));
+                }
                 cwd = Some(d);
             }
             program = Some(prog);
@@ -605,7 +617,7 @@ pub fn plan(request: Request) -> Result<Plan, String> {
         ),
     };
     let risk = max_risk(&needs);
-    Ok(Plan { request, literal, program, cwd, path, needs, risk })
+    Ok(Plan { request, literal, program, cwd, path, needs, risk, unsandboxed: outside })
 }
 
 #[cfg(test)]
@@ -680,19 +692,40 @@ mod tests {
     #[test]
     #[cfg(target_os = "macos")]
     fn a_shell_is_high_risk_and_admin_tools_are_critical() {
-        let p = plan(Request::RunCommand { command: vec!["sh".into(), "-c".into(), "ls".into()], cwd: None, network: false }).unwrap();
+        let p = plan(Request::RunCommand { command: vec!["sh".into(), "-c".into(), "ls".into()], cwd: None, network: false, unsandboxed: false }).unwrap();
         assert_eq!(p.risk, Risk::High);
-        let p = plan(Request::RunCommand { command: vec!["launchctl".into(), "list".into()], cwd: None, network: false }).unwrap();
+        let p = plan(Request::RunCommand { command: vec!["launchctl".into(), "list".into()], cwd: None, network: false, unsandboxed: false }).unwrap();
         assert_eq!(p.risk, Risk::Critical);
     }
 
     #[test]
     #[cfg(target_os = "macos")]
-    fn setuid_programs_are_turned_back_before_anyone_is_asked() {
-        for prog in ["/bin/ps", "/usr/bin/sudo"] {
-            let e = plan(Request::RunCommand { command: vec![prog.into()], cwd: None, network: false }).unwrap_err();
-            assert!(e.contains("setuid"), "{e}");
+    fn setuid_programs_need_running_as_the_person() {
+        for prog in ["/bin/ps", "/usr/bin/top"] {
+            let p = plan(Request::RunCommand { command: vec![prog.into()], cwd: None, network: false, unsandboxed: false }).unwrap();
+            assert!(p.unsandboxed, "{prog}");
+            assert_eq!(p.needs, vec![run_as_you_need()]);
+            assert_eq!(p.risk, Risk::Critical);
         }
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn setuid_admin_tools_are_turned_back_before_anyone_is_asked() {
+        for (prog, unsandboxed) in [("/usr/bin/sudo", false), ("/bin/launchctl", true)] {
+            let e = plan(Request::RunCommand { command: vec![prog.into()], cwd: None, network: false, unsandboxed }).unwrap_err();
+            assert!(e.contains("never outside"), "{e}");
+        }
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn an_unsandboxed_command_asks_only_for_running_as_the_person() {
+        let p = plan(Request::RunCommand { command: vec!["/usr/bin/curl".into()], cwd: Some("/usr/share".into()), network: true, unsandboxed: true }).unwrap();
+        assert!(p.unsandboxed);
+        assert_eq!(p.needs, vec![run_as_you_need()]);
+        let args = serde_json::json!({ "command": ["ls"], "unsandboxed": true });
+        assert!(matches!(Request::parse("run_command", &args), Ok(Request::RunCommand { unsandboxed: true, .. })));
     }
 
     #[test]
@@ -705,9 +738,9 @@ mod tests {
     #[test]
     #[cfg(target_os = "macos")]
     fn network_programs_need_the_network() {
-        let p = plan(Request::RunCommand { command: vec!["/usr/bin/curl".into(), "https://example.com".into()], cwd: None, network: false }).unwrap();
+        let p = plan(Request::RunCommand { command: vec!["/usr/bin/curl".into(), "https://example.com".into()], cwd: None, network: false, unsandboxed: false }).unwrap();
         assert!(p.needs.iter().any(|n| n.kind == Kind::Network));
-        let p = plan(Request::RunCommand { command: vec!["git".into(), "status".into()], cwd: None, network: false });
+        let p = plan(Request::RunCommand { command: vec!["git".into(), "status".into()], cwd: None, network: false, unsandboxed: false });
         if let Ok(p) = p {
             assert!(!p.needs.iter().any(|n| n.kind == Kind::Network));
         }
@@ -716,7 +749,7 @@ mod tests {
     #[test]
     #[cfg(target_os = "macos")]
     fn a_working_folder_needs_reading_it() {
-        let p = plan(Request::RunCommand { command: vec!["ls".into()], cwd: Some("/usr/share".into()), network: false }).unwrap();
+        let p = plan(Request::RunCommand { command: vec!["ls".into()], cwd: Some("/usr/share".into()), network: false, unsandboxed: false }).unwrap();
         assert!(p.needs.iter().any(|n| n.kind == Kind::Files && n.scope == "/usr/share/**"));
     }
 
@@ -730,9 +763,9 @@ mod tests {
 
     #[test]
     fn a_command_that_says_it_needs_the_network_asks_for_it() {
-        let p = plan(Request::RunCommand { command: vec!["sh".into()], cwd: None, network: false }).unwrap();
+        let p = plan(Request::RunCommand { command: vec!["sh".into()], cwd: None, network: false, unsandboxed: false }).unwrap();
         assert!(!p.needs.iter().any(|n| n.kind == Kind::Network));
-        let p = plan(Request::RunCommand { command: vec!["sh".into()], cwd: None, network: true }).unwrap();
+        let p = plan(Request::RunCommand { command: vec!["sh".into()], cwd: None, network: true, unsandboxed: false }).unwrap();
         assert_eq!(p.needs.iter().filter(|n| n.kind == Kind::Network).count(), 1);
         assert_eq!(p.risk, Risk::High);
         let args = serde_json::json!({ "command": ["sh", "-c", "git fetch"], "network": true });
@@ -783,7 +816,7 @@ mod tests {
 
         #[test]
         fn finds_programs_by_name_and_refuses_scripts() {
-            let p = plan(Request::RunCommand { command: vec!["whoami".into()], cwd: None }).unwrap();
+            let p = plan(Request::RunCommand { command: vec!["whoami".into()], cwd: None, network: false, unsandboxed: false }).unwrap();
             assert_eq!(p.needs[0].scope, format!("{}/whoami.exe", system32()));
             assert_eq!(p.risk, Risk::Medium);
             assert!(find_program("build.cmd").unwrap_err().contains("script"));
@@ -792,11 +825,11 @@ mod tests {
 
         #[test]
         fn shells_are_high_risk_and_admin_tools_are_critical() {
-            let p = plan(Request::RunCommand { command: vec!["cmd".into(), "/c".into(), "dir".into()], cwd: None }).unwrap();
+            let p = plan(Request::RunCommand { command: vec!["cmd".into(), "/c".into(), "dir".into()], cwd: None, network: false, unsandboxed: false }).unwrap();
             assert_eq!(p.risk, Risk::High);
-            let p = plan(Request::RunCommand { command: vec!["reg".into(), "query".into(), "HKCU".into()], cwd: None }).unwrap();
+            let p = plan(Request::RunCommand { command: vec!["reg".into(), "query".into(), "HKCU".into()], cwd: None, network: false, unsandboxed: false }).unwrap();
             assert_eq!(p.risk, Risk::Critical);
-            let p = plan(Request::RunCommand { command: vec!["curl".into(), "https://example.com".into()], cwd: None }).unwrap();
+            let p = plan(Request::RunCommand { command: vec!["curl".into(), "https://example.com".into()], cwd: None, network: false, unsandboxed: false }).unwrap();
             assert!(p.needs.iter().any(|n| n.kind == Kind::Network));
         }
 

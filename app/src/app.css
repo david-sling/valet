@@ -374,6 +374,8 @@ button:disabled { cursor: not-allowed; }
 .perm-full { left: 0; font: 400 12px/1.45 var(--mono); overflow-wrap: anywhere; } /* shares its box with .perm-tip below */
 .perm-what:hover .perm-full, .perm-what:focus-visible .perm-full { opacity: 1; }
 .perm-group .m-label + .perm { border-top: 0; }
+/* the risk of running outside the sandbox, spelled out under its switch rather than hidden in a tooltip */
+.perm-note { grid-column: 1 / -1; margin: 6px 0 0; }
 .perm.is-off .perm-text, .perm.is-off .bars { opacity: 0.45; }
 .perm.is-off .perm-text { text-decoration: line-through; }
 .m-access { padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line-2); font: 500 12px/1.5 var(--sans); color: var(--ink-2); }

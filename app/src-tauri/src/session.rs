@@ -245,6 +245,24 @@ fn offered(risk: Risk, needs: &[Need]) -> Vec<Scope> {
     scopes
 }
 
+fn blocked_error(grants: &[Grant]) -> String {
+    let mut e = "sandbox: the command tried to use something this session doesn't allow. Ask for it with a structured tool, or ask your user.".to_string();
+    if !switched_off_running_as_you(grants) {
+        let verify = if cfg!(windows) { "Windows Hello" } else { "Touch ID" };
+        e.push_str(&format!(" If the command can't work in the sandbox at all, you can send it again with unsandboxed: true; the person confirms that with {verify}."));
+    }
+    e
+}
+
+const SANDBOX_ONLY: &str = "The person keeps this session in the sandbox, so commands can't run outside it. Use a structured tool or a program that runs in the sandbox, or ask your user; only the person can switch on Run as you.";
+
+// The person switching Run as you off settles it: requests to run outside the sandbox stop at once instead of asking.
+// A session that never proposed it can still ask, one command at a time.
+fn switched_off_running_as_you(grants: &[Grant]) -> bool {
+    let levels: Vec<&Grant> = grants.iter().filter(|g| g.need.kind == Kind::RunLevel).collect();
+    !levels.is_empty() && levels.iter().all(|g| !g.on)
+}
+
 fn widens_safely(needs: &[Need]) -> bool {
     needs.iter().filter(|n| n.kind == Kind::Files).all(|n| can_widen(&n.scope))
 }
@@ -802,6 +820,9 @@ impl Manager {
                 entry["cwd"] = json!(p.cwd.as_deref().map(tilde));
                 entry["needs"] = json!(p.needs);
                 entry["risk"] = json!(p.risk);
+                if p.unsandboxed {
+                    entry["unsandboxed"] = json!(true);
+                }
             }
             Err(e) => entry["rejected"] = json!(e),
         }
@@ -893,6 +914,9 @@ impl Manager {
             let Some(s) = st.sessions.get(id) else { return (None, None) };
             (s.view.grants.clone(), s.stop.clone(), s.tmp.clone())
         };
+        if p.unsandboxed && switched_off_running_as_you(&grants) {
+            return (Some(Done::rejected(SANDBOX_ONLY.into())), None);
+        }
         let asked = decide(p.risk, &p.needs, &grants, now_ms());
         if let Request::WriteFile { base_hash, .. } = &p.request {
             let current = p.path.as_deref().map(tools::file_hash);
@@ -1039,13 +1063,9 @@ impl Manager {
         if let Request::RunCommand { command, .. } = &p.request {
             let grants = self.lock().sessions.get(id).map(|s| s.view.grants.clone()).unwrap_or_default();
             let program = p.program.clone()?;
-            return match sandbox::run(&program, command, p.cwd.as_deref(), &grants, approved, tmp, stop).await {
+            return match sandbox::run(&program, command, p.cwd.as_deref(), &grants, approved, tmp, !p.unsandboxed, stop).await {
                 Ran::Done(v) => Some(Done { status: "ok", output: Some(v), error: None }),
-                Ran::Blocked(v) => Some(Done {
-                    status: "denied",
-                    output: Some(v),
-                    error: Some("sandbox: the command tried to use something this session doesn't allow. Ask for it with a structured tool, or ask your user.".into()),
-                }),
+                Ran::Blocked(v) => Some(Done { status: "denied", output: Some(v), error: Some(blocked_error(&grants)) }),
                 Ran::Failed(e) => Some(Done { status: "failed", output: None, error: Some(e) }),
                 Ran::Stopped => None,
             };
@@ -1123,6 +1143,16 @@ mod tests {
         assert!(read("~/Documents/notes.txt").contains(&Scope::Folder));
         assert!(!read("~/notes.txt").contains(&Scope::Folder), "~ holds the SSH keys");
         assert!(read("~/notes.txt").contains(&Scope::Session), "the other choices stay");
+    }
+
+    #[test]
+    fn only_switching_run_as_you_off_stops_asking() {
+        let level = |on| Grant { id: "g1".into(), on, source: Source::Proposed, need: crate::needs::run_as_you_need(), expires_at: None };
+        assert!(!switched_off_running_as_you(&[]), "a session that never proposed it may still ask");
+        assert!(!switched_off_running_as_you(&[level(true)]));
+        assert!(switched_off_running_as_you(&[level(false)]));
+        assert!(blocked_error(&[level(true)]).contains("unsandboxed: true"));
+        assert!(!blocked_error(&[level(false)]).contains("unsandboxed"), "never point at a door the person closed");
     }
 
     #[test]
@@ -1219,6 +1249,59 @@ mod tests {
         panic!("no prompt was raised");
     }
 
+    async fn live_session(base: &str, template: Value, on: bool) -> (Manager, Agent) {
+        let api = format!("{}/api/v1", base.trim_end_matches('/'));
+        let http = reqwest::Client::new();
+        let created: Value = http
+            .post(format!("{api}/sessions"))
+            .json(&json!({ "name": "Test vendor", "purpose": "End-to-end test.", "template": template }))
+            .send().await.unwrap().json().await.unwrap();
+        let agent = Agent {
+            http,
+            api,
+            id: created["session_id"].as_str().unwrap_or_else(|| panic!("not created: {created}")).into(),
+            token: created["agent_token"].as_str().unwrap().into(),
+        };
+        let m = Manager::new(Relay::new(base), Arc::new(|_| {}), None, None);
+        let joined = m.join(created["code"].as_str().unwrap()).await.unwrap();
+        let choices: Vec<GrantChoice> = serde_json::from_value(template.as_array().unwrap().iter().map(|n| {
+            let mut n = n.clone();
+            n["on"] = on.into();
+            n
+        }).collect()).unwrap();
+        m.start(&joined.id, choices).await.unwrap();
+        (m, agent)
+    }
+
+    #[tokio::test]
+    #[ignore = "needs a local relay in VALET_TEST_RELAY"]
+    async fn running_outside_the_sandbox_asks_unless_switched_off() {
+        let base = std::env::var("VALET_TEST_RELAY").expect("VALET_TEST_RELAY");
+        let top = json!({ "command": ["/usr/bin/top", "-l", "1", "-n", "0"] });
+
+        let level = json!([{ "kind": "Run level", "access": "as you", "scope": "*", "risk": "critical" }]);
+        let (m, agent) = live_session(&base, level, false).await;
+        assert!(m.snapshot()[0].grants.iter().any(|g| g.need.kind == Kind::RunLevel && !g.on), "the relay carries the proposal");
+        for args in [top.clone(), json!({ "command": ["/bin/ls"], "unsandboxed": true })] {
+            let r = agent.result(&agent.act("run_command", args).await).await;
+            assert_eq!(r["status"], "rejected", "switched off, it never asks: {r}");
+            assert!(r["error"].as_str().unwrap().contains("sandbox"), "{r}");
+        }
+        assert!(m.snapshot()[0].prompts.is_empty());
+        let r = agent.result(&agent.act("run_command", json!({ "command": ["/usr/bin/sudo", "-n", "true"] })).await).await;
+        assert_eq!(r["status"], "rejected", "{r}");
+        m.end_all().await;
+
+        let (m, agent) = live_session(&base, json!([]), true).await;
+        let aid = agent.act("run_command", top).await;
+        let p = prompt(&m).await;
+        assert_eq!((p.risk, p.scopes.clone()), (Risk::Critical, vec![Scope::Once, Scope::Check]));
+        assert_eq!(p.needs, vec![crate::needs::run_as_you_need()]);
+        assert!(m.answer(&p.id, false, None).await.is_ok());
+        assert_eq!(agent.result(&aid).await["status"], "denied");
+        m.end_all().await;
+    }
+
     #[tokio::test]
     #[ignore = "needs a local relay in VALET_TEST_RELAY"]
     async fn a_session_runs_end_to_end() {
@@ -1283,6 +1366,7 @@ mod tests {
         assert!(m.answer(&p.id, true, Some(Scope::Once)).await.is_ok());
         let r = agent.result(&aid).await;
         assert_eq!(r["status"], "denied", "the sandbox should stop ls reading the home folder: {r}");
+        assert!(r["error"].as_str().unwrap().contains("unsandboxed: true"), "{r}");
 
         let aid = agent.act("run_command", json!({ "command": ["/usr/bin/whoami"] })).await;
         let p = prompt(&m).await;

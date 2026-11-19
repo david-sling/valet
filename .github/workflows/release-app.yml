@@ -168,6 +168,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: pnpm tauri build
 
+      - name: Run the Rust tests
+        if: steps.built.outputs.cache-hit != 'true' && github.event_name != 'push'
+        working-directory: app/src-tauri
+        run: cargo test
+
       - name: Collect the release files
         if: steps.built.outputs.cache-hit != 'true'
         shell: bash

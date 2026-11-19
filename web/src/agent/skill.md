@@ -27,7 +27,7 @@ Fill in the two values. `name` is who is asking (your user, or their company); t
 ```sh
 [ -s "$W/token" ] && { echo "REFUSING: $W already holds a session. End it (step 5), or if it is already over, rm -rf \"$W\" first."; exit 1; }
 jq -n --arg name "NAME" --arg purpose "PURPOSE" \
-  '{name: $name, purpose: $purpose, skill_version: 5}' > "$W/create.json"
+  '{name: $name, purpose: $purpose, skill_version: 6}' > "$W/create.json"
 curl -sS --http1.1 -X POST "$BASE/sessions" -H 'Content-Type: application/json' -d @"$W/create.json" -o "$W/session.json" -w 'HTTP %{http_code}\n'
 jq -r '.session_id // empty' "$W/session.json" > "$W/id"; jq -r '.agent_token // empty' "$W/session.json" > "$W/token"
 [ -s "$W/token" ] || { echo 'START FAILED:'; cat "$W/session.json"; rm -f "$W/id" "$W/token"; exit 1; }
@@ -42,9 +42,10 @@ To propose starting permissions, add a `template` array to the body. The person 
 {"kind": "Files", "access": "read", "scope": "~/Library/Logs/AcmeApp/**", "risk": "low"}
 {"kind": "Programs", "access": "run", "scope": "/usr/sbin/system_profiler", "risk": "medium"}
 {"kind": "Processes", "access": "list", "scope": "all", "risk": "low"}
+{"kind": "Run level", "access": "as you", "scope": "*", "risk": "critical"}
 ```
 
-Kinds are `Files` (read, write), `Programs` (run, by absolute path), `Network` (connect, scope `*`: the person's Mac can't limit it to one host yet), `Environment` (read, by variable name or `*`), `Processes` (list, scope `all`). A file scope is one file; a folder ending in `/**` covers everything inside it but nothing beside it; `~` is the person's home folder. A `Programs` permission covers the program with any arguments. Risk is `low` for reading, `medium` for running a program or changing a file, `high` for network access or deleting. Ask for the least that does the job.
+Kinds are `Files` (read, write), `Programs` (run, by absolute path), `Network` (connect, scope `*`: the person's Mac can't limit it to one host yet), `Environment` (read, by variable name or `*`), `Processes` (list, scope `all`), `Run level` (as you, scope `*`, risk `critical`: see [Running outside the sandbox](#running-outside-the-sandbox)). A file scope is one file; a folder ending in `/**` covers everything inside it but nothing beside it; `~` is the person's home folder. A `Programs` permission covers the program with any arguments. Risk is `low` for reading, `medium` for running a program or changing a file, `high` for network access or deleting. Ask for the least that does the job.
 
 Some places are never covered by starting permissions, whatever you propose: SSH keys, cloud and tool credentials, keychains, browser data, password managers, mail, messages and `.env` files. Reaching one always asks.
 
@@ -134,7 +135,7 @@ These are the exact bodies. To use one, swap it for the `'{tool: "read_file", â€
 '{tool: "list_dir", args: {path: "~/Library/Logs"}, reason: $reason, client_id: $c}'
 ```
 
-**`run_command`**: a program with arguments, in a sandbox. Output: `{exit_code, stdout, stderr, truncated}`. `cwd` is optional. Add `network: true` when the command will reach the network and its first word doesn't show it, such as a shell running `git fetch` or a build that downloads packages: the person is asked for network access, which the sandbox otherwise blocks.
+**`run_command`**: a program with arguments, in a sandbox. Output: `{exit_code, stdout, stderr, truncated}`. `cwd` is optional. Add `network: true` when the command will reach the network and its first word doesn't show it, such as a shell running `git fetch` or a build that downloads packages: the person is asked for network access, which the sandbox otherwise blocks. Add `unsandboxed: true` only when the command can't work in the sandbox; see [Running outside the sandbox](#running-outside-the-sandbox).
 
 ```sh
 '{tool: "run_command", args: {command: ["/usr/sbin/system_profiler", "SPSoftwareDataType"]}, reason: $reason, client_id: $c}'
@@ -160,12 +161,21 @@ These are checked before anyone is asked. Breaking one gets you HTTP 400 `invali
 #### What can't run
 
 - Commands run in a sandbox: they can read only the files, and start only the programs, the person allowed. A `cwd` asks to read that folder.
-- macOS refuses to start programs with raised privileges (setuid, such as `ps`, `sudo`, `su` and `login`) inside a sandbox. They are `rejected` before the person is asked. Use `list_processes` instead of `ps`.
+- macOS refuses to start programs with raised privileges (setuid, such as `top` and `ps`) inside a sandbox, so they always run outside it; see below. `sudo`, `su` and `login` never run, and are `rejected` before the person is asked. Prefer `list_processes` to `ps`.
 - macOS's `log` refuses to run in a sandbox; read log files with `tail_log`.
 - `git` runs with an empty global config (`GIT_CONFIG_GLOBAL` points at an empty file) unless the person granted `~/.gitconfig`. Repository settings still apply.
 - Each command can run for 5 minutes, use 5 minutes of CPU and write files of up to 2 GB. A command that hits a limit is `failed`, and `error` says which.
 - The sandbox can't be nested: a command can't start `sandbox-exec` itself.
-- A `denied` whose `error` starts with `sandbox:` means the program tried to reach something not allowed. It is not the person saying no. Read `stderr` to see what, and ask for that thing with a structured tool.
+- A `denied` whose `error` starts with `sandbox:` means the program tried to reach something not allowed. It is not the person saying no. Read `stderr` to see what, and ask for that thing with a structured tool. If the command can't work in the sandbox at all, send it again with `unsandboxed: true`, unless the person switched Run as you off.
+
+#### Running outside the sandbox
+
+A command can run as the person, outside the sandbox, when it can't work inside it. It can then read and change anything their account can and use the network, so the person confirms each such command with Touch ID or their password, every time; nothing allows it ahead of time.
+
+- Programs with raised privileges (such as `top`) always run this way. For anything else, add `unsandboxed: true` to `run_command`'s `args`.
+- If you know at the start that you'll need it, propose `{"kind": "Run level", "access": "as you", "scope": "*", "risk": "critical"}` in the `template`, so the person decides with the risks in front of them. You can still ask later without it.
+- If the person switched Run as you off, these commands are `rejected` without asking them. Work inside the sandbox, or ask your user; don't ask again.
+- Admin rights (`sudo`) are never available, and admin tools such as `launchctl` and `security` run only inside the sandbox.
 
 ### Statuses
 

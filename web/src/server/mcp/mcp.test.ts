@@ -540,16 +540,16 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('MCP server against a local Redis',
   it('takes only the access each kind of starting permission has, and says which in the description', async () => {
     const { client } = await connect()
     const need = (kind: string, access: string, scope: string) => ({ kind, access, scope, risk: 'low' })
-    for (const wrong of [need('Files', 'list', '~/Desktop'), need('Programs', 'read', '/usr/bin/uname'), need('Processes', 'read', 'all'), need('Network', 'read', '*')]) {
+    for (const wrong of [need('Files', 'list', '~/Desktop'), need('Programs', 'read', '/usr/bin/uname'), need('Processes', 'read', 'all'), need('Network', 'read', '*'), need('Run level', 'as root', '*')]) {
       const r = await tool(client, 'start_session', { ...START, template: [wrong] })
       expect(r.isError, JSON.stringify(wrong)).toBe(true)
     }
-    const right = [need('Files', 'read', '~/Desktop/**'), need('Programs', 'run', '/usr/bin/uname'), need('Processes', 'list', 'all')]
+    const right = [need('Files', 'read', '~/Desktop/**'), need('Programs', 'run', '/usr/bin/uname'), need('Processes', 'list', 'all'), need('Run level', 'as you', '*')]
     expect((await tool(client, 'start_session', { ...START, template: right })).structuredContent).toMatchObject({ state: 'invited' })
 
     const { tools } = await client.listTools()
     const description = tools.find((t) => t.name === 'start_session')!.description!
-    for (const rule of ['Files (read, write)', 'Processes (list', '/**', 'least']) expect(description).toContain(rule)
+    for (const rule of ['Files (read, write)', 'Processes (list', 'Run level (as you', '/**', 'least']) expect(description).toContain(rule)
   })
 
   it('refuses arguments that break the field rules before anything reaches the person', async () => {

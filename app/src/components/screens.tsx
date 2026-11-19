@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Grant } from '@valet/protocol'
-import { KINDS, PLATFORM, SESSION_MINUTES, hhmm, clock, day, describe, minutes } from '../format'
+import { KINDS, PLATFORM, SESSION_MINUTES, hhmm, clock, day, describe, minutes, RUN_AS_YOU_RISK } from '../format'
 import { RiskBars } from './RiskBars'
 import { Fingerprint } from './ApprovalPrompt'
 import { Diff, DiffStat } from './Diff'
@@ -487,6 +487,13 @@ export function PermissionList({ grants, onToggle }: { grants: Grant[]; onToggle
                     onClick={() => onToggle(g.id)}
                   />
                   {g.source === 'approved' && <FromRequest until={g.expiresAt} />}
+                  {g.kind === 'Run level' && (
+                    <p className={g.on ? 'warning-note perm-note' : 'm-meta perm-note'}>
+                      {g.on
+                        ? RUN_AS_YOU_RISK
+                        : "Off: every command stays in the sandbox, and requests to leave it are turned back without asking you."}
+                    </p>
+                  )}
                 </div>
               )
             })}
