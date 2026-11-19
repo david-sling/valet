@@ -3,8 +3,14 @@ name: Release app
 on:
   push:
     tags: ['app-v*']
-  # Builds both platforms on any branch without creating a release
+  # Test build on any branch: builds the chosen platform without creating a release
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to build
+        type: choice
+        options: [windows, macos, both]
+        default: windows
 
 permissions:
   contents: write
@@ -49,6 +55,7 @@ jobs:
   # so pushing the same tag again rebuilds only the platform that has none.
   macos:
     needs: check
+    if: github.event_name == 'push' || inputs.platform != 'windows'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -127,8 +134,17 @@ jobs:
           key: release-macos-${{ github.ref_name }}-${{ github.sha }}
           enableCrossOsArchive: true
 
+      - name: Keep the test build
+        if: github.event_name != 'push' && steps.built.outputs.cache-hit != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Valet-macos-test-${{ github.sha }}
+          path: dist/macos
+          if-no-files-found: error
+
   windows:
     needs: check
+    if: github.event_name == 'push' || inputs.platform != 'macos'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -191,9 +207,18 @@ jobs:
           key: release-windows-${{ github.ref_name }}-${{ github.sha }}
           enableCrossOsArchive: true
 
+      - name: Keep the test build
+        if: github.event_name != 'push' && steps.built.outputs.cache-hit != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Valet-windows-test-${{ github.sha }}
+          path: dist/windows
+          if-no-files-found: error
+
   # Runs only when both platforms have their files, so the draft always carries both
   release:
     needs: [check, macos, windows]
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -217,9 +242,6 @@ jobs:
 
       - name: Write the release notes
         run: |
-          if [ "$GITHUB_EVENT_NAME" != push ]; then
-            echo "Test build of $GITHUB_REF_NAME at $GITHUB_SHA" > "$RUNNER_TEMP/notes.md"; exit 0
-          fi
           git fetch --quiet --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
           git tag -l --format='%(contents)' "$GITHUB_REF_NAME" | sed '/^-----BEGIN .*SIGNATURE-----$/,$d' > "$RUNNER_TEMP/notes.md"
           printf '\n%s\n' 'Signed and notarised for macOS 13 or later, on Apple silicon and Intel. The Windows installer is for Windows 10 and 11 (x64) and is not code-signed yet, so Windows may warn before it runs.' >> "$RUNNER_TEMP/notes.md"
@@ -245,16 +267,7 @@ jobs:
                 "windows-x86_64-nsis": {signature: $win_sig, url: $win_url}}}' > dist/latest.json
           jq '.platforms | keys' dist/latest.json
 
-      - name: Keep the test build
-        if: github.event_name != 'push'
-        uses: actions/upload-artifact@v4
-        with:
-          name: Valet-test-${{ github.sha }}
-          path: dist
-          if-no-files-found: error
-
       - name: Create the draft release
-        if: github.event_name == 'push'
         run: |
           existing=$(gh release view "$GITHUB_REF_NAME" --json isDraft -q .isDraft 2>/dev/null || true)
           if [ "$existing" = false ]; then

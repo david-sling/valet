@@ -127,7 +127,7 @@ Keep changes to the protocol in `packages/protocol/` and the skill file in step 
    The release workflow builds the macOS app (signed and notarised) and the Windows installer (not code-signed yet) side by side, and creates one draft release only when both have built. If one platform fails, push the same tag at the same commit again and only that platform rebuilds.
 3. Check the draft, then publish it. Both platforms go out together, and installed apps pick it up within 6 hours.
 
-To test the release build on a branch without releasing, run **Release app** from the Actions tab on that branch (or `gh workflow run release-app.yml --ref <branch>`). It builds and signs both platforms and keeps the files as a workflow artifact. A tag only releases if its commit is on `main`.
+To test the release build on a branch without releasing, run **Release app** from the Actions tab on that branch and pick a platform (Windows by default), or `gh workflow run release-app.yml --ref <branch> -f platform=windows`. It keeps the built files as a workflow artifact. A tag only releases if its commit is on `main`.
 
 Details are in [ARCHITECTURE.md §12.1](ARCHITECTURE.md#121-client-releases).
 
