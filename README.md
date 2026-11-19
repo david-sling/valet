@@ -124,8 +124,8 @@ Keep changes to the protocol in `packages/protocol/` and the skill file in step 
    git tag -a app-vX.Y.Z --cleanup=whitespace -F notes.md
    ```
 
-   The release workflow builds, signs and notarises a draft release.
-3. Check the draft, then publish it. Installed apps pick it up within 6 hours.
+   The release workflow builds the macOS app (signed and notarised) and the Windows installer (not code-signed yet) side by side, and creates one draft release only when both have built. If one platform fails, push the same tag at the same commit again and only that platform rebuilds.
+3. Check the draft, then publish it. Both platforms go out together, and installed apps pick it up within 6 hours.
 
 Details are in [ARCHITECTURE.md §12.1](ARCHITECTURE.md#121-client-releases).
 

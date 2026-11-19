@@ -41,6 +41,7 @@ jobs:
       - name: Check the update feed
         run: |
           jq -e --arg v "${TAG#app-v}" '.version == $v' latest.json
+          jq -e '.platforms | has("darwin-aarch64") and has("darwin-x86_64") and has("windows-x86_64")' latest.json
           jq -r '.platforms | to_entries[] | "\(.key) \(.value.url)"' latest.json
           for p in $(jq -r '.platforms | keys[]' latest.json); do jq -e --arg p "$p" '.platforms[$p].signature | length > 100' latest.json; done
 

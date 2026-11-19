@@ -417,9 +417,11 @@ Past sessions are kept in a SQLite database in the app's data folder (`~/Library
 
 ### 12.1 Client releases
 
-- Pushing a tag `app-vX.Y.Z` that matches `version` in `app/src-tauri/tauri.conf.json` runs `.github/workflows/release-app.yml` on a macOS runner.
-- It builds one universal binary (Apple silicon and Intel), signs it with the personal Developer ID Application certificate, notarises it with an App Store Connect API key, and staples the ticket.
-- It creates a **draft** GitHub release with the `.dmg`, the updater archive and `latest.json`, plus `Valet.dmg` under a fixed name for the join page's download link. A person publishes the draft after checking it.
+- Pushing a tag `app-vX.Y.Z` that matches `version` in `app/src-tauri/tauri.conf.json` runs `.github/workflows/release-app.yml`. It checks the tag first, then builds macOS and Windows in parallel.
+- macOS: one universal binary (Apple silicon and Intel), signed with the personal Developer ID Application certificate, notarised with an App Store Connect API key, and stapled.
+- Windows: an x64 NSIS installer with no Authenticode signature yet, so SmartScreen warns on first install. Its update is signed with the updater key like the macOS one.
+- Each platform keeps its finished files in the Actions cache under the tag and commit. Pushing the same tag at the same commit again rebuilds only a platform with nothing cached; moving the tag to another commit rebuilds both.
+- Only when both platforms have built does a last job create the **draft** GitHub release, replacing an earlier draft of the same tag: the `.dmg`, the updater archive, the Windows installer and its signature, and one `latest.json` listing both platforms, plus `Valet.dmg` and `Valet-setup.exe` under fixed names for download links. A person publishes the draft after checking it, which releases both platforms at once.
 - Every release needs notes, written as the annotated tag's message; the workflow stops on a lightweight tag or an empty message and uses the message as the release body. Edits made to the draft on GitHub are what the app shows.
 - On the first open after an update (not a first install), the app fetches the published releases from the GitHub API and shows the notes for every version since the last one it opened as.
 - The app checks `releases/latest/download/latest.json` at launch and every 6 hours, installs a newer version signed with the updater key, and offers a restart. Restarting ends live sessions first.
