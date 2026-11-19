@@ -212,7 +212,24 @@ fn page(s: &str, from: usize) -> Page {
 
 fn feed_output(tool: &str, v: &Value) -> Option<String> {
     let text = output_text(tool, v);
+    if text.is_empty() && tool == "run_command" {
+        // Without this a command that printed nothing looks exactly like one still waiting for its result
+        return Some(match v["exit_code"].as_i64() {
+            Some(0) => "Finished without printing anything.".into(),
+            Some(code) => format!("Exited with code {} without printing anything.", exit_code_text(code)),
+            None => "Finished without printing anything.".into(),
+        });
+    }
     (!text.is_empty()).then(|| clip(&text, FEED_OUTPUT))
+}
+
+// Windows reports a crash or a failed start as an NTSTATUS, which reads far better in hex (0xC0000142) than as -1073741502
+fn exit_code_text(code: i64) -> String {
+    if cfg!(windows) && (code as i32) < 0 {
+        format!("0x{:08X}", code as i32 as u32)
+    } else {
+        code.to_string()
+    }
 }
 
 fn output_text(tool: &str, v: &Value) -> String {
@@ -248,7 +265,8 @@ fn offered(risk: Risk, needs: &[Need]) -> Vec<Scope> {
 fn blocked_error(grants: &[Grant]) -> String {
     let mut e = "sandbox: the command tried to use something this session doesn't allow. Ask for it with a structured tool, or ask your user.".to_string();
     if !switched_off_running_as_you(grants) {
-        e.push_str(" If the command can't work in the sandbox at all, you can send it again with unsandboxed: true; the person confirms that with Touch ID.");
+        let verify = if cfg!(windows) { "Windows Hello" } else { "Touch ID" };
+        e.push_str(&format!(" If the command can't work in the sandbox at all, you can send it again with unsandboxed: true; the person confirms that with {verify}."));
     }
     e
 }
@@ -267,11 +285,17 @@ fn widens_safely(needs: &[Need]) -> bool {
 }
 
 fn session_tmp(id: &str) -> std::io::Result<PathBuf> {
-    use std::os::unix::fs::DirBuilderExt;
     let short: String = id.chars().filter(|c| c.is_ascii_alphanumeric()).take(12).collect();
     let dir = std::env::temp_dir().join(format!("valet-{short}-{}", now_ms()));
-    std::fs::DirBuilder::new().mode(0o700).create(&dir)?;
-    std::fs::canonicalize(dir)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        std::fs::DirBuilder::new().mode(0o700).create(&dir)?;
+    }
+    // %TEMP% is inside the person's profile, which only they can open
+    #[cfg(windows)]
+    std::fs::create_dir(&dir)?;
+    crate::needs::real(&dir)
 }
 
 impl Manager {
@@ -729,7 +753,7 @@ impl Manager {
             }
             let p = s.prompts.remove(i);
             if let Some(tx) = p.reply {
-                let _ = tx.send(Answer::Allow { scope, method: "touch_id" });
+                let _ = tx.send(Answer::Allow { scope, method: approve::METHOD });
             }
         }
         self.changed();
@@ -862,7 +886,11 @@ impl Manager {
                 tool: a.tool.clone(),
                 literal,
                 outcome: outcome.into(),
-                method: method.map(|m: &str| if m == "touch_id" { "Touch ID".to_string() } else { "Click".to_string() }),
+                method: method.map(|m: &str| match m {
+                    "touch_id" => "Touch ID".to_string(),
+                    "windows_hello" => "Windows Hello".to_string(),
+                    _ => "Click".to_string(),
+                }),
                 output,
                 diff,
                 note: done.error.clone(),
@@ -883,7 +911,23 @@ impl Manager {
         if let Some(m) = method {
             body["method"] = m.into();
         }
-        let _ = self.post(&id, &token, &a.action_id, &body).await;
+        let mut sent = self.post(&id, &token, &a.action_id, &body).await;
+        // A relay older than this app turns back an approval method it doesn't know (windows_hello) with a 400. The
+        // method is optional, so the result goes again without it rather than never reaching the agent.
+        if matches!(&sent, Err(e) if e.status() == Some(400)) && body.get("method").is_some() {
+            if let Some(b) = body.as_object_mut() {
+                b.remove("method");
+            }
+            sent = self.post(&id, &token, &a.action_id, &body).await;
+        }
+        if let Err(e) = sent {
+            // Said where the person can see it: otherwise the agent waits on a result that never comes, and nothing says so
+            let mut st = self.lock();
+            st.log(&id, "result.unsent", json!({ "action_id": a.action_id, "error": e.to_string() }));
+            st.event(&id, format!("This result didn't reach the agent: {e}"));
+            drop(st);
+            self.changed();
+        }
     }
 
     async fn post(&self, id: &str, token: &str, aid: &str, body: &Value) -> Result<(), RelayError> {
@@ -1240,7 +1284,7 @@ mod tests {
 
     async fn live_session(base: &str, template: Value, on: bool) -> (Manager, Agent) {
         let api = format!("{}/api/v1", base.trim_end_matches('/'));
-        let http = reqwest::Client::new();
+        let http = crate::relay::http().build().unwrap();
         let created: Value = http
             .post(format!("{api}/sessions"))
             .json(&json!({ "name": "Test vendor", "purpose": "End-to-end test.", "template": template }))
@@ -1299,7 +1343,7 @@ mod tests {
         let dir = session_tmp("e2e-files").unwrap();
         let file = dir.join("config.json");
         std::fs::write(&file, "{ \"renderer\": \"opengl\" }\n").unwrap();
-        let http = reqwest::Client::new();
+        let http = crate::relay::http().build().unwrap();
         let template = json!([
             { "kind": "Files", "access": "read", "scope": format!("{}/**", dir.display()), "risk": "low" },
             { "kind": "Programs", "access": "run", "scope": "/usr/bin/uname", "risk": "medium" },
@@ -1445,7 +1489,7 @@ mod tests {
 
         async fn connect(base: &str) -> Self {
             let agent = McpAgent {
-                http: reqwest::Client::new(),
+                http: crate::relay::http().build().unwrap(),
                 url: format!("{}/mcp", base.trim_end_matches('/')),
                 session: Mutex::new(None),
                 next: 1.into(),

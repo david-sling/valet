@@ -79,9 +79,35 @@ impl RelayError {
     }
 }
 
+/// Every HTTP client in the app starts here. It checks certificates with the operating system, so a root the
+/// system trusts (a company's proxy, say) is trusted here too, and a certificate the system rejects is rejected.
+pub fn http() -> reqwest::ClientBuilder {
+    static PROVIDER: std::sync::Once = std::sync::Once::new();
+    // The updater installs the same provider; only the first install sticks, and either is fine
+    PROVIDER.call_once(|| {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    });
+    reqwest::Client::builder()
+}
+
+/// reqwest's own message ("error sending request") hides why; the innermost causes say it (a certificate the
+/// system doesn't trust, a refused connection, a proxy).
+fn cause(e: &reqwest::Error) -> String {
+    let mut parts = vec![e.to_string()];
+    let mut source = std::error::Error::source(e);
+    while let Some(s) = source {
+        let s_text = s.to_string();
+        if !parts.iter().any(|p| p.contains(&s_text)) {
+            parts.push(s_text);
+        }
+        source = s.source();
+    }
+    parts.join(": ")
+}
+
 impl Relay {
     pub fn new(base: &str) -> Self {
-        let http = reqwest::Client::builder()
+        let http = http()
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(65))
             .https_only(!base.starts_with("http://localhost") && !base.starts_with("http://127.0.0.1"))
@@ -92,7 +118,7 @@ impl Relay {
     }
 
     async fn send<T: DeserializeOwned>(&self, req: reqwest::RequestBuilder) -> Result<T, RelayError> {
-        let res = req.send().await.map_err(|e| RelayError::Network(e.without_url().to_string()))?;
+        let res = req.send().await.map_err(|e| RelayError::Network(cause(&e.without_url())))?;
         let status = res.status().as_u16();
         let body: Value = res.json().await.unwrap_or(Value::Null);
         if (200..300).contains(&status) {
@@ -119,7 +145,9 @@ impl Relay {
     }
 
     pub async fn start(&self, id: &str, token: &str, grants: &[Grant]) -> Result<Started, RelayError> {
-        self.send(self.http.post(self.url(id, "/start")).bearer_auth(token).json(&json!({ "grants": grants }))).await
+        // the agent reads the platform to pick commands and paths that exist here; a relay older than it ignores it
+        let platform = if cfg!(windows) { "windows" } else { "macos" };
+        self.send(self.http.post(self.url(id, "/start")).bearer_auth(token).json(&json!({ "grants": grants, "platform": platform }))).await
     }
 
     pub async fn extend(&self, id: &str, token: &str) -> Result<Started, RelayError> {

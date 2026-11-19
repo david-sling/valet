@@ -4,6 +4,10 @@ export const KINDS: Kind[] = ['Run level', 'Files', 'Programs', 'Network', 'Envi
 export const RISK_WORD: Record<Risk, string> = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' }
 export const SESSION_MINUTES = 60
 
+// What the app calls the person's computer and the check it runs before allowing anything risky
+const WINDOWS = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
+export const PLATFORM = WINDOWS ? { verify: 'Windows Hello', machine: 'this PC' } : { verify: 'Touch ID', machine: 'this Mac' }
+
 export const VERB: Record<string, string> = {
   run_command: 'run a command',
   read_file: 'read a file',
@@ -28,7 +32,7 @@ export function day(t: number) {
   return `${label}, ${hhmm(t)}`
 }
 export const RUN_AS_YOU_RISK =
-  'Commands run as you, outside the sandbox: each can read and change any of your files, use the internet and install software, whatever else is switched off. You confirm each one with Touch ID.'
+  `Commands run as you, outside the sandbox: each can read and change any of your files, use the internet and install software, whatever else is switched off. You confirm each one with ${PLATFORM.verify}.`
 
 export const minutes = (ms: number) => `${Math.max(1, Math.round(ms / 60_000))} min`
 

@@ -130,13 +130,13 @@ export async function start(request: Request, { id }: Params) {
   const redis = await getRedis()
   const s = await loadSession(redis, id)
   authorise(request, s, 'client')
-  const { grants } = await readJson(request, StartBody)
+  const { grants, platform } = await readJson(request, StartBody)
   const now = Date.now()
   const endsAt = now + LIMITS.sessionMs
   await transition(redis, s, {
     from: ['joined'],
-    fields: { state: 'live', started_at: now, ends_at: endsAt, client_seen_at: now },
-    event: { type: 'session.started', grants: grants.filter((g) => g.on).length, ends_at: endsAt },
+    fields: { state: 'live', started_at: now, ends_at: endsAt, client_seen_at: now, ...(platform ? { platform } : {}) },
+    event: { type: 'session.started', grants: grants.filter((g) => g.on).length, ends_at: endsAt, ...(platform ? { platform } : {}) },
     wake: ['agent'],
     grants,
   })

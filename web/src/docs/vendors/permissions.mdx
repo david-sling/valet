@@ -27,10 +27,10 @@ Add a `template` list when you start the session:
 |---|---|---|
 | `Files` | `read`, `write` | One file, or a folder ending in `/**` |
 | `Programs` | `run` | An absolute path. Covers the program with any arguments |
-| `Network` | `connect` | `*` only: the Mac can't limit it to one host yet |
+| `Network` | `connect` | `*` only: Valet can't limit it to one host yet |
 | `Environment` | `read` | A variable name, or `*` |
 | `Processes` | `list` | `all` |
-| `Run level` | `as you` | `*` only. Lets commands ask to run outside the sandbox; each one still needs Touch ID |
+| `Run level` | `as you` | `*` only. Lets commands ask to run outside the sandbox; each one still needs Touch ID or Windows Hello |
 
 A folder ending in `/**` covers everything inside it but nothing beside it. `~` is the customer's home folder.
 
@@ -40,8 +40,8 @@ A folder ending in `/**` covers everything inside it but nothing beside it. `~` 
 |---|---|---|
 | Low | Reading a file or listing processes | A click |
 | Medium | Running a program or changing a file | A click |
-| High | Network access, deleting, protected locations | Touch ID |
-| Critical | Running outside the sandbox, admin rights or system settings | Touch ID, once at a time |
+| High | Network access, deleting, protected locations | Touch ID or Windows Hello |
+| Critical | Running outside the sandbox, admin rights or system settings | Touch ID or Windows Hello, once at a time |
 
 ## Places that always ask
 

@@ -13,7 +13,7 @@ The agent sees the current end time as `ends_at` and is told by a `session.exten
 
 ## Is the customer still there?
 
-The session status includes `client_connected`. It turns `false` when the customer's app hasn't been in touch for 90 seconds, for example if their Mac went to sleep or lost its connection. The session stays open until it ends or reaches its time limit.
+The session status includes `client_connected`. It turns `false` when the customer's app hasn't been in touch for 90 seconds, for example if their computer went to sleep or lost its connection. The session stays open until it ends or reaches its time limit.
 
 ## Ending a session
 
@@ -28,7 +28,7 @@ A session ends when either side ends it, or when it reaches its time limit. When
 
 - Requests still waiting are answered `ended`.
 - The output of every request is deleted from the relay. Read what you need before ending.
-- The customer's Mac stops every program the session started and drops every permission.
+- The customer's computer stops every program the session started and drops every permission.
 - The signed log is sealed.
 
 ## The signed log

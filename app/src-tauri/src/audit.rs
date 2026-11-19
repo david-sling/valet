@@ -194,10 +194,56 @@ pub fn device_signer() -> Result<Signer, String> {
     Ok(Signer::from_seed(seed))
 }
 
-#[cfg(not(target_os = "macos"))]
+// The seed is a generic credential in Windows Credential Manager, kept on this PC only (never roamed with the profile).
+// Unlike a Keychain item it isn't tied to the app: any program running as this person could read it. That is the same
+// reach DPAPI would give, and a TPM can't hold an Ed25519 key, so this is as close to the Mac as Windows allows.
+#[cfg(windows)]
+pub fn device_signer() -> Result<Signer, String> {
+    credential_signer(&format!("{SERVICE}/{ACCOUNT}"))
+}
+
+#[cfg(windows)]
+fn credential_signer(target: &str) -> Result<Signer, String> {
+    use windows::core::{PCWSTR, PWSTR};
+    use windows::Win32::Security::Credentials::{CredFree, CredReadW, CredWriteW, CREDENTIALW, CRED_PERSIST_LOCAL_MACHINE, CRED_TYPE_GENERIC};
+    use windows::Win32::Security::Cryptography::{BCryptGenRandom, BCRYPT_USE_SYSTEM_PREFERRED_RNG};
+
+    let mut name: Vec<u16> = target.encode_utf16().chain([0]).collect();
+    unsafe {
+        let mut found: *mut CREDENTIALW = std::ptr::null_mut();
+        if CredReadW(PCWSTR(name.as_ptr()), CRED_TYPE_GENERIC, None, &mut found).is_ok() {
+            let c = &*found;
+            let seed = <[u8; 32]>::try_from(std::slice::from_raw_parts(c.CredentialBlob, c.CredentialBlobSize as usize));
+            CredFree(found as *const _);
+            if let Ok(seed) = seed {
+                return Ok(Signer::from_seed(seed));
+            }
+        }
+    }
+    let mut seed = [0u8; 32];
+    unsafe { BCryptGenRandom(None, &mut seed, BCRYPT_USE_SYSTEM_PREFERRED_RNG) }
+        .ok()
+        .map_err(|e| format!("Couldn't make a signing key: {}", e.message()))?;
+    let mut label: Vec<u16> = "Valet audit log signing key".encode_utf16().chain([0]).collect();
+    let mut user: Vec<u16> = ACCOUNT.encode_utf16().chain([0]).collect();
+    let credential = CREDENTIALW {
+        Type: CRED_TYPE_GENERIC,
+        TargetName: PWSTR(name.as_mut_ptr()),
+        Comment: PWSTR(label.as_mut_ptr()),
+        CredentialBlobSize: seed.len() as u32,
+        CredentialBlob: seed.as_mut_ptr(),
+        Persist: CRED_PERSIST_LOCAL_MACHINE,
+        UserName: PWSTR(user.as_mut_ptr()),
+        ..Default::default()
+    };
+    unsafe { CredWriteW(&credential, 0) }.map_err(|e| format!("Couldn't save the signing key: {}", e.message()))?;
+    Ok(Signer::from_seed(seed))
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
 pub fn device_signer() -> Result<Signer, String> {
     let _ = (SERVICE, ACCOUNT);
-    Err("Sealing the log needs the macOS Keychain.".into())
+    Err("Sealing the log needs the macOS Keychain or Windows Credential Manager.".into())
 }
 
 #[cfg(test)]
@@ -300,5 +346,21 @@ mod tests {
     fn output_is_logged_as_a_size_and_a_hash() {
         let facts = output_facts("secret contents", true);
         assert_eq!(facts, json!({ "bytes": 15, "hash": sha256(b"secret contents"), "truncated": true }));
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn keeps_one_signing_key_in_credential_manager() {
+        use windows::core::PCWSTR;
+        use windows::Win32::Security::Credentials::{CredDeleteW, CRED_TYPE_GENERIC};
+        let target = format!("{SERVICE}/test-{}", std::process::id());
+        let first = credential_signer(&target).unwrap();
+        let again = credential_signer(&target).unwrap();
+        let name: Vec<u16> = target.encode_utf16().chain([0]).collect();
+        unsafe { CredDeleteW(PCWSTR(name.as_ptr()), CRED_TYPE_GENERIC, None) }.unwrap();
+        assert_eq!(first.public_key(), again.public_key(), "a second launch must read the same key, not make a new one");
+        let mut log = Log::default();
+        log.append("action", json!({ "tool": "list_processes" }));
+        assert!(verify(&log.seal("s1", &again, 9)).is_ok());
     }
 }

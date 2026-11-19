@@ -339,6 +339,19 @@ For each action, Rust:
 - Some programs refuse to run under any sandbox (`/usr/bin/log` exits with "Cannot run while sandboxed") or cannot be started inside one (setuid programs such as `/bin/ps`). `list_processes` and `tail_log` cover the common cases.
 - A sandbox denial inside a running command surfaces as an `EPERM` error. The action returns `denied` with `reason: "sandbox"` and the stderr, and the agent can ask for the specific grant through a structured tool.
 
+### 9.2.1 Sandbox (Windows)
+
+Windows has no path-based sandbox, so each `run_command` gets a new AppContainer (`app/src-tauri/src/sandbox/windows.rs`):
+
+- **Identity.** A fresh AppContainer profile and SID per command, never reused, deleted afterwards. It starts with no access to the person's profile and reads system folders through "ALL APPLICATION PACKAGES", as an app from the Store does.
+- **Files.** Each file grant becomes an allow entry for that SID, written just before the command starts and removed when it ends. A folder grant writes one entry on every file and folder inside it, without inheritance pushing anything down, so protected places and `.env` files are left with no entry unless the person approved them. The container's access check does not honour deny entries, so closing a place means never opening it. A folder holding more than 20,000 items is turned back, asking for a narrower grant, and a grant for every file (`*`) is refused.
+- **Programs.** Windows cannot restrict which programs a process may start by path. With only the command's own program granted, the Job's child-process policy blocks starting any other program. Once the session grants a second program, the command can start any program, which is weaker than macOS's per-program `process-exec` list.
+- **Network.** The `internetClient` and `privateNetworkClientServer` capabilities, added only for a grant the person approved. AppContainers cannot reach `localhost`. Isolation is enforced by Windows Firewall, so it needs the firewall service running.
+- **Job Object.** 5 minutes of CPU, no clipboard, other windows or desktop switching, and stopping the session kills every process in the job. There is no file-size limit as on macOS.
+- **Leftovers.** If Valet dies mid-command, the entries it added stay behind but name a SID nothing runs as any more, so they grant nothing.
+- **Programs that start.** Only `.exe` and `.com` start directly. `.bat`, `.cmd` and `.ps1` must go through their interpreter, which is high risk. Arguments are quoted for the C runtime, except that everything after `cmd /c` is passed as written, because cmd reads it itself.
+- **Approvals.** High and critical risk confirm with Windows Hello (`UserConsentVerifier`), parented to Valet's window, and are recorded as `windows_hello`.
+
 ### 9.3 Approvals
 
 - Prompts are shown in the main window's live feed, as in the mockup. DESIGN.md calls for a separate always-on-top native window, so the app also raises a notification and an always-on-top prompt window when the main window is hidden.
@@ -404,9 +417,12 @@ Past sessions are kept in a SQLite database in the app's data folder (`~/Library
 
 ### 12.1 Client releases
 
-- Pushing a tag `app-vX.Y.Z` that matches `version` in `app/src-tauri/tauri.conf.json` runs `.github/workflows/release-app.yml` on a macOS runner.
-- It builds one universal binary (Apple silicon and Intel), signs it with the personal Developer ID Application certificate, notarises it with an App Store Connect API key, and staples the ticket.
-- It creates a **draft** GitHub release with the `.dmg`, the updater archive and `latest.json`, plus `Valet.dmg` under a fixed name for the join page's download link. A person publishes the draft after checking it.
+- Pushing a tag `app-vX.Y.Z` that matches `version` in `app/src-tauri/tauri.conf.json` runs `.github/workflows/release-app.yml`. It checks the tag first, then builds macOS and Windows in parallel.
+- macOS: one universal binary (Apple silicon and Intel), signed with the personal Developer ID Application certificate, notarised with an App Store Connect API key, and stapled.
+- Windows: an x64 NSIS installer with no Authenticode signature yet, so SmartScreen warns on first install. Its update is signed with the updater key like the macOS one.
+- Each platform keeps its finished files in the Actions cache under the tag and commit. Pushing the same tag at the same commit again rebuilds only a platform with nothing cached; moving the tag to another commit rebuilds both.
+- Only when both platforms have built does a last job create the **draft** GitHub release, replacing an earlier draft of the same tag: the `.dmg`, the updater archive, the Windows installer and its signature, and one `latest.json` listing both platforms, plus `Valet.dmg` and `Valet-setup.exe` under fixed names for download links. A person publishes the draft after checking it, which releases both platforms at once.
+- A tag whose commit isn't on `main` is refused. Running the workflow by hand on a branch builds the chosen platform (both by default) the same way and keeps the files as a workflow artifact instead of creating a release.
 - Every release needs notes, written as the annotated tag's message; the workflow stops on a lightweight tag or an empty message and uses the message as the release body. Edits made to the draft on GitHub are what the app shows.
 - On the first open after an update (not a first install), the app fetches the published releases from the GitHub API and shows the notes for every version since the last one it opened as.
 - The app checks `releases/latest/download/latest.json` at launch and every 6 hours, installs a newer version signed with the updater key, and offers a restart. Restarting ends live sessions first.

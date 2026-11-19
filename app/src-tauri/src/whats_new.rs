@@ -47,7 +47,7 @@ pub fn record(dir: &Path, current: &Version) {
 }
 
 pub async fn fetch() -> Result<Vec<Release>, String> {
-    let http = reqwest::Client::builder()
+    let http = crate::relay::http()
         .timeout(Duration::from_secs(15))
         .user_agent(concat!("Valet/", env!("CARGO_PKG_VERSION")))
         .build()

@@ -18,7 +18,7 @@ Deny is always the default. Focus starts on **Deny** and **Escape** denies, so a
 | Risk | To allow |
 |---|---|
 | Low, Medium | Click Allow |
-| High, Critical | Click Allow, then confirm with Touch ID |
+| High, Critical | Click Allow, then confirm with Touch ID on macOS or Windows Hello on Windows |
 
 ## How long an approval lasts
 
@@ -39,7 +39,7 @@ Critical requests can only be allowed once.
 Some programs, such as `top`, can't work inside Valet's sandbox. The agent can ask to run one as you, outside it. The prompt says so in a warning above the command.
 
 - Outside the sandbox, the command can read and change any of your files, use the internet and install software. Your other permissions don't limit it.
-- Every such command asks, and needs Touch ID or your password, even if you allowed **Run as you** when the session started. It can only be allowed once.
+- Every such command asks, and needs Touch ID or your password on macOS, or Windows Hello on Windows, even if you allowed **Run as you** when the session started. It can only be allowed once.
 - Allow it only if you're sure of the command itself. If you're not, deny it: the agent can usually find another way.
 - To stop these requests altogether, switch off **Run as you** in the session's permissions. From then on they're turned back without asking you.
 - Admin tools, such as `sudo`, never run outside the sandbox.

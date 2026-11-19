@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { CODE_CHARS, normaliseCode } from '@valet/protocol/codes'
-import { DOWNLOAD } from '#/lib/links'
+import { DOWNLOAD, DOWNLOAD_MAC, DOWNLOAD_WINDOWS, REQUIREMENTS } from '#/lib/links'
 import { Check, CopyIcon } from '#/components/Links'
 
 export const Route = createFileRoute('/j/$code')({
@@ -112,7 +112,8 @@ function JoinLink() {
               The code works once and expires 10 minutes after it was made. If you didn't ask anyone for help, ignore it.
             </p>
             <p className="join-note">
-              Valet runs on macOS 13 or later. If the button doesn't open it, <a href={DOWNLOAD}>download Valet for Mac</a>.
+              Valet runs on {REQUIREMENTS}. If the button doesn't open it, download Valet for{' '}
+              <a href={DOWNLOAD_MAC}>macOS</a> or <a href={DOWNLOAD_WINDOWS}>Windows</a>.
             </p>
           </div>
         )}

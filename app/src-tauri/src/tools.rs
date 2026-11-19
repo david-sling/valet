@@ -127,6 +127,7 @@ pub fn list_dir(raw: &str, p: &Path) -> Outcome {
     Ok(json!({ "entries": entries, "truncated": truncated }))
 }
 
+#[cfg(unix)]
 pub fn list_processes() -> Outcome {
     let out = std::process::Command::new("/bin/ps")
         .args(["-axo", "pid=,comm="])
@@ -143,6 +144,27 @@ pub fn list_processes() -> Outcome {
         })
         .take(MAX_ENTRIES)
         .collect();
+    Ok(json!({ "processes": processes }))
+}
+
+#[cfg(windows)]
+pub fn list_processes() -> Outcome {
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Diagnostics::ToolHelp::{CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS};
+
+    let snap = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) }.map_err(|e| Failure::Failed(e.message()))?;
+    let mut processes = Vec::new();
+    let mut entry = PROCESSENTRY32W { dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
+    let mut more = unsafe { Process32FirstW(snap, &mut entry) }.is_ok();
+    while more && processes.len() < MAX_ENTRIES {
+        let len = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(entry.szExeFile.len());
+        let name = String::from_utf16_lossy(&entry.szExeFile[..len]);
+        processes.push(json!({ "pid": entry.th32ProcessID, "name": name }));
+        more = unsafe { Process32NextW(snap, &mut entry) }.is_ok();
+    }
+    unsafe {
+        let _ = CloseHandle(snap);
+    }
     Ok(json!({ "processes": processes }))
 }
 
@@ -174,7 +196,7 @@ mod tests {
     fn temp(name: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!("valet-tools-{}-{name}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::canonicalize(dir).unwrap()
+        crate::needs::real(&dir).unwrap()
     }
 
     #[test]

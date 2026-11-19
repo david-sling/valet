@@ -3,8 +3,8 @@
 A valet key for AI agents. Valet lets a vendor's AI agent run commands on someone else's machine, with that machine's owner deciding what is allowed.
 
 - **Commands only.** No screen sharing, screen capture, or mouse and keyboard control.
-- **The client's machine decides.** Each session starts from permissions the client reviews. Anything outside them waits for the client's approval, with Touch ID for high-risk actions.
-- **Enforced in the OS sandbox**, never by parsing command text. A command runs outside it only when the person allows that one command, with Touch ID.
+- **The client's machine decides.** Each session starts from permissions the client reviews. Anything outside them waits for the client's approval, with Touch ID or Windows Hello for high-risk actions.
+- **Enforced in the OS sandbox**, never by parsing command text. A command runs outside it only when the person allows that one command, with Touch ID or Windows Hello.
 - **Temporary and attended.** Sessions last 60 minutes and only the client can extend them. Every action lands in a log both sides can see.
 
 Live at [valet.davidsling.in](https://valet.davidsling.in).
@@ -12,9 +12,9 @@ Live at [valet.davidsling.in](https://valet.davidsling.in).
 ## How it works
 
 ```
- Vendor's agent ──curl──►  Relay (web/, Vercel)  ◄──long-poll──  Client app (Tauri, client's Mac)
+ Vendor's agent ──curl──►  Relay (web/, Vercel)  ◄──long-poll──  Client app (Tauri, client's computer)
    reads skill.md          TanStack Start server routes           Rust core: grants, decide, sandbox,
-   agent_token             Redis                                  Touch ID, audit log
+   agent_token             Redis                                  Touch ID / Windows Hello, audit log
 ```
 
 1. The agent reads the skill file at `/agent/skill.md` and opens a session with `curl`, which works in any agent with a shell. Agents without a shell can use the MCP server at `/mcp` instead; it is verified with ChatGPT and Claude only, and other MCP clients are untested. There is no SDK.
@@ -28,7 +28,7 @@ Both sides connect outward to the relay; the client opens no ports. The relay ca
 | Path | What it is |
 |---|---|
 | `web/` | Landing page, join page (`/j/{code}`), relay API (`/api/v1`) and the skill file. TanStack Start on Vercel |
-| `app/` | The macOS client. Tauri v2: a Rust core for policy, sandbox and approvals, and a React webview |
+| `app/` | The client app for macOS and Windows. Tauri v2: a Rust core for policy, sandbox and approvals, and a React webview |
 | `packages/protocol/` | Shared schemas and types, with test vectors |
 | `tools/` | `fake-agent.ts` and `fake-client.ts`, stand-ins for either side when testing the relay |
 | `plugins/valet-cards/` | A Claude Code plugin that shows a session's calls as cards in a pane beside the chat |
@@ -109,7 +109,7 @@ cargo test --manifest-path app/src-tauri/Cargo.toml
    cp web/example.env web/.env
    ```
 
-   Use `tools/fake-agent.ts` and `tools/fake-client.ts` to drive a session without a Mac or a real agent. Tests that need Redis read `TEST_REDIS_URL`, which must point at a local instance.
+   Use `tools/fake-agent.ts` and `tools/fake-client.ts` to drive a session without the client app or a real agent. Tests that need Redis read `TEST_REDIS_URL`, which must point at a local instance.
 4. Before opening a PR, run the checks under [Development](#development). Run the Rust tests too if you touched `app/`.
 5. Open a pull request into `main` that links the issue (`Closes #N`) and says how you tested it.
 
@@ -124,8 +124,10 @@ Keep changes to the protocol in `packages/protocol/` and the skill file in step 
    git tag -a app-vX.Y.Z --cleanup=whitespace -F notes.md
    ```
 
-   The release workflow builds, signs and notarises a draft release.
-3. Check the draft, then publish it. Installed apps pick it up within 6 hours.
+   The release workflow builds the macOS app (signed and notarised) and the Windows installer (not code-signed yet) side by side, and creates one draft release only when both have built. If one platform fails, push the same tag at the same commit again and only that platform rebuilds.
+3. Check the draft, then publish it. Both platforms go out together, and installed apps pick it up within 6 hours.
+
+To test the release build on a branch without releasing, run **Release app** from the Actions tab on that branch and pick a platform (both by default), or `gh workflow run release-app.yml --ref <branch> -f platform=windows`. It keeps the built files as a workflow artifact. A tag only releases if its commit is on `main`.
 
 Details are in [ARCHITECTURE.md §12.1](ARCHITECTURE.md#121-client-releases).
 

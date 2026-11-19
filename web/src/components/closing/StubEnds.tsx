@@ -3,7 +3,7 @@ import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { Ticket } from '../hero/Ticket'
 import { createTear } from '../hero/tear'
-import { DOWNLOAD } from '#/lib/links'
+import { DOWNLOAD_MAC, DOWNLOAD_WINDOWS } from '#/lib/links'
 import { ClaudeMark, InstallSkill, StarButton } from '../Links'
 
 // The closing: the ticket story ends where it began. The two halves come back in from either side and meet at the
@@ -108,7 +108,7 @@ export function StubEnds({ stars, skill }: { stars: number | null; skill: string
         </p>
         <InstallSkill skill={skill} />
         <p className="closing-note">
-          Your agent sends your customer a link, where they get the <a href={DOWNLOAD}>Valet app for Mac</a>.
+          Your agent sends your customer a link, where they get the Valet app for <a href={DOWNLOAD_MAC}>macOS</a> or <a href={DOWNLOAD_WINDOWS}>Windows</a>.
         </p>
       </div>
 
