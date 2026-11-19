@@ -1251,7 +1251,7 @@ mod tests {
 
     async fn live_session(base: &str, template: Value, on: bool) -> (Manager, Agent) {
         let api = format!("{}/api/v1", base.trim_end_matches('/'));
-        let http = reqwest::Client::new();
+        let http = crate::relay::http().build().unwrap();
         let created: Value = http
             .post(format!("{api}/sessions"))
             .json(&json!({ "name": "Test vendor", "purpose": "End-to-end test.", "template": template }))
@@ -1310,7 +1310,7 @@ mod tests {
         let dir = session_tmp("e2e-files").unwrap();
         let file = dir.join("config.json");
         std::fs::write(&file, "{ \"renderer\": \"opengl\" }\n").unwrap();
-        let http = reqwest::Client::new();
+        let http = crate::relay::http().build().unwrap();
         let template = json!([
             { "kind": "Files", "access": "read", "scope": format!("{}/**", dir.display()), "risk": "low" },
             { "kind": "Programs", "access": "run", "scope": "/usr/bin/uname", "risk": "medium" },
@@ -1456,7 +1456,7 @@ mod tests {
 
         async fn connect(base: &str) -> Self {
             let agent = McpAgent {
-                http: reqwest::Client::new(),
+                http: crate::relay::http().build().unwrap(),
                 url: format!("{}/mcp", base.trim_end_matches('/')),
                 session: Mutex::new(None),
                 next: 1.into(),
