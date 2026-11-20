@@ -10,7 +10,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::approve;
 use crate::audit::{self, Log, Signer};
-use crate::needs::{can_widen, normalise_scope, plan, rate, tilde, Plan, Request};
+use crate::needs::{as_administrator_need, can_widen, normalise_scope, plan, rate, tilde, Plan, Request};
 use crate::policy::{decide, grants_from, scopes_for, Scope};
 use crate::relay::{InboxAction, Relay, RelayError};
 use crate::sandbox::{self, Ran};
@@ -686,7 +686,7 @@ impl Manager {
     }
 
     pub async fn answer(&self, prompt_id: &str, allow: bool, scope: Option<Scope>) -> Result<(), String> {
-        let (id, scope, literal, agent) = {
+        let (id, scope, literal, agent, admin) = {
             let mut st = self.lock();
             let (id, s) = st
                 .sessions
@@ -736,10 +736,15 @@ impl Manager {
                 return Ok(());
             }
             p.view.busy = true;
-            (id, scope, p.view.literal.clone(), agent)
+            let admin = p.view.needs.contains(&as_administrator_need());
+            (id, scope, p.view.literal.clone(), agent, admin)
         };
         self.changed();
-        let reason = format!("allow {} to {}", clip(&agent, 40), clip(&literal, 80));
+        let reason = if admin {
+            format!("allow {} to run as administrator: {}", clip(&agent, 40), clip(&literal, 80))
+        } else {
+            format!("allow {} to {}", clip(&agent, 40), clip(&literal, 80))
+        };
         let confirmed = approve::confirm(&reason).await;
         {
             let mut st = self.lock();
@@ -839,6 +844,9 @@ impl Manager {
                 entry["risk"] = json!(p.risk);
                 if p.unsandboxed {
                     entry["unsandboxed"] = json!(true);
+                }
+                if p.elevated {
+                    entry["elevated"] = json!(true);
                 }
             }
             Err(e) => entry["rejected"] = json!(e),
@@ -1096,10 +1104,24 @@ impl Manager {
         if let Request::RunCommand { command, .. } = &p.request {
             let grants = self.lock().sessions.get(id).map(|s| s.view.grants.clone()).unwrap_or_default();
             let program = p.program.clone()?;
-            return match sandbox::run(&program, command, p.cwd.as_deref(), &grants, approved, tmp, !p.unsandboxed, stop).await {
+            #[cfg(windows)]
+            let ran = if p.elevated {
+                sandbox::run_elevated(&program, command, p.cwd.as_deref(), &grants, tmp, stop).await
+            } else {
+                sandbox::run(&program, command, p.cwd.as_deref(), &grants, approved, tmp, !p.unsandboxed, stop).await
+            };
+            // plan turns elevation back everywhere else; this only keeps it from ever running unelevated by mistake
+            #[cfg(not(windows))]
+            let ran = if p.elevated {
+                Ran::Failed("Running a command as administrator is available only on Windows.".into())
+            } else {
+                sandbox::run(&program, command, p.cwd.as_deref(), &grants, approved, tmp, !p.unsandboxed, stop).await
+            };
+            return match ran {
                 Ran::Done(v) => Some(Done { status: "ok", output: Some(v), error: None }),
                 Ran::Blocked(v) => Some(Done { status: "denied", output: Some(v), error: Some(blocked_error(&grants)) }),
                 Ran::Failed(e) => Some(Done { status: "failed", output: None, error: Some(e) }),
+                Ran::Declined(e) => Some(Done { status: "denied", output: None, error: Some(e) }),
                 Ran::Stopped => None,
             };
         }

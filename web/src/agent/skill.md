@@ -27,7 +27,7 @@ Fill in the two values. `name` is who is asking (your user, or their company); t
 ```sh
 [ -s "$W/token" ] && { echo "REFUSING: $W already holds a session. End it (step 5), or if it is already over, rm -rf \"$W\" first."; exit 1; }
 jq -n --arg name "NAME" --arg purpose "PURPOSE" \
-  '{name: $name, purpose: $purpose, skill_version: 7}' > "$W/create.json"
+  '{name: $name, purpose: $purpose, skill_version: 8}' > "$W/create.json"
 curl -sS --http1.1 -X POST "$BASE/sessions" -H 'Content-Type: application/json' -d @"$W/create.json" -o "$W/session.json" -w 'HTTP %{http_code}\n'
 jq -r '.session_id // empty' "$W/session.json" > "$W/id"; jq -r '.agent_token // empty' "$W/session.json" > "$W/token"
 [ -s "$W/token" ] || { echo 'START FAILED:'; cat "$W/session.json"; rm -f "$W/id" "$W/token"; exit 1; }
@@ -135,7 +135,7 @@ These are the exact bodies. To use one, swap it for the `'{tool: "read_file", â€
 '{tool: "list_dir", args: {path: "~/Library/Logs"}, reason: $reason, client_id: $c}'
 ```
 
-**`run_command`**: a program with arguments, in a sandbox. Output: `{exit_code, stdout, stderr, truncated}`. `cwd` is optional. Add `network: true` when the command will reach the network and its first word doesn't show it, such as a shell running `git fetch` or a build that downloads packages: the person is asked for network access, which the sandbox otherwise blocks. Add `unsandboxed: true` only when the command can't work in the sandbox; see [Running outside the sandbox](#running-outside-the-sandbox).
+**`run_command`**: a program with arguments, in a sandbox. Output: `{exit_code, stdout, stderr, truncated}`. `cwd` is optional. Add `network: true` when the command will reach the network and its first word doesn't show it, such as a shell running `git fetch` or a build that downloads packages: the person is asked for network access, which the sandbox otherwise blocks. Add `unsandboxed: true` only when the command can't work in the sandbox; see [Running outside the sandbox](#running-outside-the-sandbox). On Windows, add `elevated: true` only when it needs administrator rights; see [Running as administrator](#running-as-administrator-windows-only).
 
 ```sh
 '{tool: "run_command", args: {command: ["/usr/sbin/system_profiler", "SPSoftwareDataType"]}, reason: $reason, client_id: $c}'
@@ -176,7 +176,16 @@ A command can run as the person, outside the sandbox, when it can't work inside 
 - Programs with raised privileges (such as `top`) always run this way. For anything else, add `unsandboxed: true` to `run_command`'s `args`.
 - If you know at the start that you'll need it, propose `{"kind": "Run level", "access": "as you", "scope": "*", "risk": "critical"}` in the `template`, so the person decides with the risks in front of them. You can still ask later without it.
 - If the person switched Run as you off, these commands are `rejected` without asking them. Work inside the sandbox, or ask your user; don't ask again.
-- Admin rights (`sudo`, `runas`) are never available, and admin tools such as `launchctl` and `security` on macOS, or `reg`, `sc` and `schtasks` on Windows, run only inside the sandbox.
+- Admin tools such as `launchctl` and `security` on macOS, or `reg`, `sc` and `schtasks` on Windows, run only inside the sandbox or, on Windows, as administrator (below). `sudo`, `su` and `runas` never run.
+
+#### Running as administrator (Windows only)
+
+On Windows, a command that needs administrator rights (changing a service, a machine-wide setting, or software installed for everyone) can run as administrator: add `elevated: true` to `run_command`'s `args`. It runs outside the sandbox with full control of the computer, so the person confirms it every time, first with Windows Hello and then at the Windows administrator prompt (UAC); nothing allows it ahead of time.
+
+- Ask for it only when the command can't work without it, and say why in `reason`. Send the command itself, not `runas` or `sudo` in front of it.
+- If the person says no at the Windows prompt, the result is `denied`. Don't send it again unless they ask you to.
+- If the person switched Run as you off, these commands are `rejected` too.
+- On macOS, `elevated: true` is `rejected`: admin rights are never available there.
 
 ### macOS and Windows
 

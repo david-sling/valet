@@ -70,6 +70,15 @@ When a command can't work in the sandbox, it can run as the customer, outside it
 - If you know you'll need it, propose a [Run level](/docs/vendors/permissions#kinds-of-permission) permission when you start the session, so the customer decides with the risks in front of them.
 - If the customer switched it off, these commands are `rejected` without asking them. Work inside the sandbox, or ask your user.
 
+## Running as administrator (Windows only)
+
+On Windows, a command that needs administrator rights can run as administrator: add `elevated: true` to `run_command`'s `args`. It runs outside the sandbox with full control of the computer, so the customer confirms every such command with Windows Hello and then at the Windows administrator prompt (UAC). Nothing allows one ahead of time.
+
+- Send the command itself. `runas` and `sudo` never run, elevated or not.
+- If the customer says no at the Windows prompt, the action is `denied`.
+- It is also `rejected` when the customer switched Run as you off, and always on macOS, where admin rights are never available.
+- The command still runs in a Job Object with a 5-minute CPU limit, and ending the session stops it. An administrator can start work Windows runs outside that job, such as a service or a scheduled task, so treat it as full control.
+
 ## Statuses
 
 | Status | Meaning | What to do |

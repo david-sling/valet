@@ -63,6 +63,7 @@ export function ApprovalPrompt({
     scope === 'once' ? 'Allow once' : scope === 'check' ? 'Allow, check output' : `Allow for ${SCOPE_LABEL[scope].toLowerCase()}`
   const fingerprint = <Fingerprint />
   const outside = prompt.needs.some((n) => n.kind === 'Run level')
+  const admin = prompt.needs.some((n) => n.kind === 'Admin rights' && n.access === 'as administrator')
   const extra = prompt.needs.filter(
     (n) => n.kind !== 'Run level' && n.scope !== prompt.program && !prompt.literal.includes(n.scope),
   )
@@ -99,6 +100,13 @@ export function ApprovalPrompt({
           <span>Their reason</span>
           <p>{prompt.reason}</p>
         </div>
+        {admin && prompt.output === null && (
+          <p className="warning-note">
+            This runs as administrator, outside Valet's sandbox. It can change anything on this PC, including Windows
+            settings, other accounts and installed software. After {PLATFORM.verify}, Windows asks you once more. Allow
+            it only if you're sure of the command.
+          </p>
+        )}
         {outside && prompt.output === null && (
           <p className="warning-note">
             This runs as you, outside Valet's sandbox. It can read and change any of your files, use the internet and

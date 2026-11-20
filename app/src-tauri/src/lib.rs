@@ -307,6 +307,13 @@ fn add_update_item(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+// Some(exit code) when this process is the elevated helper UAC started for one approved command
+#[cfg(windows)]
+pub fn run_elevated_helper() -> Option<i32> {
+    let args: Vec<String> = std::env::args().collect();
+    (args.get(1).map(String::as_str) == Some(sandbox::HELPER_FLAG)).then(|| sandbox::helper_main(&args))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // VALET_RELAY points a development build at a local relay. A release always talks to Valet's own, so

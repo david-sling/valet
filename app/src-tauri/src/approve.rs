@@ -38,6 +38,12 @@ pub fn set_window(hwnd: isize) {
     let _ = WINDOW.set(hwnd);
 }
 
+// UAC parents its prompt to the same window
+#[cfg(windows)]
+pub fn window() -> isize {
+    WINDOW.get().copied().unwrap_or_default()
+}
+
 #[cfg(windows)]
 pub async fn confirm(reason: &str) -> Result<(), String> {
     use windows::core::{factory, HSTRING};

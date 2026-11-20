@@ -19,6 +19,11 @@ pub use macos::run;
 mod windows;
 #[cfg(windows)]
 pub use self::windows::run;
+// A command the person approved to run as administrator goes through UAC instead of a container
+#[cfg(windows)]
+mod elevated;
+#[cfg(windows)]
+pub use elevated::{helper_main, run_elevated, HELPER_FLAG};
 
 const OUTPUT_CAP: usize = 256 * 1024;
 const WALL_LIMIT: Duration = Duration::from_secs(300);
@@ -28,6 +33,9 @@ pub enum Ran {
     Done(Value),
     Blocked(Value),
     Failed(String),
+    // The person turned the command down at the system's own prompt (UAC), after approving it in Valet
+    #[cfg_attr(not(windows), allow(dead_code))]
+    Declined(String),
     Stopped,
 }
 

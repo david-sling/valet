@@ -49,6 +49,8 @@ const VERBS: Record<string, string> = {
 // A permission as a short sentence: "Read config.json", "Run log". `code` marks the literal name, set in mono.
 export function describe(g: Need): { verb: string; obj: string; code: boolean } {
   if (g.kind === 'Run level') return { verb: 'Ask to run commands', obj: 'outside the sandbox, as you', code: false }
+  if (g.kind === 'Admin rights' && g.access === 'as administrator')
+    return { verb: 'Run', obj: 'as administrator, outside the sandbox', code: false }
   const verb = VERBS[g.access] ?? g.access
   const base = (p: string) => p.split('/').filter(Boolean).pop() ?? p
   if (g.scope === '*' || g.scope === '~/**') {

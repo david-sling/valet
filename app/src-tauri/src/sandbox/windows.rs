@@ -72,7 +72,7 @@ const PRIVATE_NETWORK: &str = "S-1-15-3-3";
 static ACL_LOCK: Mutex<()> = Mutex::new(());
 static RUNS: AtomicU64 = AtomicU64::new(0);
 
-struct Owned(HANDLE);
+pub(super) struct Owned(pub(super) HANDLE);
 
 unsafe impl Send for Owned {}
 unsafe impl Sync for Owned {}
@@ -88,12 +88,12 @@ impl Drop for Owned {
 }
 
 impl Owned {
-    fn take(mut self) -> HANDLE {
+    pub(super) fn take(mut self) -> HANDLE {
         std::mem::take(&mut self.0)
     }
 }
 
-fn wide(s: impl AsRef<OsStr>) -> Vec<u16> {
+pub(super) fn wide(s: impl AsRef<OsStr>) -> Vec<u16> {
     s.as_ref().encode_wide().chain(std::iter::once(0)).collect()
 }
 
@@ -474,7 +474,7 @@ fn pipe(child_reads: bool) -> Result<(Owned, Owned), String> {
 // nothing, when started with no console; a container can't create one itself, but can attach to one Valet makes for it.
 // Each command gets its own, so no command can read another's console. stdout and stderr still go to Valet's pipes; only
 // what a program writes to the console directly lands here, and it is read and thrown away so the console never stalls.
-struct Pty {
+pub(super) struct Pty {
     hpc: HPCON,
     _input: Owned,
     drain: Option<std::thread::JoinHandle<()>>,
@@ -512,12 +512,12 @@ impl Drop for Pty {
     }
 }
 
-struct Started {
-    process: Owned,
-    job: Owned,
-    stdout: Owned,
-    stderr: Owned,
-    pty: Pty,
+pub(super) struct Started {
+    pub(super) process: Owned,
+    pub(super) job: Owned,
+    pub(super) stdout: Owned,
+    pub(super) stderr: Owned,
+    pub(super) pty: Pty,
 }
 
 fn job(cpu_seconds: u64) -> Result<Owned, String> {
@@ -534,7 +534,13 @@ fn job(cpu_seconds: u64) -> Result<Owned, String> {
     Ok(job)
 }
 
-// With no container the program runs as the person, outside the sandbox, still inside the Job Object's limits
+// The elevated helper's way in: no container, the same Job Object, console and pipes as any other command
+pub(super) fn start_outside(program: &Path, argv: &[String], cwd: &Path, env: &[(String, String)]) -> Result<Started, String> {
+    start(None, program, argv, cwd, env)
+}
+
+// With no container the program runs outside the sandbox (as the person, or as administrator in the elevated helper),
+// still inside the Job Object's limits
 fn start(confined: Option<(&Container, &Rules)>, program: &Path, argv: &[String], cwd: &Path, env: &[(String, String)]) -> Result<Started, String> {
     if argv.iter().any(|a| a.contains('\0')) {
         return Err("An argument contains a NUL character, which Windows can't pass to a program.".into());
@@ -633,7 +639,7 @@ fn reader(h: Owned) -> tokio::fs::File {
     tokio::fs::File::from_std(unsafe { std::fs::File::from_raw_handle(h.take().0 as RawHandle) })
 }
 
-fn kill(job: &Owned) {
+pub(super) fn kill(job: &Owned) {
     unsafe {
         let _ = TerminateJobObject(job.0, 1);
     }
@@ -775,7 +781,7 @@ mod tests {
     fn output(r: &Ran) -> String {
         match r {
             Ran::Done(v) | Ran::Blocked(v) => format!("{} {}", v["stdout"], v["stderr"]),
-            Ran::Failed(e) => e.clone(),
+            Ran::Failed(e) | Ran::Declined(e) => e.clone(),
             Ran::Stopped => "stopped".into(),
         }
     }

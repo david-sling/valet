@@ -352,11 +352,22 @@ Windows has no path-based sandbox, so each `run_command` gets a new AppContainer
 - **Programs that start.** Only `.exe` and `.com` start directly. `.bat`, `.cmd` and `.ps1` must go through their interpreter, which is high risk. Arguments are quoted for the C runtime, except that everything after `cmd /c` is passed as written, because cmd reads it itself.
 - **Approvals.** High and critical risk confirm with Windows Hello (`UserConsentVerifier`), parented to Valet's window, and are recorded as `windows_hello`.
 
+### 9.2.2 Running as administrator (Windows only)
+
+macOS never runs a command as administrator: `sudo` and the other admin tools are turned back before the person is asked whenever they would leave the sandbox. On Windows the agent can ask for it by name with `elevated: true` on `run_command` (`app/src-tauri/src/sandbox/elevated.rs`):
+
+- **Asking.** Elevation is never inferred from the program. The plan holds one need, `Admin rights / as administrator`, at critical risk, so it asks every time and can only be allowed once. The person confirms it with Windows Hello, then at Windows' own administrator prompt (UAC). It is refused when the person switched Run as you off. `runas`, `sudo` and `psexec` are refused even when elevated, and the agent is told to send the command itself.
+- **Starting.** Valet can't start an elevated process itself, and can't put one into its own Job Object across integrity levels; `ShellExecuteEx` can't start a program suspended either. So Valet asks UAC to start a second copy of itself, `valet.exe --run-elevated <pipe> <pid>`, hidden. `main` checks for that flag before Tauri starts, so the copy never opens a window or hands off to the running app.
+- **The helper.** Already elevated, it checks that both named pipes it was given are served by that process id and that the process is the same Valet program, and that its own token really is elevated (UAC can be switched off). Then it reads the one command, creates a Job Object (5 minutes of CPU, no clipboard or other windows, kill on close), starts the command suspended with its own hidden console, assigns it to the job, resumes it, and streams stdout and stderr back. It runs one command and exits.
+- **Valet's side.** The pipes are new for each command, one instance each, remote clients refused, and Valet checks that the client on each is the process UAC just started. Output is capped as for any command. Stop, the 5-minute limit, or Valet quitting closes Valet's pipe, and the helper kills the whole job at once; the helper ending closes the job, which kills it too.
+- **Limit.** The job contains the processes the command starts. An administrator can still start work that Windows runs outside it, such as a service, a scheduled task or a WMI process, which neither the job nor Stop can reach. Elevation is full control of the computer, which is why it is critical and confirmed every time.
+- **Record.** The `action` entry carries `elevated: true` and `unsandboxed: true` beside the `Admin rights / as administrator` need; the `decision` entry records `windows_hello`. A "No" at UAC returns `denied` with that reason.
+
 ### 9.3 Approvals
 
 - Prompts are shown in the main window's live feed, as in the mockup. DESIGN.md calls for a separate always-on-top native window, so the app also raises a notification and an always-on-top prompt window when the main window is hidden.
 - Focus starts on Deny; Return, Space and Escape deny. Allow is disabled for the first 600 ms.
-- Medium risk: a click. High and critical: Touch ID through LocalAuthentication, called from Rust. Critical risk can only be allowed once.
+- Medium risk: a click. High and critical: Touch ID through LocalAuthentication, called from Rust (Windows Hello on Windows). Critical risk can only be allowed once. Running as administrator on Windows also needs the UAC prompt after Windows Hello (§9.2.2).
 - Choices: once, this session, 15 minutes, this folder (file needs only, and never where the folder would take in a protected location), following `scopesFor`.
 - Every answer is written to the log with how it was confirmed.
 
