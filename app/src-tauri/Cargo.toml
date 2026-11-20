@@ -16,7 +16,7 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "process", "sync", "fs", "io-util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "process", "sync", "fs", "io-util", "net"] }
 tokio-util = "0.7"
 # rustls-no-provider checks certificates with the OS (its trust store, including roots a company installs), and shares the ring provider the updater uses
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-no-provider", "system-proxy"] }
@@ -64,4 +64,6 @@ windows = { version = "0.62", features = [
   "Win32_System_Pipes",
   "Win32_System_Threading",
   "Win32_System_WinRT",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
 ] }

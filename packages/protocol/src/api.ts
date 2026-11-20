@@ -56,6 +56,8 @@ export const ActionRequest = z.discriminatedUnion('tool', [
       cwd: path.optional(),
       network: z.boolean().optional(),
       unsandboxed: z.boolean().optional(),
+      // Windows only: run as administrator through UAC; the person confirms it every time
+      elevated: z.boolean().optional(),
     }),
   }),
   z.object({ tool: z.literal('read_file'), args: z.object({ path, max_bytes: z.number().int().positive().optional() }) }),
