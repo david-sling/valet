@@ -44,6 +44,22 @@ const HELD = Array.from({ length: 2000 }, (_, i) => `line ${i + 1}: driver 31.0.
 
 const PROMPTS: Omit<Prompt, 'id' | 'askedAt' | 'busy'>[] = [
   {
+    tool: 'start_job',
+    literal: "/bin/sh -c 'npm run build'",
+    program: '/bin/sh',
+    cwd: '~/code/acme-app',
+    needs: [
+      { kind: 'Programs', access: 'run', scope: '/bin/sh', risk: 'high' },
+      { kind: 'Files', access: 'read', scope: '~/code/acme-app/**', risk: 'low' },
+    ],
+    risk: 'high',
+    reason: 'Building the app with the new renderer setting to check it compiles.',
+    scopes: ['once'],
+    diff: null,
+    output: null,
+    outputNext: null,
+  },
+  {
     tool: 'write_file',
     literal: '~/Library/Application Support/AcmeApp/config.json',
     program: null,
@@ -111,6 +127,7 @@ function join(code: string): Session {
     grants: [],
     feed: [],
     prompts: [],
+    jobs: [],
   }
   sessions = [s, ...sessions]
   emit()
@@ -140,6 +157,35 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
         startedAt: Date.now(),
         endsAt: Date.now() + 3_600_000,
         grants,
+        jobs: [
+          {
+            id: 'j7',
+            literal: "/bin/sh -c 'npm run test -- --watch'",
+            state: 'running',
+            startedAt: Date.now(),
+            endedAt: null,
+            exitCode: null,
+            tail: ' ✓ renderer/gl-context.test.ts (12 tests) 418ms\n Waiting for file changes...\n',
+          },
+          {
+            id: 'j3',
+            literal: "/bin/sh -c 'npm ci'",
+            state: 'exited',
+            startedAt: Date.now() - 400_000,
+            endedAt: Date.now() - 310_000,
+            exitCode: 0,
+            tail: 'added 812 packages in 88s\n',
+          },
+          {
+            id: 'j9',
+            literal: '/usr/bin/curl -sS -O https://downloads.acme.com/AcmeApp-4.2.dmg',
+            state: 'running',
+            startedAt: Date.now() - 95_000,
+            endedAt: null,
+            exitCode: null,
+            tail: ' 61  412M   61  252M    0     0  2714k      0  0:02:35  0:01:35  0:01:00 2903k\n',
+          },
+        ],
         feed: [
           event(`Session started with ${grants.filter((g) => g.on).length} permissions`),
           { type: 'action', id: ++n, at: Date.now(), tool: 'tail_log', literal: '~/Library/Logs/AcmeApp/main.log', outcome: 'Allowed', output: '[14:01:52] GL context lost (0x0507)\n[14:01:52] renderer: fatal, exiting' },
@@ -178,6 +224,20 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
       return null
     case 'extend':
       patch(id, (s) => ({ ...s, endsAt: (s.endsAt ?? 0) + 900_000, feed: [...s.feed, event('Added 15 minutes')] }))
+      return null
+    case 'job_output': {
+      const job = sessions.find((x) => x.id === id)?.jobs.find((j) => j.id === args.job)
+      if (!job) return Promise.reject("That job isn't in this session.")
+      const ticks = Math.floor((Date.now() - job.startedAt) / 1000)
+      const lines = Array.from({ length: Math.min(ticks, 200) }, (_, i) => ` ✓ test ${i + 1} passed`).join('\n')
+      return { text: `${lines}\n${job.tail}`, cut: false, state: job.state }
+    }
+    case 'stop_job':
+      patch(id, (s) => ({
+        ...s,
+        jobs: s.jobs.map((j) => (j.id === args.job ? { ...j, state: 'stopped' as const, endedAt: Date.now() } : j)),
+        feed: [...s.feed, event(`You stopped job ${String(args.job)}`)],
+      }))
       return null
     case 'end':
       patch(id, (s) => ({

@@ -105,13 +105,21 @@ export function ApprovalPrompt({
             install software. Allow it only if you're sure of the command.
           </p>
         )}
+        {prompt.tool === 'start_job' && (
+          <p className="warning-note">
+            This keeps running in the background after you allow it, until it finishes, you stop it, or the session
+            ends. It shows under Background jobs, where you can stop it at any time.
+          </p>
+        )}
         <div className="action-block">
           <div className="literal-row">
             <code className="literal">{prompt.literal}</code>
             {guarded && <span className="guarded">{guarded}</span>}
             {prompt.diff && <DiffStat lines={prompt.diff} />}
           </div>
-          {prompt.tool === 'run_command' && prompt.output === null && <CommandSentence command={prompt.literal} />}
+          {(prompt.tool === 'run_command' || prompt.tool === 'start_job') && prompt.output === null && (
+            <CommandSentence command={prompt.literal} />
+          )}
           {prompt.diff && <Diff lines={prompt.diff} />}
           {prompt.output !== null && <HeldOutput prompt={prompt} />}
           {(prompt.program || extra.length > 0) && (

@@ -7,7 +7,7 @@ import { Diff, DiffStat } from './Diff'
 import { ExportButton } from './ExportButton'
 import { MoreMenu } from './MoreMenu'
 import { OutcomeChart, type Slice } from './OutcomeChart'
-import type { FeedItem, Outcome, Settings } from '../api'
+import type { FeedItem, Job, JobOutput, Outcome, Settings } from '../api'
 
 export type PastSession = {
   id: string
@@ -579,8 +579,11 @@ export function Live({
   startedAt,
   feed,
   grants,
+  jobs,
   requests,
   onToggle,
+  onStopJob,
+  readJob,
 }: {
   vendor: string
   verified: boolean
@@ -588,7 +591,10 @@ export function Live({
   feed: FeedItem[]
   requests: React.ReactNode[]
   grants: Grant[]
+  jobs: Job[]
   onToggle: (id: string) => void
+  onStopJob: (id: string) => void
+  readJob: ReadJob
 }) {
   const activity = useRef<HTMLElement>(null)
   const pinned = useRef(true)
@@ -621,6 +627,7 @@ export function Live({
           </Feed>
         </section>
         <aside className="page-sec perms-side" aria-label="Permissions">
+          {jobs.length > 0 && <BackgroundJobs jobs={jobs} onStop={onStopJob} read={readJob} />}
           <div className="perms-head">
             <h2 className="m-label">Permissions · {grants.filter((g) => g.on).length}</h2>
             <p className="m-meta">Turn anything off and it stops working at once.</p>
@@ -633,6 +640,120 @@ export function Live({
         </aside>
       </div>
     </div>
+  )
+}
+
+function jobEnd(j: Job) {
+  const at = j.endedAt ? ` ${hhmm(j.endedAt)}` : ''
+  if (j.state === 'stopped') return `Stopped${at}`
+  return j.exitCode === 0 ? `Finished${at}` : `Failed (${j.exitCode ?? '?'})${at}`
+}
+
+type ReadJob = (job: string) => Promise<JobOutput>
+
+function JobOutputView({ job, read }: { job: Job; read: ReadJob }) {
+  const [out, setOut] = useState<JobOutput | null>(null)
+  const box = useRef<HTMLPreElement>(null)
+  const pinned = useRef(true)
+  const live = job.state === 'running'
+  const reader = useRef(read)
+  reader.current = read
+
+  useEffect(() => {
+    let gone = false
+    const pull = () =>
+      reader
+        .current(job.id)
+        .then((o) => !gone && setOut(o))
+        .catch(() => undefined)
+    pull()
+    if (!live) return () => void (gone = true)
+    const t = setInterval(pull, 1000)
+    return () => {
+      gone = true
+      clearInterval(t)
+    }
+  }, [job.id, live])
+
+  useLayoutEffect(() => {
+    const el = box.current
+    if (el && pinned.current) el.scrollTop = el.scrollHeight
+  }, [out?.text])
+
+  return (
+    <pre
+      ref={box}
+      className="job-output"
+      aria-live="off"
+      onScroll={(e) => {
+        const el = e.currentTarget
+        pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24
+      }}
+    >
+      {out === null ? 'Loading…' : out.text || 'Nothing printed yet.'}
+    </pre>
+  )
+}
+
+function JobRow({ job: j, onStop, read }: { job: Job; onStop: (id: string) => void; read: ReadJob }) {
+  const [open, setOpen] = useState(false)
+  const line = j.tail.trimEnd().split('\n').pop()
+  const live = j.state === 'running'
+  return (
+    <li className={live ? 'running-job' : 'running-job ended'}>
+      <button className="job-main" aria-expanded={open} title={open ? 'Hide output' : 'Show output'} onClick={() => setOpen((v) => !v)}>
+        <code className="feed-literal" title={j.literal}>
+          {j.literal}
+        </code>
+        <span className="running-tail" title={line}>
+          {live ? hhmm(j.startedAt) : jobEnd(j)}
+          {line && ` · ${line.trim()}`}
+        </span>
+      </button>
+      {live && (
+        <button className="mbtn mbtn-danger job-stop" aria-label="Stop job" title="Stop job" onClick={() => onStop(j.id)}>
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="4" y="4" width="8" height="8" rx="1.5" />
+          </svg>
+        </button>
+      )}
+      {open && <JobOutputView job={j} read={read} />}
+    </li>
+  )
+}
+
+function BackgroundJobs({ jobs, onStop, read }: { jobs: Job[]; onStop: (id: string) => void; read: ReadJob }) {
+  const [showPast, setShowPast] = useState(false)
+  const running = jobs.filter((j) => j.state === 'running')
+  const past = jobs.filter((j) => j.state !== 'running').sort((a, b) => (b.endedAt ?? 0) - (a.endedAt ?? 0))
+  return (
+    <section className="running" aria-label="Background jobs">
+      <h2 className="m-label">Background jobs</h2>
+      {running.length > 0 && (
+        <ul>
+          {running.map((j) => (
+            <JobRow key={j.id} job={j} onStop={onStop} read={read} />
+          ))}
+        </ul>
+      )}
+      {past.length > 0 && (
+        <>
+          <button className="jobs-past-toggle" aria-expanded={showPast} onClick={() => setShowPast((v) => !v)}>
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path d={showPast ? 'M4 6l4 4 4-4' : 'M6 4l4 4-4 4'} />
+            </svg>
+            Past · {past.length}
+          </button>
+          {showPast && (
+            <ul>
+              {past.map((j) => (
+                <JobRow key={j.id} job={j} onStop={onStop} read={read} />
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </section>
   )
 }
 

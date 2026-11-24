@@ -24,6 +24,17 @@ pub enum Request {
     ListDir { path: String },
     TailLog { path: String, lines: Option<usize> },
     ListProcesses {},
+    StartJob {
+        command: Vec<String>,
+        cwd: Option<String>,
+        #[serde(default)]
+        network: bool,
+    },
+    JobStatus { job_id: String },
+    ReadJobOutput { job_id: String, from: Option<u64>, wait: Option<u64> },
+    WaitForJob { job_id: String, until: Option<String>, seconds: Option<u64> },
+    StopJob { job_id: String },
+    ListJobs {},
 }
 
 impl Request {
@@ -550,7 +561,32 @@ pub fn literal(argv: &[String]) -> String {
     argv.iter().map(|a| quote(a)).collect::<Vec<_>>().join(" ")
 }
 
+// Reading about a job or stopping one is the session's own business: nothing on the computer is touched to do it
+pub fn job_of(r: &Request) -> Option<&str> {
+    match r {
+        Request::JobStatus { job_id } | Request::ReadJobOutput { job_id, .. } | Request::WaitForJob { job_id, .. } | Request::StopJob { job_id } => Some(job_id),
+        _ => None,
+    }
+}
+
 pub fn plan(request: Request) -> Result<Plan, String> {
+    if let Request::StartJob { command, cwd, network } = &request {
+        let mut p = plan(Request::RunCommand { command: command.clone(), cwd: cwd.clone(), network: *network, unsandboxed: false })?;
+        if p.unsandboxed {
+            return Err(format!("{} only runs outside the sandbox, and a background job always runs inside it. Use run_command.", p.literal));
+        }
+        // it keeps running after the person has said yes, so it is rated a step higher than the same command once
+        p.risk = match p.risk {
+            Risk::Low => Risk::Medium,
+            _ => Risk::High,
+        };
+        p.request = request;
+        return Ok(p);
+    }
+    if matches!(request, Request::ListJobs {}) || job_of(&request).is_some() {
+        let literal = job_of(&request).map(String::from).unwrap_or_else(|| "list_jobs".into());
+        return Ok(Plan { request, literal, program: None, cwd: None, path: None, needs: vec![], risk: Risk::Low, unsandboxed: false });
+    }
     let mut program = None;
     let mut cwd = None;
     let mut path = None;
@@ -615,6 +651,7 @@ pub fn plan(request: Request) -> Result<Plan, String> {
             "list_processes".into(),
             vec![Need { kind: Kind::Processes, access: "list".into(), scope: "all".into(), risk: Risk::Low, protected_label: None }],
         ),
+        _ => return Err("The request is malformed.".into()),
     };
     let risk = max_risk(&needs);
     Ok(Plan { request, literal, program, cwd, path, needs, risk, unsandboxed: outside })

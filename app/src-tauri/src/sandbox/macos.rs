@@ -5,7 +5,7 @@ use std::time::Duration;
 use serde_json::json;
 use tokio_util::sync::CancellationToken;
 
-use super::{capture, environment, live, Ran, CPU_SECONDS, WALL_LIMIT};
+use super::{capture, environment, live, tags_dir, Job, Ran, CPU_SECONDS, WALL_LIMIT};
 use crate::needs::{protected_roots, scope_path, scope_protects};
 use crate::types::{Grant, Kind, Need};
 
@@ -66,7 +66,7 @@ fn filter(scope: &str) -> Option<String> {
     Some(format!("({} {})", if glob { "subpath" } else { "literal" }, quoted(&p)))
 }
 
-pub fn profile(grants: &[Grant], approved: &[Need], program: &Path, tmp: &Path) -> String {
+pub fn profile(grants: &[Grant], approved: &[Need], program: &Path, tmp: &Path, tag: Option<&Tag>) -> String {
     let live = live(grants, approved);
     // only_protected picks the grants the deny below has to make way for: the ones the person approved for a
     // protected place itself. A broad grant never qualifies, however it was granted.
@@ -126,7 +126,99 @@ pub fn profile(grants: &[Grant], approved: &[Need], program: &Path, tmp: &Path) 
     if live.iter().any(|a| a.need.kind == Kind::Network && a.approved) {
         sb += NETWORK;
     }
+    // last, so no grant can open it again
+    if let Some(t) = tag {
+        sb += &format!("(allow file-read* (subpath {}))\n", quoted(t.probe.parent().unwrap_or(&t.probe)));
+        sb += &format!("(deny file-read* file-write* (literal {}))\n", quoted(&t.canary));
+    }
     sb
+}
+
+// A program can leave its process group with setsid and outlive a killpg. Each confined run gets a tag no other
+// sandbox has: it may read the probe and is denied its own canary, which sandbox_check can ask of any process
+pub struct Tag {
+    probe: PathBuf,
+    canary: PathBuf,
+}
+
+extern "C" {
+    fn sandbox_check(pid: libc::pid_t, operation: *const libc::c_char, filter: libc::c_int, ...) -> libc::c_int;
+}
+
+const FILTER_PATH: libc::c_int = 1;
+const NO_REPORT: libc::c_int = 0x4000_0000;
+
+fn denies(pid: libc::pid_t, path: &std::ffi::CStr) -> bool {
+    unsafe { sandbox_check(pid, c"file-read-data".as_ptr(), FILTER_PATH | NO_REPORT, path.as_ptr()) == 1 }
+}
+
+fn cpath(p: &Path) -> Option<std::ffi::CString> {
+    use std::os::unix::ffi::OsStrExt;
+    std::ffi::CString::new(p.as_os_str().as_bytes()).ok()
+}
+
+impl Tag {
+    pub fn new(tmp: &Path) -> std::io::Result<Self> {
+        use std::os::unix::fs::DirBuilderExt;
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let dir = tags_dir(tmp);
+        match std::fs::DirBuilder::new().mode(0o700).create(&dir) {
+            Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => return Err(e),
+            _ => {}
+        }
+        let dir = crate::needs::real(&dir)?;
+        // sandbox_check reports a path that doesn't exist as denied, so both files must be there
+        let probe = dir.join("probe");
+        if !probe.exists() {
+            std::fs::write(&probe, b"")?;
+        }
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let canary = dir.join(format!("run-{}-{n}", std::process::id()));
+        std::fs::write(&canary, b"")?;
+        Ok(Tag { probe, canary })
+    }
+
+    fn members(&self) -> Vec<libc::pid_t> {
+        let (Some(probe), Some(canary)) = (cpath(&self.probe), cpath(&self.canary)) else { return vec![] };
+        let me = std::process::id() as libc::pid_t;
+        user_pids()
+            .into_iter()
+            .filter(|&p| p > 0 && p != me)
+            .filter(|&p| unsafe { sandbox_check(p, std::ptr::null(), 0) } == 1 && denies(p, &canary) && !denies(p, &probe))
+            .collect()
+    }
+
+    pub fn sweep(&self) {
+        for _ in 0..5 {
+            let found = self.members();
+            if found.is_empty() {
+                return;
+            }
+            for p in found {
+                unsafe {
+                    libc::kill(p, libc::SIGKILL);
+                }
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+}
+
+impl Drop for Tag {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.canary);
+    }
+}
+
+fn user_pids() -> Vec<libc::pid_t> {
+    let bytes = unsafe { libc::proc_listpids(PROC_UID_ONLY, libc::getuid(), std::ptr::null_mut(), 0) };
+    if bytes <= 0 {
+        return vec![];
+    }
+    let mut pids = vec![0 as libc::pid_t; bytes as usize / size_of::<libc::pid_t>() + 64];
+    let bytes = unsafe { libc::proc_listpids(PROC_UID_ONLY, libc::getuid(), pids.as_mut_ptr().cast(), (pids.len() * size_of::<libc::pid_t>()) as i32) };
+    pids.truncate(bytes.max(0) as usize / size_of::<libc::pid_t>());
+    pids
 }
 
 // What programs print when the sandbox stops them: EPERM from a system call, or the sandbox's own wording when it
@@ -153,7 +245,40 @@ fn kill_group(pgid: i32, signal: i32) {
     }
 }
 
-pub async fn run(
+// Everything a run started, by process group and, for a confined run, by its sandbox tag
+pub struct Group {
+    pgid: i32,
+    tag: Option<Tag>,
+}
+
+impl Group {
+    fn sweep(&self) {
+        if let Some(t) = &self.tag {
+            t.sweep();
+        }
+    }
+
+    // once the program itself has exited: whatever it left behind goes too
+    pub fn reap(&self) {
+        kill_group(self.pgid, libc::SIGTERM);
+        self.sweep();
+    }
+
+    pub async fn stop(&self) {
+        kill_group(self.pgid, libc::SIGTERM);
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        kill_group(self.pgid, libc::SIGKILL);
+        self.sweep();
+    }
+
+    fn kill(&self) {
+        kill_group(self.pgid, libc::SIGKILL);
+        self.sweep();
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn spawn(
     program: &Path,
     argv: &[String],
     cwd: Option<&Path>,
@@ -161,11 +286,12 @@ pub async fn run(
     approved: &[Need],
     tmp: &Path,
     confined: bool,
-    stop: &CancellationToken,
-) -> Ran {
+    cpu_limit: bool,
+) -> Result<(tokio::process::Child, Group), String> {
+    let tag = if confined { Some(Tag::new(tmp).map_err(|e| format!("Couldn't prepare the sandbox: {e}"))?) } else { None };
     let mut cmd = if confined {
         let mut c = tokio::process::Command::new("/usr/bin/sandbox-exec");
-        c.arg("-p").arg(profile(grants, approved, program, tmp)).arg(program);
+        c.arg("-p").arg(profile(grants, approved, program, tmp, tag.as_ref())).arg(program);
         c
     } else {
         tokio::process::Command::new(program)
@@ -178,10 +304,12 @@ pub async fn run(
     let ceiling = process_ceiling();
     unsafe {
         cmd.pre_exec(move || {
-            let cpu = libc::rlimit { rlim_cur: CPU_SECONDS as libc::rlim_t, rlim_max: CPU_SECONDS as libc::rlim_t };
+            if cpu_limit {
+                let cpu = libc::rlimit { rlim_cur: CPU_SECONDS as libc::rlim_t, rlim_max: CPU_SECONDS as libc::rlim_t };
+                libc::setrlimit(libc::RLIMIT_CPU, &cpu);
+            }
             let fsize = libc::rlimit { rlim_cur: FILE_BYTES, rlim_max: FILE_BYTES };
             let core = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
-            libc::setrlimit(libc::RLIMIT_CPU, &cpu);
             libc::setrlimit(libc::RLIMIT_FSIZE, &fsize);
             libc::setrlimit(libc::RLIMIT_CORE, &core);
             if let Some(n) = ceiling {
@@ -191,11 +319,34 @@ pub async fn run(
             Ok(())
         });
     }
-    let mut child = match cmd.spawn() {
-        Ok(c) => c,
-        Err(e) => return Ran::Failed(format!("Couldn't start the program: {e}")),
-    };
+    let child = cmd.spawn().map_err(|e| format!("Couldn't start the program: {e}"))?;
     let pgid = child.id().map(|p| p as i32).unwrap_or(0);
+    Ok((child, Group { pgid, tag }))
+}
+
+// A job is always confined: outside the sandbox nothing could find what it leaves behind
+pub fn spawn_job(program: &Path, argv: &[String], cwd: Option<&Path>, grants: &[Grant], approved: &[Need], tmp: &Path) -> Result<Job, String> {
+    let (mut child, group) = spawn(program, argv, cwd, grants, approved, tmp, true, false)?;
+    let stdout = child.stdout.take().ok_or("The program has no output.")?;
+    let stderr = child.stderr.take().ok_or("The program has no output.")?;
+    Ok(Job { child, stdout, stderr, group })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn run(
+    program: &Path,
+    argv: &[String],
+    cwd: Option<&Path>,
+    grants: &[Grant],
+    approved: &[Need],
+    tmp: &Path,
+    confined: bool,
+    stop: &CancellationToken,
+) -> Ran {
+    let (mut child, group) = match spawn(program, argv, cwd, grants, approved, tmp, confined, true) {
+        Ok(s) => s,
+        Err(e) => return Ran::Failed(e),
+    };
     let out = tokio::spawn(capture(child.stdout.take().unwrap()));
     let err = tokio::spawn(capture(child.stderr.take().unwrap()));
 
@@ -203,17 +354,15 @@ pub async fn run(
         s = child.wait() => s.ok(),
         _ = tokio::time::sleep(WALL_LIMIT) => None,
         _ = stop.cancelled() => {
-            kill_group(pgid, libc::SIGTERM);
-            tokio::time::sleep(Duration::from_secs(2)).await;
-            kill_group(pgid, libc::SIGKILL);
+            group.stop().await;
             return Ran::Stopped;
         }
     };
-    kill_group(pgid, libc::SIGTERM);
     let Some(status) = status else {
-        kill_group(pgid, libc::SIGKILL);
+        group.kill();
         return Ran::Failed("The command ran for 5 minutes and was stopped.".into());
     };
+    group.reap();
     let (stdout, t1) = out.await.unwrap_or_default();
     let (stderr, t2) = err.await.unwrap_or_default();
     let stderr = String::from_utf8_lossy(&stderr).into_owned();
@@ -318,7 +467,7 @@ mod tests {
     #[test]
     fn only_an_approved_grant_for_the_place_itself_follows_the_deny() {
         let after_deny = |g: Grant| {
-            let sb = profile(&[g], &[], Path::new("/bin/ls"), &tmp());
+            let sb = profile(&[g], &[], Path::new("/bin/ls"), &tmp(), None);
             sb.split_once("(deny file-read*").unwrap().1.to_string()
         };
         assert!(after_deny(grant(Kind::Files, "read", "~/.ssh/**", Source::Approved)).contains(".ssh"));
@@ -356,5 +505,32 @@ mod tests {
         let r = run(Path::new("/bin/sh"), &argv, None, &[sleep], &[], &tmp(), true, &stop).await;
         assert!(matches!(r, Ran::Stopped));
         assert!(started.elapsed() < Duration::from_secs(5));
+    }
+
+    fn running(pattern: &str) -> bool {
+        std::process::Command::new("/usr/bin/pgrep").args(["-f", pattern]).output().is_ok_and(|o| o.status.success())
+    }
+
+    #[tokio::test]
+    async fn a_program_that_leaves_its_process_group_is_still_stopped() {
+        let perl = grant(Kind::Programs, "run", "/usr/bin/perl", Source::Proposed);
+        let sleep = grant(Kind::Programs, "run", "/bin/sleep", Source::Proposed);
+        let script = r#"use POSIX; if (fork() == 0) { POSIX::setsid(); if (fork() == 0) { exec("/bin/sleep", "61.7"); } exit 0; } sleep 1; exit 0;"#;
+        let argv: Vec<String> = vec!["/usr/bin/perl".into(), "-e".into(), script.into()];
+        let r = run(Path::new("/usr/bin/perl"), &argv, None, &[perl, sleep], &[], &tmp(), true, &CancellationToken::new()).await;
+        assert!(matches!(r, Ran::Done(_)), "perl did not run");
+        assert!(!running("sleep 61.7"), "the escaped process outlived its command");
+    }
+
+    #[tokio::test]
+    async fn the_sweep_leaves_other_runs_alone() {
+        let sleep = grant(Kind::Programs, "run", "/bin/sleep", Source::Proposed);
+        let argv: Vec<String> = vec!["/bin/sleep".into(), "62.3".into()];
+        let job = spawn_job(Path::new("/bin/sleep"), &argv, None, &[sleep.clone()], &[], &tmp()).unwrap();
+        let r = run(Path::new("/bin/sleep"), &["/bin/sleep".into(), "0".into()], None, &[sleep], &[], &tmp(), true, &CancellationToken::new()).await;
+        assert!(matches!(r, Ran::Done(_)));
+        assert!(running("sleep 62.3"), "a sweep stopped another run");
+        job.group.stop().await;
+        assert!(!running("sleep 62.3"));
     }
 }

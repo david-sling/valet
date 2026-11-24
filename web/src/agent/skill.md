@@ -27,7 +27,7 @@ Fill in the two values. `name` is who is asking (your user, or their company); t
 ```sh
 [ -s "$W/token" ] && { echo "REFUSING: $W already holds a session. End it (step 5), or if it is already over, rm -rf \"$W\" first."; exit 1; }
 jq -n --arg name "NAME" --arg purpose "PURPOSE" \
-  '{name: $name, purpose: $purpose, skill_version: 7}' > "$W/create.json"
+  '{name: $name, purpose: $purpose, skill_version: 8}' > "$W/create.json"
 curl -sS --http1.1 -X POST "$BASE/sessions" -H 'Content-Type: application/json' -d @"$W/create.json" -o "$W/session.json" -w 'HTTP %{http_code}\n'
 jq -r '.session_id // empty' "$W/session.json" > "$W/id"; jq -r '.agent_token // empty' "$W/session.json" > "$W/token"
 [ -s "$W/token" ] || { echo 'START FAILED:'; cat "$W/session.json"; rm -f "$W/id" "$W/token"; exit 1; }
@@ -141,6 +141,24 @@ These are the exact bodies. To use one, swap it for the `'{tool: "read_file", â€
 '{tool: "run_command", args: {command: ["/usr/sbin/system_profiler", "SPSoftwareDataType"]}, reason: $reason, client_id: $c}'
 ```
 
+**`start_job`**: a program that keeps running in the background, for builds, test suites, servers and downloads that take longer than `run_command`'s 5 minutes. `command`, `cwd` and `network` work as in `run_command`; a job always runs in the sandbox. The person is asked every time, can stop it whenever they like, and it stops when the session ends. At most 3 run at once. Output: `{job_id, state, ...}` as soon as it starts.
+
+```sh
+'{tool: "start_job", args: {command: ["/bin/sh", "-c", "npm test"], cwd: "~/code/acme"}, reason: $reason, client_id: $c}'
+```
+
+Then check on it with these, each a new action with its own `client_id`. They don't ask the person.
+
+- **`wait_for_job`** `{job_id, until?, seconds?}`: waits up to `seconds` (1 to 20, default 20) for the job to finish, or for the text `until` to appear in its output. Output: its status, `matched` when you gave `until`, the last 4 KB of output as `tail`, and `next`. Call it again while `state` is `running`; don't call `job_status` in a loop.
+- **`read_job_output`** `{job_id, from?, wait?}`: stdout and stderr together, 64 KB at a time from the byte offset `from` (default 0). Output: `{content, next, more, state}`; pass `next` as `from` to keep reading. To follow it live, add `wait` (1 to 20 seconds): when there's nothing past `from` yet, the call holds until new output arrives or the job ends, so calling it again with each `next` streams the output as it comes. The latest 8 MB is kept; `skipped_bytes` says how much older output is gone.
+- **`job_status`** `{job_id}`: `state` (`running`, `exited` or `stopped`), `elapsed_s`, `exit_code`, `bytes` and `stopped_by`.
+- **`list_jobs`** `{}`: every job in the session.
+- **`stop_job`** `{job_id}`: stops the job and everything it started. Stop a job once you have what you need from it.
+
+```sh
+'{tool: "wait_for_job", args: {job_id: "j12", until: "listening on"}, reason: $reason, client_id: $c}'
+```
+
 **`write_file`**: replace a file's content. Output: `{hash, bytes}`. Write `content` to a local file first, then add `--rawfile content FILE --arg h HASH` to the `jq` line:
 
 ```sh
@@ -165,7 +183,7 @@ These are checked before anyone is asked. Breaking one gets you HTTP 400 `invali
 - On macOS, `log` refuses to run in a sandbox; read log files with `tail_log`.
 - On Windows, a sandboxed command can't read performance counters (`Get-Counter`), and a permission for every file (`*`) or for a folder holding more than 20,000 files and folders can't be applied to it: ask for smaller folders.
 - `git` runs with an empty global config (`GIT_CONFIG_GLOBAL` points at an empty file) unless the person granted `~/.gitconfig`. Repository settings still apply.
-- Each command can run for 5 minutes and use 5 minutes of CPU; on macOS it can also write files of up to 2 GB. A command that hits a limit is `failed`, and `error` says which.
+- Each command can run for 5 minutes and use 5 minutes of CPU; on macOS it can also write files of up to 2 GB. A background job (`start_job`) has no time or CPU limit of its own and runs until it finishes, is stopped, or the session ends. Background jobs are macOS only for now. A command that hits a limit is `failed`, and `error` says which.
 - The sandbox can't be nested: on macOS, a command can't start `sandbox-exec` itself.
 - A `denied` whose `error` starts with `sandbox:` means the program tried to reach something not allowed. It is not the person saying no. Read `stderr` to see what, and ask for that thing with a structured tool. If the command can't work in the sandbox at all, send it again with `unsandboxed: true`, unless the person switched Run as you off.
 

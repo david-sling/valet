@@ -14,6 +14,8 @@
     "allow-set-grant",
     "allow-extend",
     "allow-end",
+    "allow-stop-job",
+    "allow-job-output",
     "core:app:allow-version",
     "allow-restart",
     "allow-check-update",

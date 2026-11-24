@@ -283,6 +283,9 @@ export function App() {
                 startedAt={shown.startedAt ?? now}
                 feed={shown.feed}
                 grants={shown.grants}
+                jobs={shown.jobs}
+                onStopJob={(job) => void attempt(api.stopJob(shown.id, job)).catch(() => undefined)}
+                readJob={(job) => api.jobOutput(shown.id, job)}
                 onToggle={(gid) => {
                   const g = shown.grants.find((x) => x.id === gid)
                   if (!g || toggling.current) return
