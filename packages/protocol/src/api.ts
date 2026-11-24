@@ -25,6 +25,8 @@ export const LIMITS = {
   arg: 4096,
   writeBytes: 200_000,
   waitSeconds: 50,
+  // the app holds wait_for_job open this long at most, inside the MCP lane's own wait
+  jobWaitSeconds: 20,
 } as const
 
 export const Risk = z.enum(['low', 'medium', 'high', 'critical'])
@@ -48,6 +50,7 @@ export type Need = z.infer<typeof Need>
 export type Grant = z.infer<typeof Grant>
 
 const path = z.string().min(1).max(LIMITS.path)
+const jobId = z.string().regex(/^j\d{1,12}$/)
 export const ActionRequest = z.discriminatedUnion('tool', [
   z.object({
     tool: z.literal('run_command'),
@@ -66,6 +69,33 @@ export const ActionRequest = z.discriminatedUnion('tool', [
   z.object({ tool: z.literal('list_dir'), args: z.object({ path }) }),
   z.object({ tool: z.literal('tail_log'), args: z.object({ path, lines: z.number().int().min(1).max(5000).optional() }) }),
   z.object({ tool: z.literal('list_processes'), args: z.object({}).optional() }),
+  z.object({
+    tool: z.literal('start_job'),
+    args: z.object({
+      command: z.array(z.string().max(LIMITS.arg)).min(1).max(LIMITS.argv),
+      cwd: path.optional(),
+      network: z.boolean().optional(),
+    }),
+  }),
+  z.object({ tool: z.literal('job_status'), args: z.object({ job_id: jobId }) }),
+  z.object({
+    tool: z.literal('read_job_output'),
+    args: z.object({
+      job_id: jobId,
+      from: z.number().int().min(0).optional(),
+      wait: z.number().int().min(0).max(LIMITS.jobWaitSeconds).optional(),
+    }),
+  }),
+  z.object({
+    tool: z.literal('wait_for_job'),
+    args: z.object({
+      job_id: jobId,
+      until: z.string().min(1).max(200).optional(),
+      seconds: z.number().int().min(1).max(LIMITS.jobWaitSeconds).optional(),
+    }),
+  }),
+  z.object({ tool: z.literal('stop_job'), args: z.object({ job_id: jobId }) }),
+  z.object({ tool: z.literal('list_jobs'), args: z.object({}).optional() }),
 ])
 export const ActionMeta = z.object({ reason: plain(LIMITS.reason), client_id: z.string().min(8).max(64).regex(/^[A-Za-z0-9_-]+$/) })
 export const ActionBody = z.intersection(ActionRequest, ActionMeta)

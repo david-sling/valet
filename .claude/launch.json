@@ -37,6 +37,26 @@
         "1430"
       ],
       "port": 1430
+    },
+    {
+      "name": "web-test-relay",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "web",
+        "exec",
+        "vite",
+        "dev",
+        "--port",
+        "3002"
+      ],
+      "port": 3002,
+      "env": {
+        "STORAGE_REDIS_URL": "redis://127.0.0.1:6399",
+        "REDIS_PREFIX": "valettest-e2e",
+        "HOST": "http://localhost:3002",
+        "CRON_SECRET": "test-only-cron-secret"
+      }
     }
   ]
 }

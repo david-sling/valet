@@ -13,12 +13,40 @@ use crate::types::{now_ms, Grant, Kind, Need, Source};
 #[cfg(unix)]
 mod macos;
 #[cfg(unix)]
-pub use macos::run;
+pub use macos::{run, spawn_job, Group};
 
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
 pub use self::windows::run;
+
+pub struct Job {
+    pub child: tokio::process::Child,
+    pub stdout: tokio::process::ChildStdout,
+    pub stderr: tokio::process::ChildStderr,
+    pub group: Group,
+}
+
+#[cfg(windows)]
+pub struct Group;
+
+#[cfg(windows)]
+impl Group {
+    pub async fn stop(&self) {}
+    pub fn reap(&self) {}
+}
+
+#[cfg(windows)]
+pub fn spawn_job(_: &Path, _: &[String], _: Option<&Path>, _: &[Grant], _: &[Need], _: &Path) -> Result<Job, String> {
+    Err("Background jobs aren't available on Windows yet. Use run_command.".into())
+}
+
+// The folder holding each run's tag files sits beside the session's temp folder, where the sandbox can read but never write
+pub fn tags_dir(tmp: &Path) -> std::path::PathBuf {
+    let mut name = tmp.as_os_str().to_owned();
+    name.push("-tags");
+    name.into()
+}
 
 const OUTPUT_CAP: usize = 256 * 1024;
 const WALL_LIMIT: Duration = Duration::from_secs(300);

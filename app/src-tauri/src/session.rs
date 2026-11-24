@@ -9,8 +9,9 @@ use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 
 use crate::approve;
+use crate::jobs::{self, Job, JobView};
 use crate::audit::{self, Log, Signer};
-use crate::needs::{can_widen, normalise_scope, plan, rate, tilde, Plan, Request};
+use crate::needs::{can_widen, job_of, normalise_scope, plan, rate, tilde, Plan, Request};
 use crate::policy::{decide, grants_from, scopes_for, Scope};
 use crate::relay::{InboxAction, Relay, RelayError};
 use crate::sandbox::{self, Ran};
@@ -101,6 +102,7 @@ pub struct SessionView {
     pub grants: Vec<Grant>,
     pub feed: Vec<FeedItem>,
     pub prompts: Vec<PromptView>,
+    pub jobs: Vec<JobView>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
 }
@@ -129,6 +131,7 @@ struct Session {
     view: SessionView,
     token: String,
     prompts: Vec<Prompt>,
+    jobs: Vec<Arc<Job>>,
     handling: HashSet<String>,
     stop: CancellationToken,
     tmp: PathBuf,
@@ -249,6 +252,8 @@ fn output_text(tool: &str, v: &Value) -> String {
             .map(|ps| ps.iter().map(|p| format!("{} {}", p["pid"], p["name"].as_str().unwrap_or_default())).collect::<Vec<_>>().join("\n"))
             .unwrap_or_default(),
         "write_file" => format!("wrote {} bytes", v["bytes"]),
+        "start_job" => format!("Running in the background as job {}", v["job_id"].as_str().unwrap_or_default()),
+        "stop_job" => format!("Job {} stopped", v["job_id"].as_str().unwrap_or_default()),
         _ => String::new(),
     }
 }
@@ -310,6 +315,7 @@ impl Manager {
                     view,
                     token: String::new(),
                     prompts: vec![],
+                    jobs: vec![],
                     handling: HashSet::new(),
                     stop: CancellationToken::new(),
                     tmp: PathBuf::new(),
@@ -366,6 +372,7 @@ impl Manager {
             .map(|s| {
                 let mut v = s.view.clone();
                 v.prompts = s.prompts.iter().map(|p| p.view.clone()).collect();
+                v.jobs = s.jobs.iter().map(|j| j.view()).collect();
                 v
             })
             .collect()
@@ -437,6 +444,7 @@ impl Manager {
             grants: vec![],
             feed: vec![],
             prompts: vec![],
+            jobs: vec![],
             source: j.source,
         };
         {
@@ -448,6 +456,7 @@ impl Manager {
                     view: view.clone(),
                     token: j.client_token,
                     prompts: vec![],
+                    jobs: vec![],
                     handling: HashSet::new(),
                     stop: CancellationToken::new(),
                     tmp,
@@ -606,6 +615,7 @@ impl Manager {
             s.view.ended_at = Some(now_ms());
             s.view.ended_by = by.clone();
             s.stop.cancel();
+            let ending: Vec<Arc<Job>> = s.jobs.iter().filter(|j| j.running()).cloned().collect();
             s.prompts.clear();
             s.view.grants.iter_mut().for_each(|g| g.on = false);
             let tmp = s.tmp.clone();
@@ -620,6 +630,12 @@ impl Manager {
                     _ => "The session ended".to_string(),
                 };
                 st.event(id, text);
+                for j in &ending {
+                    j.stop("session");
+                    let mut facts = j.facts();
+                    facts["state"] = json!("stopped");
+                    st.log(id, "job.end", facts);
+                }
                 st.log(id, "session.end", json!({ "ended_at": ended_at, "ended_by": by }));
                 // signing is the last thing the log holds still for; the upload happens after, out of the way
                 if let (Some(signer), Some(s)) = (&self.signer, st.sessions.get(id)) {
@@ -635,9 +651,29 @@ impl Manager {
                     let _ = store.forget(id);
                 }
             }
-            tmp
+            (tmp, ending)
         };
-        let _ = std::fs::remove_dir_all(tmp);
+        // the sweep finds what a run left behind by its tag files, so they stay until everything has been stopped:
+        // the jobs, and a command still running, which takes two seconds to stop
+        let (tmp, ending) = tmp;
+        let clear = move || {
+            if tmp.is_absolute() {
+                let _ = std::fs::remove_dir_all(sandbox::tags_dir(&tmp));
+            }
+            let _ = std::fs::remove_dir_all(tmp);
+        };
+        match tokio::runtime::Handle::try_current() {
+            Ok(rt) => {
+                rt.spawn(async move {
+                    for j in ending {
+                        j.ended().await;
+                    }
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    clear();
+                });
+            }
+            Err(_) => clear(),
+        }
         self.changed();
         if let Some((token, log)) = sealed {
             self.seal(id, token, log);
@@ -880,6 +916,9 @@ impl Manager {
             let mut st = self.lock();
             let n = st.next_id();
             let Some(s) = st.sessions.get_mut(&id) else { return };
+            // checking on a job is logged, but a feed row for every check would bury what the agent actually did
+            let quiet = matches!(a.tool.as_str(), "job_status" | "read_job_output" | "wait_for_job" | "list_jobs") && done.status == "ok";
+            if !quiet {
             s.view.feed.push(FeedItem::Action {
                 id: n,
                 at: now_ms(),
@@ -895,6 +934,7 @@ impl Manager {
                 diff,
                 note: done.error.clone(),
             });
+            }
             s.token.clone()
         };
         self.changed();
@@ -950,7 +990,12 @@ impl Manager {
         if p.unsandboxed && switched_off_running_as_you(&grants) {
             return (Some(Done::rejected(SANDBOX_ONLY.into())), None);
         }
-        let asked = decide(p.risk, &p.needs, &grants, now_ms());
+        let job = matches!(p.request, Request::StartJob { .. });
+        if job && self.running_jobs(id) >= jobs::MAX_RUNNING {
+            return (Some(Done::rejected(format!("{} jobs are already running in this session. Wait for one to finish or stop one first.", jobs::MAX_RUNNING))), None);
+        }
+        // a background job asks every time, whatever the session already allows: it keeps running once it is allowed
+        let asked = if job { p.needs.clone() } else { decide(p.risk, &p.needs, &grants, now_ms()) };
         if let Request::WriteFile { base_hash, .. } = &p.request {
             let current = p.path.as_deref().map(tools::file_hash);
             if !matches!(current, Some(Ok(ref h)) if h == base_hash) {
@@ -976,7 +1021,7 @@ impl Manager {
                         needs: asked.clone(),
                         risk: p.risk,
                         reason: a.reason.clone(),
-                        scopes: offered(p.risk, &asked),
+                        scopes: if job { vec![Scope::Once] } else { offered(p.risk, &asked) },
                         asked_at: now_ms(),
                         diff,
                         output: None,
@@ -1092,7 +1137,117 @@ impl Manager {
         self.mirror(id, token, grants);
     }
 
+    fn running_jobs(&self, id: &str) -> usize {
+        self.lock().sessions.get(id).map_or(0, |s| s.jobs.iter().filter(|j| j.running()).count())
+    }
+
+    fn job(&self, id: &str, job_id: &str) -> Option<Arc<Job>> {
+        self.lock().sessions.get(id)?.jobs.iter().find(|j| j.id == job_id).cloned()
+    }
+
+    fn start_job(&self, id: &str, p: &Plan, approved: &[Need], tmp: &std::path::Path, stop: &CancellationToken) -> Done {
+        let Request::StartJob { command, .. } = &p.request else { return Done::rejected("The request is malformed.".into()) };
+        let Some(program) = p.program.clone() else { return Done::rejected("The request is malformed.".into()) };
+        let grants = self.lock().sessions.get(id).map(|s| s.view.grants.clone()).unwrap_or_default();
+        let spawned = match sandbox::spawn_job(&program, command, p.cwd.as_deref(), &grants, approved, tmp) {
+            Ok(j) => j,
+            Err(e) => return Done { status: "failed", output: None, error: Some(e) },
+        };
+        let job_id = {
+            let mut st = self.lock();
+            format!("j{}", st.next_id())
+        };
+        let me = self.clone();
+        let sid = id.to_string();
+        let job = Job::launch(job_id.clone(), p.literal.clone(), spawned, stop.child_token(), move |j| me.job_ended(&sid, j));
+        let output = job.status();
+        {
+            let mut st = self.lock();
+            st.log(id, "job.start", json!({ "job_id": job_id, "literal": p.literal }));
+            if let Some(s) = st.sessions.get_mut(id) {
+                s.jobs.push(job.clone());
+            }
+        }
+        // new output reaches the window once a second; it isn't saved, since only the job's end goes in the record
+        let me = self.clone();
+        tokio::spawn(async move {
+            let mut seen = 0;
+            while job.running() {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                let now = job.bytes();
+                if now != seen {
+                    seen = now;
+                    (me.emit)(me.snapshot());
+                }
+            }
+        });
+        Done { status: "ok", output: Some(output), error: None }
+    }
+
+    fn job_ended(&self, id: &str, j: &Job) {
+        {
+            let mut st = self.lock();
+            let live = st.sessions.get(id).is_some_and(|s| s.view.phase == Phase::Live);
+            // a session that ended has already logged its jobs' ends and sealed the log
+            if !live {
+                return;
+            }
+            st.log(id, "job.end", j.facts());
+            let v = j.status();
+            let text = match v["state"].as_str() {
+                Some("exited") => format!("Job {} finished with exit code {}", j.id, exit_code_text(v["exit_code"].as_i64().unwrap_or(-1))),
+                _ => match v["stopped_by"].as_str() {
+                    Some("person") => format!("You stopped job {}", j.id),
+                    Some("agent") => format!("The agent stopped job {}", j.id),
+                    _ => format!("Job {} was stopped", j.id),
+                },
+            };
+            st.event(id, text);
+        }
+        self.changed();
+    }
+
+    pub fn job_output(&self, id: &str, job_id: &str) -> Result<Value, String> {
+        Ok(self.job(id, job_id).ok_or("That job isn't in this session.")?.recent())
+    }
+
+    pub async fn stop_job(&self, id: &str, job_id: &str) -> Result<(), String> {
+        let job = self.job(id, job_id).ok_or("That job isn't in this session.")?;
+        job.stop("person");
+        job.ended().await;
+        Ok(())
+    }
+
+    async fn job_request(&self, id: &str, p: &Plan, stop: &CancellationToken) -> Done {
+        let ok = |v: Value| Done { status: "ok", output: Some(v), error: None };
+        if let Request::ListJobs {} = &p.request {
+            let jobs: Vec<Arc<Job>> = self.lock().sessions.get(id).map(|s| s.jobs.clone()).unwrap_or_default();
+            return ok(json!({ "jobs": jobs.iter().map(|j| j.status()).collect::<Vec<_>>() }));
+        }
+        let Some(job_id) = job_of(&p.request) else { return Done::rejected("The request is malformed.".into()) };
+        let Some(job) = self.job(id, job_id) else {
+            return Done::rejected(format!("There's no job {job_id} in this session. list_jobs shows the ones there are."));
+        };
+        match &p.request {
+            Request::JobStatus { .. } => ok(job.status()),
+            Request::ReadJobOutput { from, wait, .. } => ok(job.follow(*from, wait.unwrap_or(0), stop).await),
+            Request::WaitForJob { until, seconds, .. } => ok(job.wait(until.as_deref(), seconds.unwrap_or(jobs::WAIT_DEFAULT), stop).await),
+            Request::StopJob { .. } => {
+                job.stop("agent");
+                let _ = tokio::time::timeout(Duration::from_secs(5), job.ended()).await;
+                ok(job.status())
+            }
+            _ => Done::rejected("The request is malformed.".into()),
+        }
+    }
+
     async fn execute(&self, id: &str, p: &Plan, approved: &[Need], tmp: &std::path::Path, stop: &CancellationToken) -> Option<Done> {
+        if let Request::StartJob { .. } = &p.request {
+            return Some(self.start_job(id, p, approved, tmp, stop));
+        }
+        if matches!(p.request, Request::ListJobs {}) || job_of(&p.request).is_some() {
+            return Some(self.job_request(id, p, stop).await);
+        }
         if let Request::RunCommand { command, .. } = &p.request {
             let grants = self.lock().sessions.get(id).map(|s| s.view.grants.clone()).unwrap_or_default();
             let program = p.program.clone()?;
@@ -1207,6 +1362,7 @@ mod tests {
             grants: vec![],
             feed: vec![],
             prompts: vec![],
+            jobs: vec![],
             source: None,
         };
         let entry = start_entry(&v, 60);
@@ -1237,6 +1393,7 @@ mod tests {
                 grants: vec![],
                 feed: vec![],
                 prompts: vec![],
+                jobs: vec![],
                 source: None,
             };
             store.save(&view, &[]).unwrap();
@@ -1304,6 +1461,67 @@ mod tests {
         }).collect()).unwrap();
         m.start(&joined.id, choices).await.unwrap();
         (m, agent)
+    }
+
+    #[tokio::test]
+    #[ignore = "needs a local relay in VALET_TEST_RELAY"]
+    async fn a_background_job_runs_and_reports_through_the_relay() {
+        let base = std::env::var("VALET_TEST_RELAY").expect("VALET_TEST_RELAY");
+        let sh = json!([{ "kind": "Programs", "access": "run", "scope": "/bin/sh", "risk": "high" }, { "kind": "Programs", "access": "run", "scope": "/bin/sleep", "risk": "medium" }]);
+        let (m, agent) = live_session(&base, sh, true).await;
+        let id = m.snapshot()[0].id.clone();
+
+        // starting one always asks, once only, even with the program already allowed
+        let aid = agent.act("start_job", json!({ "command": ["/bin/sh", "-c", "echo booting; sleep 1; echo ready; sleep 30"] })).await;
+        let p = prompt(&m).await;
+        assert_eq!((p.tool.as_str(), p.scopes.as_slice(), p.risk), ("start_job", &[Scope::Once][..], Risk::High));
+        assert!(m.answer(&p.id, false, None).await.is_ok());
+        assert_eq!(agent.result(&aid).await["status"], "denied");
+
+        // Touch ID can't be pressed in a test, so the approved job is started the way the approval would start it
+        let request = Request::parse("start_job", &json!({ "command": ["/bin/sh", "-c", "echo booting; sleep 1; echo ready; sleep 30"] })).unwrap();
+        let planned = plan(request).unwrap();
+        let (tmp, stop) = {
+            let st = m.lock();
+            let s = st.sessions.get(&id).unwrap();
+            (s.tmp.clone(), s.stop.clone())
+        };
+        let started = m.start_job(&id, &planned, &planned.needs, &tmp, &stop);
+        assert_eq!(started.status, "ok");
+        let job_id = started.output.unwrap()["job_id"].as_str().unwrap().to_string();
+
+        let r = agent.result(&agent.act("wait_for_job", json!({ "job_id": job_id, "until": "ready", "seconds": 10 })).await).await;
+        assert_eq!((r["status"].as_str(), r["output"]["matched"].as_bool()), (Some("ok"), Some(true)), "{r}");
+        assert!(r["output"]["tail"].as_str().unwrap().contains("booting"), "{r}");
+
+        let r = agent.result(&agent.act("read_job_output", json!({ "job_id": job_id })).await).await;
+        assert_eq!(r["output"]["content"], "booting\nready\n", "{r}");
+        let next = r["output"]["next"].clone();
+        let r = agent.result(&agent.act("read_job_output", json!({ "job_id": job_id, "from": next, "wait": 2 })).await).await;
+        assert_eq!((r["output"]["content"].as_str(), r["output"]["state"].as_str()), (Some(""), Some("running")), "nothing new while it sleeps: {r}");
+
+        let r = agent.result(&agent.act("list_jobs", json!({})).await).await;
+        assert_eq!(r["output"]["jobs"][0]["state"], "running", "{r}");
+
+        let r = agent.result(&agent.act("job_status", json!({ "job_id": "j999999" })).await).await;
+        assert_eq!(r["status"], "rejected", "{r}");
+
+        let r = agent.result(&agent.act("stop_job", json!({ "job_id": job_id })).await).await;
+        assert_eq!((r["output"]["state"].as_str(), r["output"]["stopped_by"].as_str()), (Some("stopped"), Some("agent")), "{r}");
+
+        let view = m.snapshot().into_iter().next().unwrap();
+        let checks = view.feed.iter().filter(|f| matches!(f, FeedItem::Action { tool, .. } if tool == "wait_for_job" || tool == "read_job_output" || tool == "list_jobs")).count();
+        assert_eq!(checks, 0, "checking on a job stays out of the feed");
+        assert!(view.feed.iter().any(|f| matches!(f, FeedItem::Event { text, .. } if text.contains("agent stopped job"))), "{:?}", view.feed);
+
+        // and ending the session stops what is still running
+        let started = m.start_job(&id, &planned, &planned.needs, &tmp, &stop);
+        let second = started.output.unwrap()["job_id"].as_str().unwrap().to_string();
+        let job = m.job(&id, &second).unwrap();
+        assert!(job.running());
+        m.end(&id).await.unwrap();
+        tokio::time::timeout(Duration::from_secs(5), job.ended()).await.expect("the job outlived its session");
+        assert_eq!(job.status()["stopped_by"], "session");
     }
 
     #[tokio::test]

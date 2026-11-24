@@ -336,6 +336,44 @@ const ACTIONS: { tool: Tool; title: string; changes: boolean; description: strin
       'Run a program with arguments in a sandbox. command is a list of strings, not a shell string: the first is an absolute path or a bare name looked up in the usual program folders (the bin folders on macOS; System32, the Windows folder, PowerShell, Git and Node on Windows), and ~ and $VARS are not expanded in the rest. For a pipeline send a shell and its script, which needs the shell allowed: ["/bin/sh", "-c", "…"] on macOS, ["powershell.exe", "-NoProfile", "-Command", "…"] or ["cmd.exe", "/d", "/c", "…"] on Windows. Set network: true when the command reaches the network and its first word does not show it. Set unsandboxed: true only when the command cannot work in the sandbox: it then runs as the person, outside it, and they confirm it every time with Touch ID on macOS or Windows Hello on Windows; on macOS, programs with raised privileges such as top and ps always run this way. sudo and runas never run. cwd is optional. Output: {exit_code, stdout, stderr, truncated}. Pick a structured tool over this whenever one fits. A denied whose error starts with sandbox: means the program reached for something not allowed, not the person saying no; if the command cannot work in the sandbox at all, send it again with unsandboxed: true.',
   },
   {
+    tool: 'start_job',
+    title: 'Start a background job',
+    changes: true,
+    description:
+      'Start a program that keeps running after this call returns, for builds, test suites, servers and downloads that take longer than run_command allows (5 minutes). command, cwd and network work as in run_command; it always runs in the sandbox. The person is asked every time and can stop it whenever they like; it stops when the session ends. At most 3 run at once, and only on macOS for now. Output: {job_id, state, ...} as soon as it starts. Then check on it with wait_for_job rather than calling job_status in a loop.',
+  },
+  {
+    tool: 'wait_for_job',
+    title: 'Wait on a background job',
+    changes: false,
+    description: `Wait up to seconds (1 to 20, default 20) for a job to finish, or for until (optional text) to appear in its output, whichever comes first. Output: its status, matched when until was given, the last 4 KB of output as tail, and next, the cursor to read_job_output from for anything after. Call it again while state is running.`,
+  },
+  {
+    tool: 'read_job_output',
+    title: "Read a background job's output",
+    changes: false,
+    description:
+      "Read a job's output, stdout and stderr together, 64 KB at a time from the byte offset from (default 0). Output: {content, next, more, state}; pass next as from to keep reading. To follow it live, add wait (1 to 20 seconds): when there is nothing past from yet, the call holds until new output arrives or the job ends, so calling it again with each next streams the output as it comes. The app keeps the latest 8 MB; skipped_bytes says how much older output is gone.",
+  },
+  {
+    tool: 'job_status',
+    title: 'Check a background job',
+    changes: false,
+    description: 'Where a job stands: state (running, exited or stopped), elapsed_s, exit_code once it has exited, bytes of output so far, and stopped_by when it was stopped.',
+  },
+  {
+    tool: 'list_jobs',
+    title: 'List background jobs',
+    changes: false,
+    description: "Every job in this session with its status, finished ones included. Use it when you've lost track of a job_id.",
+  },
+  {
+    tool: 'stop_job',
+    title: 'Stop a background job',
+    changes: true,
+    description: 'Stop a job and everything it started. Output: its final status. Stop a job once you have what you need from it, so it is not left running on the person\'s computer.',
+  },
+  {
     tool: 'write_file',
     title: 'Replace a file',
     changes: true,

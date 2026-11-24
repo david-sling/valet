@@ -190,6 +190,7 @@ impl Store {
                         grants: serde_json::from_str(&r.get::<_, String>(12)?).unwrap_or_default(),
                         feed: vec![],
                         prompts: vec![],
+                        jobs: vec![],
                         source: r.get(14)?,
                     },
                     phase,
@@ -240,6 +241,7 @@ mod tests {
             grants: vec![],
             feed: vec![],
             prompts: vec![],
+            jobs: vec![],
             source: None,
         }
     }

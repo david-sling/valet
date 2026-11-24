@@ -38,6 +38,18 @@ export type Prompt = {
   busy: boolean
 }
 
+export type Job = {
+  id: string
+  literal: string
+  state: 'running' | 'exited' | 'stopped'
+  startedAt: number
+  endedAt: number | null
+  exitCode: number | null
+  tail: string
+}
+
+export type JobOutput = { text: string; cut: boolean; state: Job['state'] }
+
 export type Session = {
   id: string
   phase: Phase
@@ -55,6 +67,7 @@ export type Session = {
   grants: Grant[]
   feed: FeedItem[]
   prompts: Prompt[]
+  jobs: Job[]
 }
 
 export type ReleaseNote = { version: string; body: string }
@@ -73,6 +86,8 @@ export const api = {
   setGrant: (id: string, grant: string, on: boolean) => invoke<void>('set_grant', { id, grant, on }),
   extend: (id: string) => invoke<void>('extend', { id }),
   end: (id: string) => invoke<void>('end', { id }),
+  stopJob: (id: string, job: string) => invoke<void>('stop_job', { id, job }),
+  jobOutput: (id: string, job: string) => invoke<JobOutput>('job_output', { id, job }),
   onSessions: (f: (s: Session[]) => void) => listen<Session[]>('sessions', (e) => f(e.payload)),
   onUpdate: (f: (version: string) => void) => listen<string>('update-ready', (e) => f(e.payload)),
   restart: () => invoke<void>('restart'),

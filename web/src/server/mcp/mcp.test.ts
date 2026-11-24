@@ -125,23 +125,29 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('MCP server against a local Redis',
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
       'end_session',
+      'job_status',
       'list_dir',
+      'list_jobs',
       'list_processes',
       'read_file',
+      'read_job_output',
       'run_command',
+      'start_job',
       'start_session',
+      'stop_job',
       'tail_log',
       'wait_for_action',
+      'wait_for_job',
       'wait_for_session',
       'write_file',
     ])
     const by = Object.fromEntries(tools.map((t) => [t.name, t]))
     for (const t of tools) expect(t.description).toBeTruthy()
-    for (const name of ['read_file', 'tail_log', 'list_dir', 'list_processes']) {
+    for (const name of ['read_file', 'tail_log', 'list_dir', 'list_processes', 'job_status', 'read_job_output', 'wait_for_job', 'list_jobs']) {
       expect(by[name].annotations).toMatchObject({ readOnlyHint: true })
       expect(by[name].inputSchema.required).toContain('reason')
     }
-    for (const name of ['run_command', 'write_file']) {
+    for (const name of ['run_command', 'write_file', 'start_job', 'stop_job']) {
       expect(by[name].annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true })
       expect(by[name].inputSchema.required).toContain('reason')
     }

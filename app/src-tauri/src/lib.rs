@@ -1,6 +1,7 @@
 mod approve;
 mod audit;
 mod export;
+mod jobs;
 mod needs;
 mod policy;
 mod relay;
@@ -157,6 +158,16 @@ async fn extend(m: State<'_, Manager>, id: String) -> Result<(), String> {
 #[tauri::command]
 async fn end(m: State<'_, Manager>, id: String) -> Result<(), String> {
     m.inner().clone().end(&id).await
+}
+
+#[tauri::command]
+fn job_output(m: State<'_, Manager>, id: String, job: String) -> Result<serde_json::Value, String> {
+    m.job_output(&id, &job)
+}
+
+#[tauri::command]
+async fn stop_job(m: State<'_, Manager>, id: String, job: String) -> Result<(), String> {
+    m.inner().clone().stop_job(&id, &job).await
 }
 
 #[tauri::command]
@@ -373,7 +384,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, output_page, set_grant, extend, end, restart, check_update, export_json, print_report, take_join_link, paste, open_legal, whats_new, forget, forget_all, keep, settings, set_settings])
+        .invoke_handler(tauri::generate_handler![snapshot, join, decline, start, answer, output_page, set_grant, extend, end, stop_job, job_output, restart, check_update, export_json, print_report, take_join_link, paste, open_legal, whats_new, forget, forget_all, keep, settings, set_settings])
         .build(tauri::generate_context!())
         .expect("error while building Valet")
         .run(|app, event| {

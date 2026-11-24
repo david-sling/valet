@@ -15,6 +15,8 @@ export const VERB: Record<string, string> = {
   list_dir: 'list a folder',
   tail_log: 'read a log',
   list_processes: 'list your running programs',
+  start_job: 'run a command in the background',
+  stop_job: 'stop a background job',
 }
 
 export const clock = (t: number) =>
